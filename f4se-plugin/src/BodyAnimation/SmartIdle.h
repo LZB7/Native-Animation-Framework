@@ -53,7 +53,7 @@ namespace BodyAnimation
 					auto idl = RE::TESForm::GetFormByEditorID<RE::TESIdleForm>(_data);
 					if (idl == nullptr)
 						idl = Data::Forms::LooseIdleStop;
-					targetActor->currentProcess->PlayIdle(targetActor, 0x35, idl);
+					targetActor->currentProcess->PlayIdle(*targetActor, idl, nullptr);
 					return true;
 				}
 				return false;

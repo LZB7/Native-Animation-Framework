@@ -30,7 +30,7 @@ namespace Scene
 			}
 
 			if (a != nullptr && a->currentProcess != nullptr) {
-				a->currentProcess->PlayIdle(a, 0x35, Data::Forms::NAFDynIdle);
+				a->currentProcess->PlayIdle(*a, Data::Forms::NAFDynIdle, nullptr);
 			}
 		}
 	}
