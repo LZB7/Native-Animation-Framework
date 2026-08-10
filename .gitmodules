@@ -1,6 +1,6 @@
 [submodule "f4se-plugin/extern/CommonLibF4"]
 	path = f4se-plugin/extern/CommonLibF4
-	url = https://github.com/Deweh/CommonLibF4.git
+	url = https://github.com/alandtse/CommonLibF4.git
 [submodule "f4se-plugin/extern/ik"]
 	path = f4se-plugin/extern/ik
 	url = https://github.com/Deweh/ik.git
