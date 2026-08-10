@@ -63,7 +63,7 @@ implementations restored. A wholesale PANDA substitution is still unjustified.
 | F4SE plugin discovery | Statically verified | F4SE 0.7.8 rejects DLLs without `F4SEPlugin_Version`; the port exports explicit 1.11.221 metadata. |
 | CommonLib runtime selection | Statically verified | NG-only CMake configuration; 1.11.221 version constant added from F4SE 0.7.8 source. |
 | NAF relocation IDs | Unresolved except noted mappings | All 47 legacy IDs are absent from the 1.11.221 database. Each requires an authoritative NG pair. |
-| `EvaluatePackage` ID 1395257 | Mechanically translated | PANDA records NG ID 2229805 for the same named/signatured `Actor::EvaluatePackage`; NAF now uses the explicit pair. Hook semantics still require runtime testing. |
+| `EvaluatePackage` ID 1395257 | Verified by disassembly | NG ID 2229805 preserves the boolean arguments, virtual slot 0x600 gate, control-flow transfer into the evaluation body, and return behavior. Hook behavior still requires runtime testing. |
 | Interior hook offsets | Unresolved | IDs 317245+0xBA, 3139+0x158, 338354+0x1E, and 1385889+0xA8 cannot be carried forward. Their legacy IDs do not exist in the NG namespace. |
 | Vtables / RTTI | Unresolved | NAF custom types and all `stl::emplace_vtable` uses require NG ID/layout review. |
 | Engine structure layouts | Unresolved | NAF's custom RE/Havok structures require field-by-field comparison and runtime tests. |
@@ -89,7 +89,7 @@ removed.
 | `FaceUpdateHook.h` | 317245+0xBA, 3139+0x158 | Unresolved; call sites require cross-version matching and disassembly |
 | `GameLoopHook.h` | 338354+0x1E | Unresolved; call site requires cross-version matching and disassembly |
 | `HUDManager.h` | 1317216, 1385889+0xA8 | Unresolved; function and call site require matching |
-| `EvalHook.h` | 1395257→2229805, 609985 | EvaluatePackage mechanically translated; CheckForNewPackage unresolved |
+| `EvalHook.h` | 1395257→2229805, 609985 | EvaluatePackage disassembly-verified; CheckForNewPackage unresolved |
 | `CamHook.h` | 541110 | Unresolved; detour entry point requires matching |
 | Other custom RE wrappers | 69733, 652173, 356321, 1105206, 1225688, 1286348, 992878 | Unresolved; legacy IDs absent |
 | Studio settings/globals | 1302430, 644641 | Unresolved; global type and location require matching |
@@ -337,3 +337,49 @@ a full module image dumped from a running 1.10.163 process after SteamStub has
 decrypted `.text`). It should retain the normal PE image layout/RVAs so the
 1.10.163 Address Library remains applicable. The live 1.11.221 installation
 does not need to be modified.
+
+## Decrypted mapped-image continuation (2026-08-10)
+
+The historical-binary limitation above is superseded by
+`Fallout4_1.10.163_memory.bin`, a complete 0x6CE6000-byte loaded-module image.
+The analysis tools now support direct RVA indexing and parse `.pdata` from the
+mapped image. ID 1446774 at RVA 0xE35510 disassembles as valid x64 code and
+agrees with the WinDbg sanity check. The clean target is the supplied
+`Reference Binaries/Fallout 1.11.221/Fallout4.exe`; the live installation is not
+used for static analysis.
+
+### Disassembly-verified actor/process functions
+
+| Interface | 1.10.163 | 1.11.221 | Evidence |
+| --- | --- | --- | --- |
+| `AIProcess::SetupSpecialIdle` | ID 1446774, RVA 0xE35510 | ID 2231704, RVA 0xCFAD40 | Matching six-argument flow, process/actor gates, virtual slot 0x198, reference-counting path, idle construction, process fields 0x571/0x572, and boolean return. |
+| `AIProcess::ClearCurrentPackage` | ID 241540, RVA 0xE2A670 | ID 2231582, RVA 0xCF1340 | Identical `this + 0x18` tail-call thunk; paired callees occupy the corresponding package helper region. |
+| `AIProcess::ClearCurrentDataForProcess` | ID 577581, RVA 0xE77520 | ID 2232435, RVA 0xD394F0 | Matching process high-data checks and fields, idle-stop call, package/container cleanup, actor checks, virtual slot 0x120, flags, and follow-up operations. NG allocator/refcount cleanup is more heavily inlined but preserves the operation sequence. |
+| `Actor::EvaluatePackage` | ID 1395257, RVA 0xD7F980 | ID 2229805, RVA 0xC69240 | Matching two boolean arguments, virtual slot 0x600 call with forced `dl=1`, branch into the corresponding evaluation body, and return convention. |
+| `TESNPC::GetHeight` | ID 674794, RVA 0x5BA6F0 | ID 2207473, RVA 0x65A130 | Matching NPC interpolation fields 0x284/0x288, reference form-ID input, race fallback 0x1B8, sex lookup (1257181->2207107), race height array 0x180, and final multiplication. |
+
+These explicit pairs were added selectively to the maintained CommonLibF4
+dependency. NAF idle calls now use maintained `AIProcess::PlayIdle`, which
+passes `DEFAULT_OBJECT::kActionIdle`, condition testing enabled, and a null
+target to the verified `SetupSpecialIdle` function. Package override call sites
+use the verified clear/evaluate interfaces without changing their original
+operation order. All require runtime testing in the restored 1.11.221 game.
+
+The Release compiler inventory no longer contains errors for `PlayIdle`,
+`ClearCurrentPackage`, `ClearCurrentDataForProcess`, `EvaluatePackage`, or
+`TESNPC::GetHeight`. Compilation still reaches the 100-error cap and has not
+reached linking.
+
+### Rejected candidates and remaining focus
+
+- `GetAnimationGraphProjectName` old ID 190119 calls the holder's virtual slot
+  0x20 to obtain a graph manager, then derives a `BSFixedString`. Candidate NG
+  ID 2216182 was rejected: it does not consume the holder argument and instead
+  operates on a TLS/global object.
+- `SendHUDMessage::ClearMessages` candidate NG ID 2222001 was rejected. The old
+  function lazily initializes a global queue and forwards a stack boolean to a
+  queue operation; the candidate constructs and destroys a large stack object
+  from an input object.
+- No graph-name or HUD relocation is promoted from similarity alone. Animation
+  event ownership, Havok graph internals, hit/effect ABI, camera/HUD hooks, and
+  all interior sites remain unresolved as listed above.

@@ -125,7 +125,7 @@ def operand_token(insn, operand, image_base: int, image_size: int) -> str:
     return f"O:{operand.type}"
 
 
-def load_functions(path: Path) -> tuple[pefile.PE, dict[int, Function]]:
+def load_functions(path: Path, mapped: bool = False) -> tuple[pefile.PE, dict[int, Function]]:
     pe = pefile.PE(str(path), fast_load=False)
     base = pe.OPTIONAL_HEADER.ImageBase
     size = pe.OPTIONAL_HEADER.SizeOfImage
@@ -133,13 +133,21 @@ def load_functions(path: Path) -> tuple[pefile.PE, dict[int, Function]]:
     md.detail = True
     md.skipdata = True
     functions: dict[int, Function] = {}
-    for entry in pe.DIRECTORY_ENTRY_EXCEPTION:
-        begin = entry.struct.BeginAddress
-        end = entry.struct.EndAddress
+    image = path.read_bytes() if mapped else None
+    if mapped:
+        directory = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_EXCEPTION"]]
+        entries = (
+            struct.unpack_from("<III", image, offset)[:2]
+            for offset in range(directory.VirtualAddress, directory.VirtualAddress + directory.Size, 12)
+        )
+    else:
+        entries = ((entry.struct.BeginAddress, entry.struct.EndAddress) for entry in pe.DIRECTORY_ENTRY_EXCEPTION)
+    for begin, end in entries:
         if end <= begin:
             continue
         tokens = []
-        for insn in md.disasm(pe.get_data(begin, end - begin), base + begin):
+        code = image[begin:end] if mapped else pe.get_data(begin, end - begin)
+        for insn in md.disasm(code, base + begin):
             if insn.id == 0:  # Capstone skip-data pseudo instruction
                 continue
             operands = ",".join(operand_token(insn, op, base, size) for op in insn.operands)
@@ -173,6 +181,7 @@ def main() -> None:
     ap.add_argument("--top", type=int, default=5)
     ap.add_argument("--anchor-root", type=Path, action="append", default=[])
     ap.add_argument("--local", action="store_true", help="rank functions near projections from known ID pairs")
+    ap.add_argument("--old-mapped", action="store_true", help="old executable is a loaded-module image indexed by RVA")
     args = ap.parse_args()
 
     old_db = read_database(args.old_db)
@@ -181,7 +190,7 @@ def main() -> None:
     for ident, offset in new_db.items():
         new_offset_to_ids[offset].append(ident)
     ids = source_ids(args.source)
-    _, old_functions = load_functions(args.old_exe)
+    _, old_functions = load_functions(args.old_exe, args.old_mapped)
     _, new_functions = load_functions(args.new_exe)
     print(f"old functions={len(old_functions)} new functions={len(new_functions)}")
 
