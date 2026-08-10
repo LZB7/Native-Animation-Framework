@@ -301,7 +301,7 @@ namespace Scene
 			if (!sys)
 				return false;
 
-			nodeState._impl = 0;
+			nodeState = static_cast<TreeNodeState>(0);
 			nextIndex = 0;
 			currentNode = n;
 
@@ -547,8 +547,10 @@ namespace Scene
 		template <class Archive>
 		void serialize(Archive& ar, const uint32_t ver)
 		{
+			auto serializedNodeState = nodeState.underlying();
 			ar(cereal::base_class<IControlSystem>(this), parentId, subSystem, queuedSubSystem, tree, currentNode,
-				hudActive, autoAdvance, nextIndex, nodeState._impl);
+				hudActive, autoAdvance, nextIndex, serializedNodeState);
+			nodeState = static_cast<TreeNodeState>(serializedNodeState);
 
 			if (ver >= 1) {
 				ar(id);

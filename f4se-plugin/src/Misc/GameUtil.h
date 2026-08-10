@@ -1,5 +1,5 @@
 #pragma once
-#include "Scripts/Papyrus/FunctionArgs.h"
+#include "RE/Bethesda/FunctionArgs.h"
 #include <Windows.h>
 #include <ppl.h>
 #include <set>

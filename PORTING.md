@@ -144,3 +144,107 @@ The audit helper is maintained at `../tools/audit_runtime.py` in the project
 workspace. Resolving the remaining custom legacy IDs without guessing requires
 a Fallout4.exe 1.10.163.0 binary for cross-version function matching. A successful
 compile is not a runtime compatibility claim.
+
+## Source/API convergence pass (2026-08-10)
+
+The compiler inventory was captured from a clean Release compile in
+`f4se-plugin/build-1.11.221/compile-final-stage.log`. CommonLibF4 and the pinned
+ik target compile; NAF's unity translation unit then reaches MSVC's 100-error
+limit. Linking has not been reached. The errors group as follows:
+
+| Classification | Current examples | Disposition |
+| --- | --- | --- |
+| Source/API migration with no runtime implication | `NiPoint4::pt`, pointer-handle `native_handle_const`, private enum storage access | Migrated to public maintained APIs. |
+| Duplicate/obsolete NAF declaration | geometry/shader types, Papyrus `FunctionArgs`, animation/event/input/effect types | Geometry and `FunctionArgs` duplicates removed from active use. Others retained until semantic/layout differences are resolved. |
+| Missing pure Deweh/PANDA helper | quaternion algebra, transform composition/inversion | Reimplemented locally from source evidence. No engine relocation was copied. |
+| Expressible through supported CommonLibF4 | `Actor::GetSex` | Replaced with `Actor::GetNPC()` followed by maintained `TESNPC::GetSex()`. |
+| Runtime-sensitive dependency | animation graph wrappers, input manager, effect spawning, hooks, camera state, package evaluation, graph project name, idle playback, HUD messages | Left unresolved; these require an authoritative NG relocation, supported replacement, layout/vtable evidence, or focused disassembly. |
+| Uncertain | NAF-local hit/event layouts and some scene convenience methods | Kept visible for individual semantic comparison; no casts, stubs, or guessed values added. |
+
+### Safe migrations completed
+
+- Added `Compat/Quaternion.h`. `Add`, `Scale`, `Negate`, multiplication,
+  inverse, matrix conversion, angle-axis conversion, SLERP, `Log`, `Exp`, and
+  `Intermediate` are engine-independent mathematical implementations derived
+  from the Deweh CommonLibF4-NG source and cross-checked against the historical
+  Deweh/PANDA interfaces. The current alandtse `NiQuaternion` is storage-only;
+  the historical Deweh/PANDA member implementations call engine relocations and
+  were deliberately not copied. `FromEulerAnglesXYZ` uses the maintained
+  CommonLib `NiMatrix3::FromEulerAnglesXYZ` API (explicit old/NG relocation
+  pair) and then performs local matrix-to-quaternion conversion. It therefore
+  remains runtime-test-required even though the quaternion conversion itself is
+  local.
+- Added local, engine-independent coordinate-space transform composition and
+  world-to-local inversion in `MathUtil`; removed calls to deleted Deweh
+  `NiTransform` convenience methods.
+- Replaced all NAF `Actor::GetSex` calls with `actor->GetNPC()->GetSex()` and
+  the maintained `RE::SEX` enum. Historical Deweh `Actor::GetSex` calls legacy
+  relocation 1216256. The replacement instead obtains the NPC base through the
+  maintained object-reference API and calls maintained `TESNPC::GetSex`, which
+  carries the explicit pair `(1257181, 2207107)`. No legacy convenience ID was
+  imported. This is a semantically equivalent modern API and requires runtime
+  testing at the NAF call sites.
+- Updated `NiPoint4` indexing and pointer-handle access to their public current
+  APIs. Updated scene-state serialization to use `EnumSet::underlying()` while
+  preserving the serialized `uint8_t` representation.
+
+### Duplicate declaration audit
+
+- NAF's local `BSGeometry`, `BSTriShape`, `BSShaderMaterial`, and
+  `BSLightingShaderProperty` declarations are no longer included. Geometry
+  reading now uses maintained CommonLib names/types and renderer vertex data.
+  The basic geometry sizes/offsets used by NAF agree, but an ABI warning was
+  found: the old local lighting-shader declaration placed projected-UV color
+  and parameter fields in the opposite 0x70/0x80 order from maintained
+  CommonLib. NAF does not directly access those fields in the migrated code.
+  Removing the active local declaration also removes its unresolved
+  `QShaderProperty` relocation 1286348.
+- NAF's Papyrus `FunctionArgs` copy was byte-for-byte duplicative of the
+  maintained header and used the same legacy-only ID 69733. The local header is
+  removed and `GameUtil` includes the maintained declaration. ID 69733 itself
+  is still unresolved; eliminating a duplicate declaration is not evidence that
+  the engine call works on 1.11.221.
+- `BSAnimationGraphEvent` is retained as a blocker: both declarations are 0x18,
+  but NAF expects a `TESObjectREFR*` holder whereas current CommonLib declares a
+  numeric holder ID, with additional const/semantic differences.
+- Local `ReferenceEffect` cannot be merged by name: NAF's declaration derives
+  directly from `NiObject`, while maintained `ReferenceEffect` derives from
+  `BSTempEffect` and is 0x48. NAF only uses the local declaration to reach the
+  unresolved transient-hit-effect engine function (legacy ID 652173).
+- Animation graph manager/cache, input manager, and hit-event declarations are
+  retained pending layout and call-semantics verification. Name or equal size
+  alone is not being treated as ABI equivalence.
+
+### Current compiler boundary
+
+The next exact engine-facing blockers are:
+
+- unresolved BGS animation-system and animation-graph manager functions,
+  globals, visitor layouts, and event-holder semantics;
+- `BSInputEnableManager` singleton/functions;
+- transient hit-effect spawning (legacy ID 652173) and effect play/stop;
+- custom hit/event layouts and dispatch wrappers;
+- interior hook sites, including HUD `1385889+0xA8`, plus camera-state layout
+  and camera hook 541110;
+- graph lock/manager layout and `GetAnimationGraphProjectName`;
+- historical `TESNPC::GetHeight` (legacy ID 674794), whose actor/race-dependent
+  behavior is not equivalent merely to reading the maintained height fields;
+- package/process methods (`ClearCurrentPackage`,
+  `ClearCurrentDataForProcess`, `EvaluatePackage`), special-idle playback, HUD
+  message clearing, and scene convenience APIs that may touch engine state.
+
+These are the boundary requested for this stage: further progress on them would
+require focused source comparison or binary analysis. The compiler also exposed
+that several maintained convenience methods still contain legacy-only
+`REL::ID` values under an NG-only build; their presence in a maintained header
+is not accepted as 1.11.221 verification.
+
+### Pinned ik source cleanliness
+
+The historical ik CMake script increments and rewrites
+`ik/cmake/build_number.txt` in its source directory (and its `file(STRINGS)`
+read also consumes the historical comment). NAF now copies the exact pinned ik
+source into the build tree and configures that copy. The original submodule is
+unchanged and remains clean after builds; its expected numeric value was not
+modified. The historical script may still warn while operating on the build
+copy, but it no longer dirties pinned dependency content.
