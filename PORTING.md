@@ -897,3 +897,82 @@ main-menu-only diagnostic load: launch 1.11.221 through F4SE 0.7.8, reach the
 main menu without loading a save or opening NAF UI, exit, then inspect the F4SE
 loader and NAF logs for runtime/Address Library/guard/init success and the
 expected diagnostic-gate messages.
+
+## Game-loop update diagnostic
+
+The first main-menu-only runtime diagnostic passed: F4SE 0.7.8 discovered and
+loaded NAF 1.0.14.0, exact-runtime and startup gates remained active, Address
+Library/CommonLib initialization and messaging registration succeeded,
+lifecycle messages were logged without entering gameplay initialization, and
+the game reached and exited the main menu normally.
+
+### Historical workload and timing
+
+Legacy ID 338354 is `Main::UpdateNonRenderSafeAITasks`, RVA 0xD3B4E0 in the
+mapped 1.10.163 image. Its `+0x1E` instruction is one complete five-byte direct
+`call` to legacy ID 882638, the task-queue `ProcessQueues` operation. Before the
+call the containing function loads the queue singleton into RCX, a fixed float
+into XMM1, and 8 into R8D. The entry has saved RBX and allocated 0x20 bytes, so
+the call observes the normal aligned x64 stack and volatile-register ABI. No
+incoming flags are consumed at the site. Continuation is exactly `+0x23`, the
+next independent engine call; no RIP-relative instruction is relocated by the
+five-byte call rewrite.
+
+NAF's wrapper forwards all three arguments, calls `ProcessQueues` first, then:
+
+- snapshots the scene map under its shared lock, detaches uniquely releasable
+  queued scenes, and updates active scenes whose first actor is in a loaded
+  cell, under each scene lock;
+- drains the ordered equipment/morph action queue under its mutex, including
+  frame-counted delays and deferred equip/unequip/inventory/HUD work;
+- applies studio-requested actor alignment under a separate mutex, correcting
+  angle/position and collision state.
+
+Thus it is the normal game-thread post-task-queue scheduler for scene
+advancement, deferred action execution, cleanup/detachment and forced
+alignment. It does not directly service `TimerThread`, and has no local pause,
+menu, save or load branch: its frequency and those transition semantics are
+inherited from `UpdateNonRenderSafeAITasks`. The historical placement was
+chosen so F4SE/engine queued work completes before NAF observes and advances
+state in the same update pass.
+
+F4SE 0.7.8 exposes only one-shot task and UI-task enqueue operations. They use
+the very queue being processed and do not guarantee an immediately-after-
+`ProcessQueues` callback. Self-rescheduling from a task also lacks a documented
+same-pass-versus-next-pass guarantee and could recurse within the current drain.
+No maintained CommonLib per-frame event preserves this exact ordering. These
+mechanisms are therefore not semantically equivalent replacements.
+
+### Verified 1.11.221 hook
+
+Focused comparison found a normalized instruction-for-instruction match at NG
+Address Library ID **2228937**, RVA **0xC36260**. Manual disassembly confirms
+the same containing-function control flow and the same call program point at
+independently verified offset **+0x1E**. The NG call prepares RCX, XMM1 and R8D
+identically and targets NG ID **2229181**, whose `ProcessQueues` implementation
+consumes the same `(queue, float, uint32)` arguments and returns bool in AL.
+The verified pairs are:
+
+| Historical | 1.11.221 | Grade |
+| --- | --- | --- |
+| `338354` / RVA 0xD3B4E0 | `2228937` / RVA 0xC36260 | Disassembly-verified containing function |
+| `338354 + 0x1E` | `2228937 + 0x1E` | Disassembly-verified interior call site |
+| task queue `882638` | task queue `2229181` | Disassembly-verified callee ABI and semantics |
+
+Installation fails closed unless the addressed byte is opcode E8 and its
+decoded rel32 target equals ID 2229181. Only then does the trampoline replace
+that five-byte call and retain the original callee. No fuzzy scan or raw RVA is
+used.
+
+For the second diagnostic, the wrapper calls the original queue processor but
+returns before all historical NAF work. It uses only atomic counters, the OS
+thread ID and the logger. It logs installation, callback 1, callbacks 2 and 3,
+then callbacks 10 and 60 with the initial/current thread IDs. Scenes, ordered
+actions, alignment, serialization, Papyrus, menus, graph, face, HUD, package
+and camera systems remain gated and unreachable.
+
+The second test is limited to launching 1.11.221 through F4SE 0.7.8, reaching
+the main menu, waiting long enough to observe multiple callbacks, loading no
+save, exiting normally, and inspecting F4SE/NAF logs. Success establishes the
+update hook as **runtime-startup verified**, not gameplay verified; normal NAF
+work must remain disabled until its downstream interfaces are ready.
