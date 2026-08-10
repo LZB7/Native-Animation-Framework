@@ -676,3 +676,86 @@ The corrected `SetLinkedRef` signature still uses legacy-only ID 192840 and
 remains runtime-unresolved. No new virtual slot or interior hook was promoted.
 The smallest remaining compile set is HUD clearing (4 diagnostics / 2 call
 sites), `BSModelDB::Demand` (2), and `FreeUpAllMarkers` (1).
+
+## Residual-interface recovery (2026-08-10)
+
+This pass started at **7 compiler diagnostics**. Release/x64/v143 now reports
+**1 compiler diagnostic**, the single `FreeUpAllMarkers` call site. Compilation
+therefore has not reached the linker and there is no linker inventory yet.
+
+### BSModelDB model demand
+
+Both historical entry shapes are recovered:
+
+- handle/database demand **1066398 -> 2275153**;
+- `NiPointer<NiNode>` demand **1225688 -> 2275154**.
+
+Old 1066398 performs path validation/canonicalization, selects the resource
+database/cache path, forwards the 12-byte request, waits/processes the returned
+entry as required, and returns the database handle/error. Old 1225688 wraps it,
+extracts the entry's `NiNode` smart pointer, clears the output on failure, and
+balances handle ownership. NG retains both ABI entry shapes, but 2275154 has
+absorbed more of the former core path rather than simply calling 2275153.
+Corresponding path, database globals, request forwarding, failure branches,
+entry processing, `NiNode` extraction and refcount behavior establish both
+pairs as **disassembly verified**.
+
+NAF now uses a real `DBTraits::ArgsType`: `kActors`, load level zero,
+non-facegen, with prepare-after-load, error marker, processing, fade-node and
+texture loading enabled. This matches the verified NG player-skeleton caller
+at ID 2232933 and eliminates both model-load compile errors. Runtime testing is
+required for cache behavior and the two race skeleton variants.
+
+### HUD message clearing
+
+HUD clear is **973227 -> 2222460**, disassembly verified. The old subsystem
+uses a lazily allocated synchronized queue with a pending-pointer array,
+membership/index array, lock and clear-command object; 973227 submits the
+false/clear command through 1109561. NG moved construction into the public
+wrapper and uses static queue storage. ID 2222460 initializes that exact clear
+queue and submits its clear-command object through addressed operation 2222507.
+
+Data identity is corroborated from the enqueue side: old ShowHUDMessage
+1163005 constructs the message, lazily gets the same subsystem and enqueues via
+999295; NG ShowHUDMessage 2222440 constructs the corresponding message and
+calls wrapper 2222482, which initializes the sibling static queue state and
+enqueues through 2222510. The NG queue operations retain locking, pending-array
+processing, membership/index reconstruction, ownership transfer and cleanup.
+Candidate 2222001 remains rejected. Both NAF HUD call sites now compile;
+message destruction and visible HUD behavior require runtime testing.
+
+### FreeUpAllMarkers final blocker
+
+The NG cleanup is a distinct unaddressed function beginning at RVA 0x55F4B0;
+RVA 0x55F4E0 is its marker-loop body. It is adjacent to, but not an interior
+branch of, addressed ID 2202574. No direct calls, tail calls, jump-table entry,
+vtable/function-pointer entry, callback registration, maintained wrapper or
+higher-level addressed operation reaches this function.
+
+Its behavior is now fully decomposed. For furniture/terminal references, and
+subject to a manager configuration flag at +0x360, it iterates 22 marker
+indices. ID 2198041 tests whether the base object exposes each marker; ID
+2202566 obtains its reference/handle; the function resolves and validates the
+handle generation and referenced object; qualifying furniture state is
+released through ID 2229314; all temporary references are balanced. It then
+locks the reference extra-data list, removes type 0x12 (`ExtraUsedMarkers`) via
+ID 2190082, and unlocks it. The order is manager/marker release first,
+extra-data removal second.
+
+Several components are Address-Library-addressed, but the handle-table lookup,
+generation validation, qualifying-object test and configuration-global policy
+are not exposed as a maintained API composition. Calling only 2229314 is not
+safe without reproducing that validation; removing only `ExtraUsedMarkers`
+omits manager cleanup. The NAF call occurs after cross-cell actor warps and
+before scene attachment/begin, on the selected furniture reference, so the full
+cleanup remains behaviorally required. No raw RVA, partial helper or no-op was
+introduced.
+
+The smallest exact compile blocker is therefore one call to
+`TESObjectREFR::FreeUpAllMarkers` in `SceneBase.h`. Reaching the linker requires
+either an Address Library entry/upstream public wrapper for the NG function, or
+an explicit project-level decision to adopt a separately justified relocation
+mechanism for functions omitted from Address Library. Runtime-unresolved items
+listed earlier, including SetLinkedRef, camera/HUD hooks, animation functions,
+manual AnimObjUnequip behavior and effect/highlighting validation, retain their
+existing grades.
