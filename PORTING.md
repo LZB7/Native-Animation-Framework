@@ -525,3 +525,58 @@ promoted in this pass. `InitializeActorInstant`,
 their previous unresolved status and rejected candidates. Compilation does not
 currently force their recovery, and successful future linking would not make
 them runtime-safe.
+
+## Targeted convenience-API recovery (2026-08-10)
+
+The complete 65-error set was used as the work queue. Release/x64/v143 now
+reports **27 compiler errors**. Linking has not been reached.
+
+| Old Deweh API | NAF call sites | Historical semantics | Replacement | Runtime dependency / evidence | Runtime test |
+| --- | --- | --- | --- | --- | --- |
+| `ModifyKeyword` | 8 | ID 1504561 selects add or remove from its boolean argument | Narrow NAF dispatcher to maintained `AddKeyword` / `RemoveKeyword` | Add uses maintained pair 640674/2200860. Remove pair 281170/2200861 is **disassembly verified** as the inverse adjacent implementation. | Required |
+| `GetScale` | 5 | `refScale * 0.01`; NPC references additionally multiply `TESNPC::GetHeight(ref, visualsRace)` | Local field/API composition | **Disassembly-verified historical semantics**; maintained fields plus previously verified GetHeight pair 674794/2207473 | Required |
+| `SetNoCollision` | 4 | Sets or clears bit 0x0800 in `loadedData->flags`; it does not call Havok or the character controller | Narrow local field helper | **Disassembly-verified field operation**; maintained `LOADED_REF_DATA` preserves flags at +0x20 | Required |
+| cell `GetWorldSpace` | 1 | Null for interior cells, otherwise `worldSpace` at +0xC8 | Local maintained-layout accessor | **Disassembly/static layout verified** | Required |
+| `IsFurniture` | 1 | Base form type is FURN or TERM | Local form-type check | **Disassembly-verified local semantics** | Low |
+| `GetBaseFullName` | 1 plus 2 format cascades | Full name of the reference's base form | Maintained `TESFullName::GetFullName` | **Maintained CommonLib API** | Low |
+| actor collision enable/disable | 4 | Compound actor/process collision transition, not the no-collision reference bit | Narrow relocations 1274117/2229652 and 475952/2229653 | **Disassembly-verified functions**: identical process acquisition, controller toggle argument, vslot 0x120 use, collision-state bit operation, and update dispatch | Required |
+| `GetCanDoFavor` / `SetCanDoFavor` | 3 | Query/set actor commandability bit with player/package side effects on clear | Narrow relocations 46113/2230148 and 391670/2230149 | **Disassembly-verified functions**: same +0x43C/+0x440/+0x130 state, branches, player test, and paired calls | Required |
+| `SetRestrained` | 2 | Changes actor interaction state through virtual slot 0x828 and stops movement when enabling | Narrow relocation 316742/2229910 | **Disassembly-verified function**, including vslot, state test and StopMoving pair | Required |
+| `StopAlarmOnActor` | 2 | Stops alarm/combat process state then dispatches an actor/process update | Narrow relocation 1564830/2229667 | **Disassembly-verified function** with identical actor +0x300 access, arguments and corresponding callees | Required |
+| `StopInteractingQuick` | 1 | Compound interaction teardown using three boolean arguments | Narrow relocation 129904/2231227 | **Disassembly-verified function**: actor flags, +0x300/+0x100 paths, lock sequence and argument consumption correspond | Required |
+| `StopMoving` | 1 | Stops actor movement using a deceleration multiplier | Narrow relocation 940952/2230262 | **Disassembly-verified function**: TLS state, actor state mask, float argument and corresponding downstream path match | Required |
+| `ClearLookAtTarget` | 1 | Resolves the actor look-at object then clears it | Narrow relocation 1345971/2230291 | **Disassembly-verified function**: same accessor call followed by corresponding clear operation | Required |
+| `TurnOffHeadtracking` | 1 | Clears actor headtracking state and updates the process when active | Narrow relocation 149104/2230240 | **Disassembly-verified function**: same +0x130 bit, +0x300 process, +0x418 state and branches | Required |
+| `SetAIControlled` | 4 | Compound player transition: several engine calls, a global state clear, input restoration on disable, and bit 1 at player +0xDFE | None | **Unresolved**; not safely reducible to a flag write | N/A until recovered |
+| `ReenableInputForPlayer` | 3 | Resolves and releases two extra-data/input-layer objects and invalidates reference state | None | **Unresolved**; not equivalent to a blanket input-manager clear | N/A until recovered |
+
+Error reductions by coherent group were: 65 to 48 for `ModifyKeyword`,
+`GetScale`, and `SetNoCollision`; 48 to 42 after the cell/form/name local
+migrations and one pointer correction; 42 to 31 for collision, favor,
+restraint, and alarm functions; and 31 to 27 for interaction, movement,
+look-at, and headtracking. No historical CommonLib surface was restored
+wholesale.
+
+The remaining 27 diagnostics are grouped as follows:
+
+| Root cause | Errors | Status |
+| --- | ---: | --- |
+| HUD `ClearMessages` | 4 | Historical queue mechanism known; NG owner/operation unresolved |
+| `BSModelDB::Demand` | 2 | Maintained API known; skeleton request `ArgsType` values unresolved |
+| `GetAnimationGraphProjectName` | 3 | Holder-based historical behavior known; NG accessor/function unresolved |
+| `SetAIControlled` | 4 | Compound runtime interface unresolved |
+| disable/reenable player input | 4 | Compound input-layer runtime interfaces unresolved |
+| graph-variable setting | 2 | Maintained declaration still carries legacy-only ID 1437197; NG target unresolved |
+| `UI::UpdateMenuMode` | 2 | Maintained equivalent or NG target unresolved |
+| `SetLinkedRef` | 1 | Maintained declaration narrows the second reference to `Actor*`; historical signature accepted any `TESObjectREFR*`; ABI/API correction still required |
+| camera `Force3rdPerson` | 1 | Runtime-sensitive camera operation unresolved |
+| `UpdatePlayer3D` | 1 | Legacy-only engine function unresolved |
+| `WarpToRef` | 1 | Historical local wrapper depends on unresolved `WarpTo` plus worldspace semantics |
+| `FreeUpAllMarkers` | 1 | Engine function ID 1324833; NG target unresolved |
+| Total | **27** | Linking not reached |
+
+The two BSModelDB calls, HUD clearing, and graph-project-name calls are
+unchanged: no argument flags, queue target, or project accessor were guessed.
+The four animation functions explicitly deprioritized for this stage remain
+unchanged because none is a current compiler diagnostic. No virtual slot or
+interior-hook location was newly promoted in this pass.
