@@ -1537,14 +1537,15 @@ RVA `0x249CBC8`; entry `0x8C` points to PDB-named RVA `0x50D9A0`. The primary
 **statically verified with Address Library, vtable, clean-binary and PDB
 evidence** at slot `0x8C` / byte offset `0x460`.
 
-The selected header's current source ordering would dispatch a no-argument
-source call through physical slot `0x8B`, despite its `0x8C` comment. The PDB
-also contradicts the header's asserted `bool` signature for the other named
-TESObjectREFR overload by naming an array-reference overload at `0x50DA00`;
-slot `0x8B` requires further signature reconstruction. This does not establish
-worker-thread safety. It does establish that corrected test six must not be
-rerun using ordinary virtual dispatch from the current misordered declaration.
-No diagnostic was changed during this audit, per the stage restriction.
+The selected header's source ordering at the time of this audit would dispatch
+a no-argument source call through physical slot `0x8B`, despite its `0x8C`
+comment. The PDB-named array-reference overload at `0x50DA00` initially made
+the slot-`0x8B` signature suspect; the subsequent vtable/disassembly audit
+below established that it is a separate non-virtual helper and that physical
+slot `0x8B` really is the first-person `bool` virtual. This does not establish
+worker-thread safety. It does establish why corrected test six could not be
+rerun using ordinary virtual dispatch from the then-misordered declaration.
+No diagnostic was changed during this reference-only audit.
 
 ### Unresolved-interface findings
 
@@ -1614,3 +1615,136 @@ Audit disposition:
   or the verified slot is invoked through an equally narrow, guarded mechanism;
 - no runtime code, diagnostic, hook, relocation or build artifact was changed
   during this reference-only audit.
+
+## TESObjectREFR Get3D ABI correction and corrected test-six build
+
+### Root cause and physical vtable reconstruction
+
+The original test-six crash remains classified as an invalid-object failure,
+not a `Get3D` worker-thread failure. The two independent defects were:
+
+1. a two-ID relocation selected `2690919`, which is a 1.10.984 mapping in the
+   Dear-Modding three-runtime model and resolves to unrelated packed data in
+   NAF's supplied 1.11.221 Address Library; the resulting value was
+   `0x700000008`;
+2. even after correcting the singleton to supplied-library ID `2698073`, the
+   selected CommonLib declaration placed the no-argument virtual before the
+   preceding first-person overload, so ordinary C++ dispatch selected physical
+   slot `0x8B` instead of verified slot `0x8C`.
+
+The old mapped module uses loaded base `0x7FF6CD6D0000`. Old Address Library ID
+`179707` resolves the `TESObjectREFR` primary vtable to RVA `0x2C87AE8`.
+The supplied 1.11.221 library resolves the same vtable ID to RVA `0x249CBC8`;
+ID `1400465` resolves the `PlayerCharacter` primary vtable to RVA `0x2564848`.
+Reading the physical entries from those images gives:
+
+| slot | byte | 1.10.163 `TESObjectREFR` target | 1.11.221 `TESObjectREFR` target | 1.11.221 `PlayerCharacter` target | established operation/evidence |
+|---:|---:|---:|---:|---:|---|
+| `0x88` | `0x440` | `0x404B30` | `0x50C5B0` | `0xD5BD60` | `Set3D(NiAVObject*, bool)`; exact PDB names for old/base NG/player NG where present, matching prologues |
+| `0x89` | `0x448` | `0x405C30` | `0x50D700` | `0x50D700` | `ShouldBackgroundClone()` declaration; identical inherited NG target, old/NG bodies have matching member/global tail-call form |
+| `0x8A` | `0x450` | `0x405C50` | `0x50D720` | `0xD777D0` | `IsReadyForAttach(IO_TASK_PRIORITY const&)`; base returns true, player override is PDB named at exact RVA `0xD777D0` |
+| `0x8B` | `0x458` | `0x42AD90` | `0x524B60` | `0xD5BD40` | `Get3D(bool firstPerson) const`; base thunk dispatches slot `0x8C`; player override consumes `DL`, returns `[this+0xB78]` when true, otherwise tail-calls base no-argument implementation |
+| `0x8C` | `0x460` | `0x405E50` | `0x50D9A0` | `0xD5BCC0` | `NiAVObject* Get3D() const`; exact old/base-NG/player-NG PDB names and direct vtable evidence; **disassembly verified virtual slot** |
+| `0x8D` | `0x468` | `0x405EA0` | `0x50D9E0` | `0x50D9E0` | `NiAVObject* GetFullyLoaded3D() const`; inherited NG target; returns the 3D pointer through `[this+0xF0]+8` |
+| `0x8E` | `0x470` | `0x42B9C0` | `0x524FE0` | `0xD8A540` | `Is3rdPersonVisible() const`; base returns true, player override reads a player-state bit |
+| `0x8F` | `0x478` | `0x430510` | `0x527CF0` | `0xD62450` | `PopulateGraphProjectsToLoad(...) const`; player target has the exact PDB name/signature; old/NG base bodies have corresponding substantial implementations |
+
+Some Crash Logger PDB records cover ranges containing smaller functions and do
+not give exact public symbols for every base slot. Therefore the table does not
+promote incidental containing-symbol names for `0x89`, `0x8B`, `0x8D`, or
+`0x8E`. Their identities come from declaration continuity plus instruction and
+override behavior, with the `0x8B` and `0x8C` pair independently established at
+the instruction level.
+
+### Actual Get3D overloads
+
+The verified virtual pair is:
+
+```cpp
+virtual NiAVObject* Get3D(bool a_firstPerson) const; // physical 0x8B
+virtual NiAVObject* Get3D() const;                   // physical 0x8C
+```
+
+The base slot-`0x8B` implementation at NG RVA `0x524B60` ignores the base
+implementation's `DL` value and jumps through `[vtable+0x460]`; the
+`PlayerCharacter` override at `0xD5BD40` consumes `DL`, returns the first-person
+root at `this+0xB78` when requested, and otherwise jumps to base RVA
+`0x50D9A0`. This supplies direct ABI/signature evidence for the `bool` overload.
+
+PDB-named `TESObjectREFR::Get3D(BSScrapArray<NiAVObject*>&)` is a separate,
+non-virtual helper at old RVA `0x405EC0` and NG RVA `0x50DA00` (supplied NG
+Address Library ID `2201064`). It receives the reference in `RCX` and output
+array in `RDX`, adjusts to the embedded object at `this+0x48`, and tail-dispatches
+that object's array-population method at its vtable byte offset `0x30`.
+Legitimate callers construct the scrap array, call this helper, then consume
+the array; they do not consume `RAX`. The supported signature is therefore
+`void Get3D(BSScrapArray<NiAVObject*>&)`. It is not a vtable member in the
+`0x88-0x8F` region and does not replace the `bool` overload. Source-level
+`const` qualification is not encoded by the observed machine call and is not
+needed by NAF; no new wrapper was added.
+
+### CommonLib correction and ABI guard
+
+The selected CommonLib header now declares the `bool` overload first at
+physical slot `0x8B`, followed by the no-argument overload at `0x8C`. No
+synthetic virtual or padding slot was introduced. Slots `0x88-0x8A` and
+`0x8D-0x8F` retain their prior declaration order, so the correction restores
+the verified layout without shifting a neighboring method.
+
+The corrected diagnostic retains normal C++ virtual dispatch but adds a
+fail-closed development guard before the one bounded call. It:
+
+- requires exact runtime `1.11.221`;
+- resolves the singleton with supplied-library ID `2698073` and exactly one
+  `NiPointer<PlayerCharacter>::get()`;
+- logs the relocation/global address, raw intrusive pointer, resolved player,
+  vtable, and physical slot-`0x8C` target separately;
+- requires committed/readable player memory;
+- requires the vtable and full slot access to lie inside Fallout4.exe `.rdata`;
+- requires slot `0x8C` to equal module base plus verified player override RVA
+  `0xD5BCC0`;
+- suppresses the virtual call with a critical diagnostic if any check fails.
+
+This guard detects future declaration/runtime drift; it is not an alternate raw
+slot invocation. When all checks pass, the code calls
+`playerCharacter->Get3D()` exactly once through corrected normal virtual
+dispatch and logs the returned pointer without dereferencing or retaining it.
+
+### Narrow NAF-used virtual audit
+
+The audit was limited to virtual surfaces NAF actually calls or reaches in the
+currently ported code:
+
+| surface | result |
+|---|---|
+| `TESObjectREFR`/`Actor`/`PlayerCharacter::Get3D()` | declaration-order defect corrected; base and player physical `0x8C` targets verified |
+| `TESObjectREFR::GetFullyLoaded3D()` | physical neighbor `0x8D` remains in the correct position; body/member-access semantics agree across old/NG |
+| `Actor::DrawWeaponMagicHands` / `Actor::SetPosition` | adjacent declared slots `0xC9/0xCA` remain ascending and agree across selected, PANDA and historical headers; no declaration-order defect observed, but this audit does not newly verify their runtime behavior |
+| `IAnimationGraphManagerHolder::GetAnimationGraphManagerImpl` | holder virtual region is ascending and the used method remains declared at `0x04` across compared forks; no overload-order discrepancy observed |
+| camera and package/process calls currently used by NAF | the audited call sites use maintained non-virtual wrappers/relocations or already tracked hooks rather than a newly suspect declaration-order pair |
+| event-holder access used by NAF | maintained inheritance/event-source access does not expose a descending overload pair at the used call sites |
+
+The selected `TESObjectREFR` header still contains descending comment/order
+pairs for `GetBiped` (`0xA2/0xA1`), `IsExplosion` (`0xB4/0xB3`), and
+`IsProjectile` (`0xB6/0xB5`). NAF does not call these methods, so they were
+recorded as **declaration-order suspect but out of the NAF-used surface** and
+were not changed. No second NAF-used declaration-order defect was found in
+this narrow pass. Declaration agreement alone remains weaker than binary slot
+verification.
+
+### Build and corrected test-six plan
+
+CommonLibF4 and NAF were rebuilt as Release/x64/v143 with `COPY_BUILD=OFF`.
+Compilation and linking completed with zero errors. The existing pinned `ik`
+timestamp generator still emits its known build-information warning from the
+contained build copy; neither the pinned `ik` submodule nor its numeric build
+value was modified.
+
+Corrected test six remains bounded to the verified serialized
+`NonRendersafeAI` diagnostic callback after `QGameDataLoaded()` and
+`Main::gameActive`. It retains delay bookkeeping/concurrency monitoring and all
+gameplay subsystem gates. A successful rerun requires the logged singleton,
+player, vtable and exact `0x8C` target validation; one before/after log pair;
+no crash; and `maxInFlight=1`. Only that result may classify this one
+`PlayerCharacter::Get3D()` read as runtime-safe in the observed worker context.
+The DLL was built but was not deployed or executed in this stage.
