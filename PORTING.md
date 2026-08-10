@@ -1292,3 +1292,147 @@ Corrected sixth diagnostic plan:
 4. retain the delay, queue-identity, worker-thread and overlap diagnostics;
 5. treat any guard rejection as a safe diagnostic failure, and do not infer
    `Get3D` thread safety unless the virtual call actually returns.
+
+## Addictol reference findings
+
+Audit provenance (reference-only; neither repository is a NAF dependency):
+
+- Dear-Modding-FO4/Addictol commit `d570d05acdda38585db8699dbecd2514eb397170`;
+  pinned Dear-Modding-FO4/commonlibf4 commit
+  `54c5f576e31410f393abebeebca366e970e824f4`.
+- Dear-Modding-FO4/AddictolCrashLogger commit
+  `a4abbd341b8acdb2c6160a47f9f59e1518763bb6`; pinned CommonLib commit
+  `a08c731eead4dfc6ea55aea4649c22aec05a47fe`.
+- Crash Logger's supplied `1.11.221.0/Fallout4.pdb` is 4,632,576 bytes,
+  SHA-256 `6D217CD371F081A7E490523F5D33EDCCB2777A716B2E7227AD9CECEFD7B2A918`.
+  Its repository history describes the audited revision as an updated
+  community PDB with 42,970 symbols. This is PDB-derived/community reverse-
+  engineering data, not an official Bethesda PDB.
+
+### Address model and safety policy
+
+Addictol's CommonLib defines three runtime indices in fixed order: OG
+`1.10.163`, NG through `1.10.984`, and AE above `1.10.984` (including
+`1.11.221`). `REL::VariantID{ og, ng, ae }` stores either an Address Library ID
+or an explicit `REL::Offset` per runtime. If fewer than three operands are
+provided, the last operand is repeated for later runtimes. Consequently a
+two-element `{ old, new }` entry explicitly assumes the same Address Library ID
+for NG and AE; it is not evidence that the code RVA or ABI is unchanged.
+
+The Addictol Address Library loader is fail-closed: its sorted mapping lookup
+requires exact ID equality, and its newer dense format rejects out-of-range or
+zero entries. It also validates the library version/hash. This independently
+supports the NAF CommonLib fix that made exact-ID checking unconditional; the
+old NAF dependency's non-VR `lower_bound` fall-through was not a safe
+multi-runtime behavior.
+
+Addictol uses a mixture of function-entry IDs, runtime-specific interior
+offsets, and a small number of documented direct RVAs. Quality is not uniform
+across every module. Its stronger recent patch paths validate exact per-runtime
+signatures, sometimes require a signature to be unique in `.text`, install
+nothing on mismatch, preserve original bytes, and roll back partially applied
+multi-site changes. Its module lifecycle also separates query/install stages,
+allows subsystem deferral to F4SE lifecycle messages, logs disabled modules,
+and wraps stages in structured exception handling. Useful NAF practices are:
+exact runtime gates, pre-patch byte validation, all-or-nothing multi-site
+installation, retained original bytes, explicit deferred subsystem stages, and
+fail-closed logging. Addictol's occasional unvalidated raw patch sites are not
+a reason to relax NAF's evidence policy.
+
+### Player singleton
+
+Addictol CommonLib declares:
+
+```text
+PlayerCharacter singleton IDs: OG 303410 / NG 2690919 / AE 4798212
+storage type: REL::Relocation<NiPointer<PlayerCharacter>*>
+accessor: singleton->get()
+```
+
+This resolves the apparent conflict with NAF's crashed test. In Addictol,
+`2690919` is explicitly the **1.10.984 NG** ID, not the `1.11.221 AE` ID.
+Working AE-targeted source selects the third entry, `4798212`. NAF's former
+two-runtime declaration selected `2690919` for 1.11.221 and its faulty inexact
+lookup then returned unrelated packed state `0x700000008`.
+
+Addictol agrees on the representation: a pointer-sized intrusive
+`NiPointer<PlayerCharacter>` global and one `get()` operation, not an extra
+`PlayerCharacter**` dereference. Its player-dependent modules generally obtain
+the object through `PlayerCharacter::GetSingleton`; later-lifecycle code often
+null-checks it, although at least one game-data-ready call site dereferences it
+directly. Addictol's AE ID belongs to its newer three-runtime Address Library
+namespace, while NAF's supplied 1.11.221 library exposes independently verified
+ID `2698073` for RVA `0x32D22E0`. The identifiers are therefore not directly
+interchangeable. The shared storage type, runtime classification, and failure
+explanation are **strong corroborating source evidence**; NAF's ID/RVA remains
+**disassembly verified** through the old/new initializer comparison.
+
+### PDB-derived 1.11.221 symbols relevant to NAF
+
+The Crash Logger installs a runtime-selected `Fallout4.pdb` next to the plugin
+and uses Microsoft DIA (`msdia140.dll`) to open it, query public/private symbols
+by RVA, demangle names, and optionally report parameters/source lines. The
+following RVAs account for `.text` section RVA `0x1000`; raw CodeView section
+offsets are not module RVAs until that section base is added.
+
+| 1.11.221 RVA | PDB symbol | NAF relevance | Grade/disposition |
+|---:|---|---|---|
+| `0x55F490` | `TESObjectREFR::FreeUpAllMarkers(void)` | exact-runtime fallback | PDB corroborates the already disassembly-verified entry/signature; no change |
+| `0x5645B0` | `TESObjectREFR::SetLinkedRef(TESObjectREFR*, BGSKeyword*)` | unresolved NG relocation | named candidate; signature matches maintained wrapper, but relocation still requires focused binary verification |
+| `0x818730` | `IAnimationGraphManagerHolder::GetAnimationGraphProjectName(BSFixedString&)` | unresolved graph-project accessor | strong named candidate and output signature; holder adjustment/data flow still requires disassembly verification |
+| `0xE13E40` | `BGSAnimationSystemUtils::InitializeActorInstant(Actor&, bool)` | runtime-unresolved animation initialization | named candidate; Addictol source also maps old ID `672857` to new ID `2236393`; ABI/semantics not yet promoted |
+| `0x806370` | `AnimationSystemUtils::IsActiveGraphInTransition(TESObjectREFR&)` | runtime-unresolved transition query | named candidate; Addictol maps old ID `839650` to `2214305`; const/reference difference must be checked |
+| `0xC44DC0` | `TaskQueueInterface::ProcessQueues(float, uint)` | recovered worker hook context | symbol identifies the queue processor; it does not by itself establish NAF's wrapper/interior hook ABI |
+| `0x50DA00`, `0x50D9A0` | two `TESObjectREFR::Get3D` implementations/overloads | test-six virtual call | useful implementation candidates; virtual slot `0x8C` still requires separate vtable/caller verification |
+| `0x16775A0` | `BSInputEnableManager::AllocateNewLayer(...)` | player-input state machine | named function candidate; maintained/Addictol wrapper uses old/new IDs `537494/2268244` |
+| `0x167A690` | `BSInputEnableManager::AllocateNewLayerImpl(...)` | input-layer ownership | names internal allocation path; candidate only |
+| `0x167A300` | `BSInputEnableManager::EnableUserEvent(uint,uint,bool,UserEvents::SENDER_ID)` | input restore/disable | named candidate; Addictol wrapper uses `1432984/2268263` |
+| `0x1677A00` | `BSInputEnableManager::OtherEventEnabled(uint)` | input state query | named candidate only |
+
+The PDB also names `ExtraDataList::SetLinkedRefData` at `0x2830F0`,
+`ExtraLinkedRef::SetLinkedRef` at `0x2A53A0`, and
+`ExtraDataList::SetLinkedRefsTransient` at `0x283210`. These clarify the linked-
+reference subsystem but are not substitutes for the public
+`TESObjectREFR::SetLinkedRef` semantics. It contains no symbols named
+`IsIdleLoading` or `RunActionOnActor`; absence is not proof those behaviors no
+longer exist.
+
+Additional Addictol CommonLib candidates overlapping the unresolved inventory:
+
+| Interface | Addictol mapping/declaration | Grade |
+|---|---|---|
+| `BSModelDB::Demand1` | `1066398 / 2275153` | corroborating source candidate; existing NAF recovery remains authoritative |
+| `BSModelDB::Demand2` | `1225688 / 2275154` | corroborating source candidate; existing NAF recovery remains authoritative |
+| `BSInputEnableManager` singleton | `781703 / 2689007 / 4796297`, `BSInputEnableManager**` | layout/API candidate; requires target-runtime verification before new use |
+| `BSInputEnableManager` layout | singleton base at `0x108`, locks/flags/layers through size `0x180` | matching maintained-style layout; ABI-sensitive and not promoted from headers alone |
+| `PlayerCamera` | singleton plus push/pop/set-state APIs; declared size `0x1B0` | useful camera recovery surface, not evidence for NAF's unresolved detour ID `541110` |
+| HUD messaging | `ShowHUDMessage`, `PushHUDMode`, `PopHUDMode`, HUD event types including `ClearHUDMessagesEvent` | suggests an event-oriented maintained path; does not yet identify NAF's historical queue clear operation |
+| package/process | `AIProcess`, `TESPackageEvent`, and a package-location patch module | useful class/call-site context; no direct mapping of NAF's legacy package hook `609985` found |
+| hit/effect | `AttachLightHitEffectVisitor` vtable hook and magic-effect event modules | useful RTTI/event reference; no proof of NAF's transient-effect wrapper ABI |
+| Papyrus | VM declarations plus GC/max-ops patches and lifecycle-deferred binding | useful lifecycle/patch examples; does not resolve NAF serialization/Papyrus readiness by itself |
+| animation subgraphs | runtime-specific calls, signatures, and transactional patch/rollback code | useful methodology and call-graph evidence; not a direct match for NAF's two graph detours yet |
+
+### Crash Logger object and thread semantics
+
+The Crash Logger does not identify `Main`, `TESObjectCELL`, or
+`BSJobs::JobThread` from one hard-coded offset database. Function names come
+from the selected PDB. Object recognition first validates that a candidate
+vtable is in a loaded module's `.rdata`, reads the preceding MSVC Complete
+Object Locator, resolves its TypeDescriptor, verifies the module's `type_info`,
+and then demangles RTTI. Fallout-specific filters are keyed by mangled RTTI
+names; `PlayerCharacter`, `TESObjectREFR`, and `TESObjectCELL` filters interpret
+selected CommonLib fields such as form ID/type, base object, extra data, and
+parent cell inside exception guards.
+
+The PDB names two `BSJobs::JobThread` functions at RVAs `0x16879C0` and
+`0x1687A60` after section-base adjustment, and Addictol CommonLib supplies its
+RTTI/vtable identity. This can help label crash stacks and validate object
+identity, but it does not prove `Main::threadID` semantics or the scheduler
+contract. The crash logger's field reads inherit the pinned CommonLib layouts;
+successful diagnostic output is runtime evidence for the fields exercised,
+while the declarations alone remain **reference layout evidence**.
+
+Overall rule: Addictol and its PDB may identify high-quality candidates and
+provide independent corroboration. Any NAF engine-facing relocation, virtual
+slot, ABI-sensitive layout, detour entry, or interior instruction site remains
+subject to the existing old/new binary semantic verification threshold.
