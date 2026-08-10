@@ -1230,3 +1230,65 @@ Sixth runtime plan:
    non-null player pointer in both lines, no crash, the three delay transitions,
    stable queue identity, no overlap warning, and `maxInFlight=1`;
 5. do not generalize a pass beyond this single read-only virtual operation.
+
+### Sixth diagnostic crash: invalid singleton acquisition
+
+The sixth diagnostic did **not** reach `TESObjectREFR::Get3D`. Its final log
+recorded `player=0x700000008`; the fault at `mov rax, [rsi]` was the attempted
+vtable load from that invalid value. This is an invalid-object/singleton
+relocation failure, not evidence that `Get3D` is unsafe on the serialized
+`NonRendersafeAI` worker. The recovered update hook and its observed
+serialization are not implicated.
+
+Focused old/new analysis established the singleton representation and exposed
+a maintained-library relocation defect:
+
+| Fact | 1.10.163 | 1.11.221 | Evidence |
+|---|---:|---:|---|
+| Player singleton storage | ID `303410`, RVA `0x5AA4388` | ID `2698073`, RVA `0x32D22E0` | disassembly-verified global identity and initialization |
+| Player initializer | ID `1142639`, RVA `0xD3E620` | ID `2229084`, RVA `0xC3E550` | matched `0xE10` allocation, constructor, intrusive retain/store/release sequence |
+| Player constructor | ID `129780` | ID `2232883`, RVA `0xD524E0` | initializer call target and allocation/initialization context |
+
+The storage is one pointer-sized intrusive `NiPointer<PlayerCharacter>` global,
+not an extra `PlayerCharacter**` wrapper. Legitimate engine callers perform one
+load from the global and commonly null-check the resulting object. Both
+initializers allocate `0xE10` bytes, construct the player, increment the new
+object's intrusive count at `+0x28`, store the pointer directly in the global,
+and release the prior value.
+
+Maintained CommonLib declared NG ID `2690919`, but that ID is absent from the
+supplied 1.11.221 Address Library. `IDDB::id2offset` used `lower_bound` without
+checking exact equality on non-VR runtimes, so the missing request silently
+selected the next entry: ID `2697707`, RVA `0x32961F0`. The unrelated global at
+that address contained `0x700000008` at runtime (low/high 32-bit values `8` and
+`7`). Its precise engine meaning is unresolved, but it is demonstrably packed
+non-pointer state obtained from the wrong relocation; it is not another player
+indirection and must never be cast or accepted heuristically.
+
+CommonLib now uses ID `2698073` and rejects every inexact Address Library lookup
+on NG as well as legacy/VR. The corrected diagnostic resolves the explicit
+`NiPointer<PlayerCharacter>` storage, logs the relocation/global address
+separately from the resolved object, and validates the object before virtual
+dispatch: committed readable storage plus a first pointer inside Fallout 4's
+`.rdata` segment. Failure logs a critical diagnostic and suppresses the call;
+there is no scan, fallback relocation, cast-around, or object dereference.
+After validation it calls `Get3D` exactly once and logs—but does not dereference
+or retain—the returned pointer.
+
+`Get3D` remains a separate evidence item. Historical Deweh CommonLib,
+CommonLibF4-NG, and maintained CommonLib agree on virtual slot `0x8C`, and the
+1.11.221 executable contains widespread legitimate virtual calls through byte
+offset `0x460`. This supports ABI continuity but is not yet a narrowly
+disassembly-verified semantic proof of the slot, and worker-context safety is
+still untested.
+
+Corrected sixth diagnostic plan:
+
+1. load an ordinary save with all existing gameplay gates retained;
+2. require the logged singleton storage to resolve through ID `2698073` and a
+   plausible object/vtable before dispatch;
+3. require exactly one matching before/after `Get3D` pair, with no dereference
+   or retention of its result;
+4. retain the delay, queue-identity, worker-thread and overlap diagnostics;
+5. treat any guard rejection as a safe diagnostic failure, and do not infer
+   `Get3D` thread safety unless the virtual call actually returns.

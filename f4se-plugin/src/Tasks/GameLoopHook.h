@@ -24,6 +24,24 @@ namespace Tasks
 		inline std::atomic<bool> diagnosticEngineReadAttempted{ false };
 		inline bool diagnosticOnly = false;
 
+		[[nodiscard]] bool ValidatePlayerObjectForDiagnostic(RE::PlayerCharacter* a_player, std::uintptr_t& a_vtable)
+		{
+			a_vtable = 0;
+			if (!a_player) {
+				return false;
+			}
+
+			MEMORY_BASIC_INFORMATION memory{};
+			if (VirtualQuery(a_player, &memory, sizeof(memory)) != sizeof(memory) ||
+				memory.State != MEM_COMMIT || memory.Protect == PAGE_NOACCESS || (memory.Protect & PAGE_GUARD) != 0) {
+				return false;
+			}
+
+			std::memcpy(&a_vtable, a_player, sizeof(a_vtable));
+			const auto rdata = REL::Module::get().segment(REL::Segment::rdata);
+			return a_vtable >= rdata.address() && a_vtable < rdata.address() + rdata.size();
+		}
+
 		std::mutex alignActorsLock;
 		std::vector<ActorAlignInfo> alignActors;
 
@@ -88,16 +106,29 @@ namespace Tasks
 				const auto* main = RE::Main::GetSingleton();
 				if (RE::Main::QGameDataLoaded() && main && main->gameActive &&
 					!diagnosticEngineReadAttempted.exchange(true, std::memory_order_relaxed)) {
-					auto* playerCharacter = RE::PlayerCharacter::GetSingleton();
-					logger::info("Engine-read diagnostic before PlayerCharacter::Get3D: thread={}, player={}",
+					REL::Relocation<RE::NiPointer<RE::PlayerCharacter>*> playerSingleton{ REL::RelocationID(303410, 2698073) };
+					logger::info("Engine-read diagnostic player singleton storage: thread={}, relocationID={}, global={}",
 						threadID,
-						fmt::ptr(playerCharacter));
-					const auto* player3D = playerCharacter ? playerCharacter->Get3D() : nullptr;
-					logger::info("Engine-read diagnostic after PlayerCharacter::Get3D: thread={}, player={}, player3D={}, result={}",
-						threadID,
-						fmt::ptr(playerCharacter),
-						fmt::ptr(player3D),
-						player3D ? "loaded" : "not-loaded");
+						REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2698073 : 303410,
+						fmt::ptr(reinterpret_cast<void*>(playerSingleton.address())));
+					auto* playerCharacter = playerSingleton->get();
+					std::uintptr_t playerVtable = 0;
+					if (!ValidatePlayerObjectForDiagnostic(playerCharacter, playerVtable)) {
+						logger::critical("Engine-read diagnostic rejected invalid PlayerCharacter object: player={}, vtable={}; Get3D will not be called",
+							fmt::ptr(playerCharacter),
+							fmt::ptr(reinterpret_cast<void*>(playerVtable)));
+					} else {
+						logger::info("Engine-read diagnostic before PlayerCharacter::Get3D: thread={}, player={}, vtable={}",
+							threadID,
+							fmt::ptr(playerCharacter),
+							fmt::ptr(reinterpret_cast<void*>(playerVtable)));
+						const auto* player3D = playerCharacter->Get3D();
+						logger::info("Engine-read diagnostic after PlayerCharacter::Get3D: thread={}, player={}, player3D={}, result={}",
+							threadID,
+							fmt::ptr(playerCharacter),
+							fmt::ptr(player3D),
+							player3D ? "loaded" : "not-loaded");
+					}
 				}
 				const auto bookkeeping = Scene::OrderedActionQueue::UpdateBookkeepingDiagnostic();
 				if (bookkeeping.previousDelay != bookkeeping.currentDelay) {
