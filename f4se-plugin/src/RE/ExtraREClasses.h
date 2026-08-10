@@ -2,7 +2,6 @@
 #include "hk.h"
 #include "TESActionData.h"
 #include "BGSAnimationSystemUtils.h"
-#include "BSInputEnableManager.h"
 #include "MovementControllerNPC.h"
 #include "BSFaceGenAnimationData.h"
 #include "TESObjectREFR_Events.h"

@@ -70,12 +70,12 @@ public:
 
 		auto& character = manager->graph[manager->activeGraph]->character;
 		result.character = &character;
-		result.graph = character.behaviorGraph.get();
+		result.graph = character.behaviorGraph._ptr;
 
 		if (result.graph == nullptr)
 			return nullptr;
 
-		result.rootGen = result.graph->rootGenerator.get();
+		result.rootGen = result.graph->rootGenerator._ptr;
 		if (result.rootGen == nullptr)
 			return nullptr;
 
