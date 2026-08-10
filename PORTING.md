@@ -976,3 +976,46 @@ the main menu, waiting long enough to observe multiple callbacks, loading no
 save, exiting normally, and inspecting F4SE/NAF logs. Success establishes the
 update hook as **runtime-startup verified**, not gameplay verified; normal NAF
 work must remain disabled until its downstream interfaces are ready.
+
+### Second diagnostic result and world-load gate
+
+The second diagnostic loaded and installed `2228937 + 0x1E` without a crash,
+but produced no callback-count entries while the game remained at the main
+menu. Evidence is therefore split: installation and startup stability are
+runtime verified; invocation is not yet runtime verified.
+
+Static xref searches found no direct call edge to either the old or NG
+containing function. NG does have one instruction-aligned tail-call wrapper,
+ID `2227597` / RVA `0xBD5DE0`: it performs a preparatory manager operation (ID
+`2192054`), loads the update object from a global, restores its frame and jumps
+to `2228937`. No direct call or jump reaches that wrapper, so the outer schedule
+is indirect. A second raw-byte `E9` hit inside ID `2230727` was rejected after
+instruction-boundary disassembly showed that it falls inside another
+instruction and is not executable as a jump. The containing function's complete
+body is a world/update bundle: after processing the task queue it advances
+multiple AI/game systems, accesses world and manager globals, and finishes with
+`Main` state handling. Combined with the main-menu negative runtime observation,
+this supports the conclusion that the indirect dispatch phase normally starts
+only after a game world/save is active, rather than being conditional on the
+task queue merely containing work. The verified hook site and trampoline are
+unchanged.
+
+The third diagnostic adds only first-callback context. After calling the
+original `ProcessQueues`, it logs the current Windows thread ID, maintained
+`Main::threadID`, `Main::QGameDataLoaded()`, `Main::gameActive` and
+`Main::inMenuMode`, then follows the existing atomic count schedule. It still
+returns before all NAF scene/update work. These are maintained CommonLib NG
+globals/layout fields; no gated NAF subsystem is initialized.
+
+Third test plan:
+
+1. launch Fallout 4 1.11.221 through F4SE 0.7.8;
+2. load an ordinary save without opening NAF UI or starting an NAF scene;
+3. remain idle for several seconds, optionally open/close pause once;
+4. quit normally and inspect NAF/F4SE logs;
+5. require callbacks 1, 2, 3, 10 and 60, a consistent current/initial thread
+   ID, and first-callback world-state context consistent with a loaded game.
+
+A pass will grade the hook **runtime-startup/world-update verified**, while its
+normal scene/action/alignment workload remains disabled and not gameplay
+verified.

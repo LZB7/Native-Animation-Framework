@@ -64,7 +64,14 @@ namespace Tasks
 				const auto threadID = static_cast<std::uint32_t>(GetCurrentThreadId());
 				if (count == 1) {
 					diagnosticThreadID.store(threadID, std::memory_order_relaxed);
-					logger::info("Game-loop diagnostic callback #1 after ProcessQueues on thread {}", threadID);
+					const auto* main = RE::Main::GetSingleton();
+					logger::info(
+						"Game-loop diagnostic callback #1 after ProcessQueues: thread={}, mainThread={}, gameDataLoaded={}, gameActive={}, inMenuMode={}",
+						threadID,
+						main ? main->threadID : 0,
+						RE::Main::QGameDataLoaded(),
+						main && main->gameActive,
+						main && main->inMenuMode);
 				} else if (count <= 3 || count == 10 || count == 60) {
 					logger::info("Game-loop diagnostic callback #{} on thread {} (initial thread {})",
 						count,
