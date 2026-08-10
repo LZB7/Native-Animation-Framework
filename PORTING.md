@@ -726,8 +726,9 @@ message destruction and visible HUD behavior require runtime testing.
 
 ### FreeUpAllMarkers final blocker
 
-The NG cleanup is a distinct unaddressed function beginning at RVA 0x55F4B0;
-RVA 0x55F4E0 is its marker-loop body. It is adjacent to, but not an interior
+The NG cleanup is a distinct unaddressed function beginning at RVA 0x55F490;
+RVA 0x55F4B0 is an interior form-type branch and RVA 0x55F4E0 is its
+marker-loop body. It is adjacent to, but not an interior
 branch of, addressed ID 2202574. No direct calls, tail calls, jump-table entry,
 vtable/function-pointer entry, callback registration, maintained wrapper or
 higher-level addressed operation reaches this function.
@@ -759,3 +760,80 @@ mechanism for functions omitted from Address Library. Runtime-unresolved items
 listed earlier, including SetLinkedRef, camera/HUD hooks, animation functions,
 manual AnimObjUnequip behavior and effect/highlighting validation, retain their
 existing grades.
+
+## Exact-runtime fallback and first linked diagnostic artifact
+
+The project-level exception for `FreeUpAllMarkers` is implemented only for
+Fallout4.exe **1.11.221.0**, at module RVA **0x55F490**. The formerly proposed
+RVA 0x55F4B0 was rejected after direct inspection: it begins with a conditional
+branch and consumes flags/register state established by the real entry at
+0x55F490. Address Library ID 2202576 at neighboring RVA 0x55F640 independently
+confirmed the PE RVA conversion.
+
+The x64 entry takes `TESObjectREFR*` in RCX and returns `void`, matching the
+historical non-static member call. From the entry, control reaches the analyzed
+form check and marker loop. The complete function retains handle-generation
+validation, furniture-manager release, balanced temporary references, then the
+locked removal of `ExtraUsedMarkers` (type 0x12). This is graded
+**disassembly verified / exact-runtime fallback / runtime guarded**.
+
+`EngineCompat::FreeUpAllMarkers` is the sole raw-RVA call site. It adds the
+module base to 0x55F490, preserving ASLR. Both plugin load and the call boundary
+require `REL::Module::version() == 1.11.221.0`. A fixed local masked signature
+checks the verified prologue, RCX-based object/base-form access and FURN/TERM
+tests; only the two relative branch displacements are masked. Validation never
+scans elsewhere. Failure logs a critical diagnostic, rejects plugin load, and
+the scene call also aborts rather than invoking mismatched code. No other raw
+RVA exception was introduced.
+
+### Fresh configure and compile convergence
+
+The corrected fallback removed the final previously known compile diagnostic.
+A fresh Visual Studio/vcpkg configure exposed ordinary source drift hidden by
+the older cached build. These were resolved without engine relocations:
+
+- UI depth priorities now assign the maintained enum directly.
+- serializable handles use maintained typed-handle construction, equality,
+  truth testing and public native values.
+- fixed-string maps use a local case-insensitive comparator.
+- `EnumSet` co-save data passes through `underlying()` and its public
+  assignment operation rather than private storage.
+- engine-independent `NiPoint3`/`NiQuaternion` cereal serialization was
+  restored locally.
+- the quaternion spline segment has a deterministic valid default, resolving
+  an LTCG uninitialized-value warning.
+
+The ending compiler diagnostic count is **zero**.
+
+### First linker inventory
+
+The complete initial linker failure set was:
+
+| Symbol | Classification | Disposition |
+| --- | --- | --- |
+| `RE::ActionInput::~ActionInput()` | Missing CommonLib implementation | Defaulted in the CommonLib declaration; this performs normal destruction of its maintained `NiPointer` members and adds no engine call. |
+| `RE::BSScript::IStackCallbackFunctor::~IStackCallbackFunctor()` | Missing CommonLib implementation | Defaulted in the CommonLib declaration; the abstract interface has no owned members beyond its maintained intrusive-refcount base. |
+
+After those fixes, LTCG reported one ordinary `C4701` warning in the local
+quaternion spline; deterministic initialization resolved it. The subsequent
+Release/x64/v143 link succeeded and produced
+`f4se-plugin/build-1.11.221/Release/NAF.dll`. The configured triplet is
+`x64-windows-static-md` and `COPY_BUILD=OFF`; nothing was deployed.
+
+### Static runtime-readiness audit
+
+Successful linking does not make this DLL load-ready. The unresolved inventory
+is classified as follows:
+
+| Classification | Interfaces | Static disposition |
+| --- | --- | --- |
+| **A — must resolve before loading** | Game-loop interior hook `338354+0x1E`; graph detours `1492656` and `1216262`; face interior hooks `317245+0xBA` and `3139+0x158`; HUD interior hook `1385889+0xA8`; package hook `609985`; camera hook `541110` | All are installed synchronously by `InitializeHooking()` during `F4SEPlugin_Load`. Their NG targets/instruction boundaries or detour entries remain unresolved, so the current DLL is **not safe to load**, even diagnostically. |
+| **B — safe only if subsystem is not exercised, after A is fixed** | `SetLinkedRef` legacy ID 192840; `InitializeActorInstant` 672857; `IsActiveGraphInTransition` 839650; `IsIdleLoading` 686648; `RunActionOnActor` 22408 and reset-action path 639576; remaining animation-graph/Havok wrappers and globals; custom reference/hit-event wrappers; movement/container/geometry wrappers; studio globals 1302430/644641 | These are reached from walking, scene initialization/transition, idle/action, hit/effect, container, geometry or studio paths rather than DLL entry. They remain unresolved and those paths must be disabled or recovered before use. |
+| **C — suitable for focused diagnostic runtime testing once A is fixed** | Exact-runtime `FreeUpAllMarkers` fallback; disassembly-verified relocation pairs recorded above, including model demand, HUD clear, graph project name, player input/AI, camera third-person, graph setter and actor/process helpers | Static evidence supports the call shape and target. Tests must be narrow, symmetric where state is changed, and verify logs/cleanup. |
+| **D — only runtime can complete validation** | `AnimObjUnequip` holder-ID dispatch; effect/highlighting lifetime and visual cleanup; HUD message destruction/visible behavior; graph-project string ownership; player AI/input restoration symmetry; camera transition behavior; model cache/skeleton results | These compile and have static support but their observable lifetime, ownership or game-state behavior cannot be proven statically. |
+
+The `TESActionData` local layout/vtable and other `stl::emplace_vtable` custom
+types also retain the earlier ABI audit requirement. Until every class-A hook
+is recovered or explicitly prevented from registering, the produced artifact
+must remain an undeployed build artifact and must not be placed in the live
+F4SE plugin directory.
