@@ -2,6 +2,58 @@
 
 namespace EngineCompat
 {
+	namespace ExactRuntime
+	{
+		// Disassembly-verified Fallout4.exe 1.11.221 entry.  This function has no
+		// Address Library ID or supported public indirection.  Keep this fallback
+		// isolated so a future Address Library entry replaces one implementation.
+		inline constexpr std::uintptr_t freeUpAllMarkersRVA = 0x55F490;
+
+		[[nodiscard]] inline bool ValidateFreeUpAllMarkers()
+		{
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
+				logger::critical("FreeUpAllMarkers exact-runtime fallback requires Fallout 4 1.11.221.0");
+				return false;
+			}
+
+			// Mask the two relative branch displacements while checking the verified
+			// entry prologue, RCX object use, base-form load and FURN/TERM tests.
+			static constexpr std::array<std::uint8_t, 43> signature{
+				0x40, 0x55, 0x56, 0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0xB1, 0xE0, 0x00, 0x00, 0x00,
+				0x48, 0x8B, 0xE9, 0x48, 0x85, 0xF6, 0x0F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x0F, 0xB6,
+				0x46, 0x1A, 0x3C, 0x2A, 0x74, 0x08, 0x3C, 0x37, 0x0F, 0x85, 0x00, 0x00, 0x00, 0x00, 0x48
+			};
+			static constexpr std::array<std::uint8_t, signature.size()> mask{
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF
+			};
+
+			const auto* target = reinterpret_cast<const std::uint8_t*>(REL::Module::get().base() + freeUpAllMarkersRVA);
+			for (std::size_t i = 0; i < signature.size(); ++i) {
+				if ((target[i] & mask[i]) != (signature[i] & mask[i])) {
+					logger::critical("FreeUpAllMarkers fallback validation failed at RVA 0x{:X}; refusing to call mismatched runtime code",
+						freeUpAllMarkersRVA);
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
+	[[nodiscard]] inline bool FreeUpAllMarkers(RE::TESObjectREFR* a_refr)
+	{
+		static const bool validated = ExactRuntime::ValidateFreeUpAllMarkers();
+		if (!validated) {
+			return false;
+		}
+
+		using func_t = void(RE::TESObjectREFR*);
+		const auto func = reinterpret_cast<func_t*>(REL::Module::get().base() + ExactRuntime::freeUpAllMarkersRVA);
+		func(a_refr);
+		return true;
+	}
+
 	inline void ModifyKeyword(RE::TESObjectREFR* a_refr, RE::BGSKeyword* a_keyword, bool a_add)
 	{
 		if (a_add) {

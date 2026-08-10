@@ -138,6 +138,10 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a
 extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 {
 	F4SE::Init(a_f4se);
+	if (!EngineCompat::ExactRuntime::ValidateFreeUpAllMarkers()) {
+		logger::critical("Exact-runtime compatibility validation failed; refusing to load NAF");
+		return false;
+	}
 	InitializeHooking();
 
 	const auto messaging = F4SE::GetMessagingInterface();

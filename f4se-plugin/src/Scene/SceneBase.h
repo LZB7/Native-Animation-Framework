@@ -747,7 +747,10 @@ namespace Scene
 		}
 
 		if (EngineCompat::IsFurniture(locationRef.get())) {
-			locationRef->FreeUpAllMarkers();
+			if (!EngineCompat::FreeUpAllMarkers(locationRef.get())) {
+				logger::critical("Scene start aborted because the guarded FreeUpAllMarkers fallback is unavailable");
+				return { kBadLocation };
+			}
 		}
 
 		AttachScene(newScene);
