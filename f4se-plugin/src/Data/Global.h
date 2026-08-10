@@ -667,8 +667,17 @@ namespace Data
 
 		RE::NiPointer<RE::NiNode> skeleton1;
 		RE::NiPointer<RE::NiNode> skeleton2;
-		RE::BSModelDB::Demand(actorBase->race->skeletonModel[0].model.data(), skeleton1);
-		RE::BSModelDB::Demand(actorBase->race->skeletonModel[1].model.data(), skeleton2);
+		RE::BSModelDB::DBTraits::ArgsType modelArgs{};
+		modelArgs.lodFadeMult = RE::ENUM_LOD_MULT::kActors;
+		modelArgs.loadLevel = 0;
+		modelArgs.prepareAfterLoad = true;
+		modelArgs.faceGenModel = false;
+		modelArgs.useErrorMarker = true;
+		modelArgs.performProcess = true;
+		modelArgs.createFadeNode = true;
+		modelArgs.loadTextures = true;
+		RE::BSModelDB::Demand(actorBase->race->skeletonModel[0].model.data(), &skeleton1, modelArgs);
+		RE::BSModelDB::Demand(actorBase->race->skeletonModel[1].model.data(), &skeleton2, modelArgs);
 
 		result = std::make_shared<GraphInfo>();
 		result->id = id;
