@@ -28,9 +28,18 @@ bool g_gameDataReady = false;
 #include "API/API.h"
 namespace
 {
+	// This build is intentionally limited to F4SE discovery and plugin-load
+	// diagnostics.  No gameplay subsystem may initialize until its hook set has
+	// been independently recovered for 1.11.221.
+	inline constexpr bool kStartupDiagnosticMode = true;
+
 	void MessageHandler(F4SE::MessagingInterface::Message* a_msg)
 	{
 		if (!a_msg) {
+			return;
+		}
+		if constexpr (kStartupDiagnosticMode) {
+			logger::info("Startup diagnostic received F4SE message type {}; gameplay initialization remains gated", a_msg->type);
 			return;
 		}
 
@@ -71,7 +80,14 @@ namespace
 		}
 	}
 
-	void InitializeHooking() {
+	void InitializeHooking()
+	{
+		if constexpr (kStartupDiagnosticMode) {
+			logger::warn("Startup diagnostic mode: all gameplay hooks are deferred and their subsystems are unavailable");
+			logger::warn("Deferred hooks: game loop, graph update/Set3D, face update/lip, HUD mode, package evaluation/check, free camera update");
+			return;
+		}
+
 		auto& trampoline = F4SE::GetTrampoline();
 		trampoline.create(64);
 		Tasks::GameLoopHook::RegisterHook(trampoline);
@@ -150,6 +166,11 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		return false;
 	} else {
 		logger::info("Registered with F4SE messaging interface.");
+	}
+
+	if constexpr (kStartupDiagnosticMode) {
+		logger::warn("Startup diagnostic initialization complete; serialization, Papyrus, game data, menus, scenes and gameplay subsystems are disabled");
+		return true;
 	}
 
 	const auto serialization = F4SE::GetSerializationInterface();
