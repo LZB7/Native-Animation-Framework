@@ -431,13 +431,14 @@ public:
 			return false;
 		}
 
-		RE::BSShaderProperty* shader = eyeGeo->QShaderProperty();
+		RE::BSShaderProperty* shader = static_cast<RE::BSShaderProperty*>(eyeGeo->properties[1].get());
 		if (!shader) {
 			return false;
 		}
 
 		if (shader->material) {
-			shader->material->SetOffsetUV(u, v);
+			shader->material->texCoordOffset[0] = { u, v };
+			shader->material->texCoordOffset[1] = { u, v };
 			return true;
 		} else {
 			return false;
@@ -449,12 +450,12 @@ public:
 			return false;
 		}
 
-		RE::BSShaderProperty* shader = geo->QShaderProperty();
+		RE::BSShaderProperty* shader = static_cast<RE::BSShaderProperty*>(geo->properties[1].get());
 		if (!shader) {
 			return false;
 		}
 
-		if (shader->material && shader->material->GetFeature() == 2) {
+		if (shader->material && shader->material->GetFeature() == RE::BSShaderMaterial::Feature::kGlowmap) {
 			RE::BSLightingShaderProperty* lightingShader = static_cast<RE::BSLightingShaderProperty*>(shader);
 			lightingShader->emitColorScale = mult;
 			return true;
@@ -468,12 +469,12 @@ public:
 			return 0.0f;
 		}
 
-		RE::BSShaderProperty* shader = geo->QShaderProperty();
+		RE::BSShaderProperty* shader = static_cast<RE::BSShaderProperty*>(geo->properties[1].get());
 		if (!shader) {
 			return 0.0f;
 		}
 
-		if (shader->material && shader->material->GetFeature() == 2) {
+		if (shader->material && shader->material->GetFeature() == RE::BSShaderMaterial::Feature::kGlowmap) {
 			RE::BSLightingShaderProperty* lightingShader = static_cast<RE::BSLightingShaderProperty*>(shader);
 			return lightingShader->emitColorScale;
 		} else {

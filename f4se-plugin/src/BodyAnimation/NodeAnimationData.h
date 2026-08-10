@@ -37,7 +37,7 @@ namespace BodyAnimation
 			rotate(r), translate(t) {}
 
 		NodeTransform(const RE::NiTransform& mTransform) {
-			rotate.FromRotation(mTransform.rotate);
+			QuaternionCompat::FromRotation(rotate, mTransform.rotate);
 			translate = mTransform.translate;
 		}
 
@@ -46,7 +46,7 @@ namespace BodyAnimation
 			if (isDegrees)
 				rotation = MathUtil::DegreesToRadians(rotation);
 
-			rotate.FromEulerAnglesXYZ(rotation.x, rotation.y, rotation.z);
+			QuaternionCompat::FromEulerAnglesXYZ(rotate, rotation.x, rotation.y, rotation.z);
 			translate = translation;
 		}
 
@@ -88,12 +88,12 @@ namespace BodyAnimation
 			rotate.y = 0;
 			rotate.z = 0;
 			rotate.w = 0;
-			rotate.FromRotation(tempMatrix);
+			QuaternionCompat::FromRotation(rotate, tempMatrix);
 		}
 
 		RE::NiPoint3 RotationToEulerAngles(bool degrees = false, EulerAngleOrder order = EulerAngleOrder::XYZ) const {
 			RE::NiMatrix3 tempMatrix;
-			rotate.ToRotation(tempMatrix);
+			QuaternionCompat::ToRotation(rotate, tempMatrix);
 			RE::NiPoint3 result;
 			if (order == EulerAngleOrder::ZXY) {
 				tempMatrix.ToEulerAnglesZXY(result.z, result.x, result.y);
@@ -117,7 +117,7 @@ namespace BodyAnimation
 				adjustedEnd.z *= -1;
 				adjustedEnd.w *= -1;
 			}
-			output.Slerp(time, begin, adjustedEnd);
+			output = QuaternionCompat::Slerp(begin, adjustedEnd, time);
 		}
 
 		void Lerp(const NodeTransform& begin, const NodeTransform& end, float time) {
@@ -128,7 +128,7 @@ namespace BodyAnimation
 		}
 
 		void ToComplex(RE::NiTransform& trans) const {
-			rotate.ToRotation(trans.rotate);
+			QuaternionCompat::ToRotation(rotate, trans.rotate);
 			trans.translate = translate;
 		}
 
@@ -332,7 +332,7 @@ namespace BodyAnimation
 							const auto& q2 = q;
 							float dot = q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z;
 							if (dot < 0.0f) {
-								q = -q;
+								q = QuaternionCompat::Negate(q);
 							}
 						}
 						Yr.push_back(q);

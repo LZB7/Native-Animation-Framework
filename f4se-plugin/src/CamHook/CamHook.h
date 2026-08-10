@@ -129,9 +129,9 @@ namespace CamHook
 						doUpdate = true;
 						auto& mat = camNode->local.rotate;
 
-						RE::NiPoint3 up = { mat.entry[2].pt[0], mat.entry[2].pt[1], mat.entry[2].pt[2] };
-						RE::NiPoint3 forward = { mat.entry[1].pt[0], mat.entry[1].pt[1], mat.entry[1].pt[2] };
-						RE::NiPoint3 left = { mat.entry[0].pt[0], mat.entry[0].pt[1], mat.entry[0].pt[2] };
+						RE::NiPoint3 up = { mat.entry[2][0], mat.entry[2][1], mat.entry[2][2] };
+						RE::NiPoint3 forward = { mat.entry[1][0], mat.entry[1][1], mat.entry[1][2] };
+						RE::NiPoint3 left = { mat.entry[0][0], mat.entry[0][1], mat.entry[0][2] };
 
 						camNode->local.translate += (up * upDownInput);
 						camNode->local.translate += (forward * forwardBackInput);

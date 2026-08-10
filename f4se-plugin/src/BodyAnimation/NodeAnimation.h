@@ -465,7 +465,7 @@ namespace BodyAnimation
 				auto& n = nodeList->at(nodeIndex);
 				NodeTransform res = n->world;
 				if (parentRotation && n->parent != nullptr) {
-					res.rotate.FromRotation(n->parent->world.rotate);
+					QuaternionCompat::FromRotation(res.rotate, n->parent->world.rotate);
 				}
 				return res;
 			}
@@ -584,10 +584,10 @@ namespace BodyAnimation
 
 				if (local) {
 					RE::NiMatrix3 mat;
-					targetTransform.rotate.ToRotation(mat);
-					xAxis = { mat.entry[0].pt[0], mat.entry[0].pt[1], mat.entry[0].pt[2] };
-					yAxis = { mat.entry[1].pt[0], mat.entry[1].pt[1], mat.entry[1].pt[2] };
-					zAxis = { mat.entry[2].pt[0], mat.entry[2].pt[1], mat.entry[2].pt[2] };
+					QuaternionCompat::ToRotation(targetTransform.rotate, mat);
+					xAxis = { mat.entry[0][0], mat.entry[0][1], mat.entry[0][2] };
+					yAxis = { mat.entry[1][0], mat.entry[1][1], mat.entry[1][2] };
+					zAxis = { mat.entry[2][0], mat.entry[2][1], mat.entry[2][2] };
 				} else {
 					xAxis = { 1, 0, 0 };
 					yAxis = { 0, 1, 0 };
@@ -597,13 +597,13 @@ namespace BodyAnimation
 				RE::NiQuaternion adjustRot1;
 				RE::NiQuaternion adjustRot2;
 				RE::NiQuaternion adjustRot3;
-				adjustRot1.FromAngleAxis(MathUtil::DegreeToRadian(x * 0.5f), xAxis);
-				adjustRot2.FromAngleAxis(MathUtil::DegreeToRadian(y * 0.5f), yAxis);
-				adjustRot3.FromAngleAxis(MathUtil::DegreeToRadian(z * 0.5f), zAxis);
+				QuaternionCompat::FromAngleAxis(adjustRot1, MathUtil::DegreeToRadian(x * 0.5f), xAxis);
+				QuaternionCompat::FromAngleAxis(adjustRot2, MathUtil::DegreeToRadian(y * 0.5f), yAxis);
+				QuaternionCompat::FromAngleAxis(adjustRot3, MathUtil::DegreeToRadian(z * 0.5f), zAxis);
 
-				targetTransform.rotate = adjustRot1 * targetTransform.rotate;
-				targetTransform.rotate = adjustRot2 * targetTransform.rotate;
-				targetTransform.rotate = adjustRot3 * targetTransform.rotate;
+				targetTransform.rotate = QuaternionCompat::Multiply(adjustRot1, targetTransform.rotate);
+				targetTransform.rotate = QuaternionCompat::Multiply(adjustRot2, targetTransform.rotate);
+				targetTransform.rotate = QuaternionCompat::Multiply(adjustRot3, targetTransform.rotate);
 				targetTransform.rotate = MathUtil::NormalizeQuat(targetTransform.rotate);
 			} else {
 				targetTransform.translate.x += x * 0.2f;

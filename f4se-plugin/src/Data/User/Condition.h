@@ -41,7 +41,7 @@ namespace Data
 				return false;
 			}
 
-			if (isFemale.has_value() && (a->GetSex() == 1) != isFemale.value()) {
+			if (isFemale.has_value() && (a->GetNPC()->GetSex() == RE::SEX::kFemale) != isFemale.value()) {
 				return false;
 			}
 

@@ -117,7 +117,7 @@ namespace FaceAnimation
 			if (state->managedAnims[targetActor].anim == nullptr && !state->managedAnims[targetActor].eyeOverride.has_value()) {
 				state->managedAnims.erase(targetActor);
 				for (auto iter = state->managedDatas.begin(); iter != state->managedDatas.end();) {
-					if (iter->second.hash() == targetActor.native_handle_const()) {
+					if (iter->second.hash() == targetActor.native_handle()) {
 						iter = state->managedDatas.erase(iter);
 						break;
 					} else {

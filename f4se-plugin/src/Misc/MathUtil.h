@@ -83,18 +83,29 @@ public:
 
 	static RE::NiTransform ApplyCoordinateSpace(const RE::NiTransform& parentSpace, const RE::NiTransform& childSpace) {
 		RE::NiTransform result;
-		parentSpace.Multiply(result, childSpace);
+		result.rotate = parentSpace.rotate * childSpace.rotate;
+		result.scale = parentSpace.scale * childSpace.scale;
+		result.translate = parentSpace.translate + (parentSpace.rotate * childSpace.translate) * parentSpace.scale;
+		return result;
+	}
+
+	static RE::NiTransform WorldToLocal(const RE::NiTransform& world, const RE::NiTransform& parentWorld) {
+		RE::NiTransform result;
+		const auto inverseRotation = parentWorld.rotate.Transpose();
+		result.rotate = inverseRotation * world.rotate;
+		result.scale = world.scale / parentWorld.scale;
+		result.translate = (inverseRotation * (world.translate - parentWorld.translate)) / parentWorld.scale;
 		return result;
 	}
 
 	static DirectionVectors QuatToDirVectors(const RE::NiQuaternion& q) {
 		DirectionVectors result;
 		RE::NiMatrix3 mat;
-		q.ToRotation(mat);
+		QuaternionCompat::ToRotation(q, mat);
 
-		result.x = NormalizePt3({ mat.entry[0].pt[0], mat.entry[0].pt[1], mat.entry[0].pt[2] });
-		result.y = NormalizePt3({ mat.entry[1].pt[0], mat.entry[1].pt[1], mat.entry[1].pt[2] });
-		result.z = NormalizePt3({ mat.entry[2].pt[0], mat.entry[2].pt[1], mat.entry[2].pt[2] });
+		result.x = NormalizePt3({ mat.entry[0][0], mat.entry[0][1], mat.entry[0][2] });
+		result.y = NormalizePt3({ mat.entry[1][0], mat.entry[1][1], mat.entry[1][2] });
+		result.z = NormalizePt3({ mat.entry[2][0], mat.entry[2][1], mat.entry[2][2] });
 
 		return result;
 	}
@@ -112,9 +123,9 @@ public:
 		RE::NiQuaternion s2;
 		RE::NiQuaternion result;
 
-		s1.Slerp(t, q0, q3);
-		s2.Slerp(t, q1, q2);
-		result.Slerp(2.0f * t * (1.0f - t), s1, s2);
+		s1 = QuaternionCompat::Slerp(q0, q3, t);
+		s2 = QuaternionCompat::Slerp(q1, q2, t);
+		result = QuaternionCompat::Slerp(s1, s2, 2.0f * t * (1.0f - t));
 		return result;
 	}
 
@@ -384,7 +395,7 @@ public:
 			} else {
 				float normalizedT = NormalizeTime(X[idx - 1], X[idx], t);
 				RE::NiQuaternion result;
-				result.Slerp(normalizedT, Y[idx - 1], Y[idx]);
+				result = QuaternionCompat::Slerp(Y[idx - 1], Y[idx], normalizedT);
 				return result;
 			}
 		}
@@ -399,7 +410,7 @@ public:
 			const RE::NiQuaternion& q2)
 		{
 			RE::NiQuaternion result;
-			result.Intermediate(q0, q1, q2);
+			result = QuaternionCompat::Intermediate(q0, q1, q2);
 			return result;
 		}
 

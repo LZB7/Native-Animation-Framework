@@ -127,9 +127,9 @@ namespace BodyAnimation
 				destWorld = MathUtil::ApplyCoordinateSpace(parentWorld, dest->local);
 			}
 			
-			IKQToNQ(src->rotation).ToRotation(destWorld.rotate);
+			QuaternionCompat::ToRotation(IKQToNQ(src->rotation), destWorld.rotate);
 
-			RE::NiTransform result = destWorld.WorldToLocal(parentWorld);
+			RE::NiTransform result = MathUtil::WorldToLocal(destWorld, parentWorld);
 			dest->local.rotate = result.rotate;
 			if (usePositions) {
 				dest->local.translate = result.translate;
@@ -145,7 +145,7 @@ namespace BodyAnimation
 			targetWorld = MathUtil::ApplyCoordinateSpace(parentTransform, targetWorld);
 
 			RE::NiQuaternion rot;
-			rot.FromRotation(targetWorld.rotate);
+			QuaternionCompat::FromRotation(rot, targetWorld.rotate);
 			targetRotation = NQToIKQ(rot);
 			effector->target_position = N3ToIK3(targetWorld.translate);
 		}
@@ -153,10 +153,10 @@ namespace BodyAnimation
 		NodeTransform GetTargetLocal(const RE::NiTransform& parentTransform)
 		{
 			RE::NiTransform targetWorld;
-			IKQToNQ(targetRotation).ToRotation(targetWorld.rotate);
+			QuaternionCompat::ToRotation(IKQToNQ(targetRotation), targetWorld.rotate);
 			targetWorld.translate = IK3ToN3(effector->target_position);
 
-			return targetWorld.WorldToLocal(parentTransform);
+			return MathUtil::WorldToLocal(targetWorld, parentTransform);
 		}
 
 		void SetTarget(const NodeTransform& t)
@@ -178,9 +178,9 @@ namespace BodyAnimation
 			ik_quat_t parentRotInverse = targetRotation;
 			if (!parentIsEffector) {
 				RE::NiQuaternion worldRot;
-				worldRot.FromRotation(parentTransform.rotate);
+				QuaternionCompat::FromRotation(worldRot, parentTransform.rotate);
 				RE::NiQuaternion inverse;
-				inverse.UnitInverse(worldRot);
+				inverse = QuaternionCompat::UnitInverse(worldRot);
 				parentRotInverse = NQToIKQ(inverse);
 			} else {
 				ik.quat.conj(parentRotInverse.f);
@@ -544,7 +544,7 @@ namespace BodyAnimation
 			if (poleParent != nullptr) {
 				NodeTransform result;
 				result.translate = chain.GetPoleWorld(poleParent->world, poleParent.get() == bones.back().get());
-				result.rotate.FromRotation(poleParent->world.rotate);
+				QuaternionCompat::FromRotation(result.rotate, poleParent->world.rotate);
 				return result;
 			}
 			return NodeTransform::Identity();
@@ -781,7 +781,7 @@ namespace BodyAnimation
 			auto hndl = a_ref->GetHandle();
 			auto _3d = a_ref->Get3D();
 			for (auto& h : holders) {
-				if (h->targetRef.hash() == hndl.native_handle_const()) {
+				if (h->targetRef.hash() == hndl.native_handle()) {
 					h->SetTargetParent(nullptr, nullptr);
 					if (_3d != nullptr) {
 						h->SetTargetParent(_3d->GetObjectByName(h->targetNode), _3d->IsNode());
@@ -850,7 +850,7 @@ namespace BodyAnimation
 			case IKMapping::kEffector:
 				result = m.holder->GetTarget();
 				if (parentRotation)
-					result.rotate.FromRotation(m.holder->GetTargetParentRotation());
+					QuaternionCompat::FromRotation(result.rotate, m.holder->GetTargetParentRotation());
 				break;
 			default:
 				result.MakeIdentity();

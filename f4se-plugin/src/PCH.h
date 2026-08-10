@@ -38,3 +38,4 @@ using namespace std::literals;
 #include "BodyAnimation/Spline.h"
 #include "libzippp/libzippp.h"
 #include "fp16.h"
+#include "Compat/Quaternion.h"

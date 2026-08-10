@@ -148,7 +148,7 @@ namespace LooksMenu
 	void SetMorph(RE::Actor* actor, const RE::BSFixedString& morph, RE::BGSKeyword* keyword, float value)
 	{
 		if (isInstalled && actor && detail::g_bodyMorphInterface) {
-			bool isFemale = (actor->GetSex() == 1);
+			bool isFemale = (actor->GetNPC()->GetSex() == RE::SEX::kFemale);
 			detail::g_bodyMorphInterface->SetMorph(actor, isFemale, morph, keyword, value);
 		}
 	}
@@ -162,7 +162,7 @@ namespace LooksMenu
 
 	void RemoveMorphsByName(RE::Actor* actor, const RE::BSFixedString& morph) {
 		if (isInstalled && actor && detail::g_bodyMorphInterface) {
-			bool isFemale = (actor->GetSex() == 1);
+			bool isFemale = (actor->GetNPC()->GetSex() == RE::SEX::kFemale);
 			detail::g_bodyMorphInterface->RemoveMorphsByName(actor, isFemale, morph);
 		}
 	}

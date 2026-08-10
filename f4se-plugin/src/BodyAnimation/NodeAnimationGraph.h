@@ -120,7 +120,7 @@ namespace BodyAnimation
 
 		bool UpdateNodes(RE::TESObjectREFR* ref)
 		{
-			if (ref->GetHandle().native_handle_const() == targetHandle.hash()) {
+			if (ref->GetHandle().native_handle() == targetHandle.hash()) {
 				rootNode.reset();
 				nodes.clear();
 				ikManager.ClearNodes();

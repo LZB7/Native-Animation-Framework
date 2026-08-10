@@ -64,7 +64,7 @@ namespace Data
 			static Slot FromActorAndHKX(RE::Actor* a, const std::string& hkxPath) {
 				Slot result;
 				result.rootBehavior = a->race->behaviorGraphProjectName->c_str();
-				result.gender = static_cast<ActorGender>(a->GetSex());
+				result.gender = static_cast<ActorGender>(a->GetNPC()->GetSex());
 				result.idle[0] = hkxPath;
 				result.dynamicIdle = true;
 				return result;
@@ -131,12 +131,12 @@ namespace Data
 			}
 		};
 
-		static ActorGender ActorSexToGender(RE::Actor::Sex s)
+		static ActorGender ActorSexToGender(RE::SEX s)
 		{
 			switch (s) {
-			case RE::Actor::Sex::Male:
+			case RE::SEX::kMale:
 				return ActorGender::Male;
-			case RE::Actor::Sex::Female:
+			case RE::SEX::kFemale:
 				return ActorGender::Female;
 			default:
 				return ActorGender::Any;
@@ -165,7 +165,7 @@ namespace Data
 				//First try to fill all gendered slots to avoid incorrectly placing a gendered actor into a non-gendered slot.
 				if (s.gender != ActorGender::Any) {
 					for (auto it = actors.begin(); it != actors.end(); it++) {
-						ActorGender g = ActorSexToGender((*it)->GetSex());
+						ActorGender g = ActorSexToGender((*it)->GetNPC()->GetSex());
 
 						//If this actor has the same root behavior & gender as the corresponding slot, fill in the slot info for this actor.
 						if (s.rootBehavior == (*it)->race->behaviorGraphProjectName[0] && (g == s.gender)) {
@@ -390,14 +390,14 @@ namespace Data
 
 			std::string_view graph = a->race->behaviorGraphProjectName[0];
 
-			switch (a->GetSex()) {
-			case RE::Actor::Sex::None:
+			switch (a->GetNPC()->GetSex()) {
+			case RE::SEX::kNone:
 				iMap[graph].noGenderCount += 1;
 				break;
-			case RE::Actor::Sex::Male:
+			case RE::SEX::kMale:
 				iMap[graph].maleCount += 1;
 				break;
-			case RE::Actor::Sex::Female:
+			case RE::SEX::kFemale:
 				iMap[graph].femaleCount += 1;
 				break;
 			}

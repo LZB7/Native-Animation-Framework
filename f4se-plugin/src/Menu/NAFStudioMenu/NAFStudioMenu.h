@@ -94,7 +94,7 @@ namespace Menu
 						});
 						auto& c = animContainer.characters.data.emplace_back();
 						c.animId = a.animId;
-						c.gender = restrictGenders ? static_cast<ActorGender>(a.actor->GetSex()) : ActorGender::Any;
+						c.gender = restrictGenders ? static_cast<ActorGender>(a.actor->GetNPC()->GetSex()) : ActorGender::Any;
 						RE::BSFixedString behGraph;
 						a.actor->GetAnimationGraphProjectName(behGraph);
 						c.behaviorGraphProject = behGraph;
