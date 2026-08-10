@@ -1162,3 +1162,71 @@ Fifth runtime plan:
 5. require the three ordered delay transitions, zero queued engine actions, no
    overlap warning, `maxInFlight=1`, and the normal messages confirming all
    gameplay initialization remains gated.
+
+### Fifth diagnostic result and first engine-read boundary
+
+The fifth loaded-save diagnostic produced exactly `3 -> 2`, `2 -> 1`, and
+`1 -> 0`; every transition reported zero queued engine actions. No queued
+function was invoked or dereferenced. The queue pointer remained stable, worker
+identity continued to migrate, sampled callbacks retained `maxInFlight=1`, and
+all gameplay initialization remained gated. The recovered `NonRendersafeAI`
+execution, serialized worker scheduling for the tested runtime, NAF's
+ordered-action mutex use in this callback, and the delay-counter tick semantics
+are now **runtime validated**. Serialization remains an empirical property of
+the tested 1.11.221 run rather than a documented universal scheduler guarantee.
+
+Engine-facing candidate risk order:
+
+| Rank | Candidate | Historical use/frequency | Reversibility and verified surface | Worker/subsystem risk |
+|---:|---|---|---|---|
+| 1 | Actor/reference loaded-3D read | `ForEachActor` eligibility on every active-scene update | read-only pointer result; maintained player singleton relocation and maintained `TESObjectREFR::Get3D` virtual ABI | lowest; no returned-object dereference or subsystem entry |
+| 2 | Actor keyword add/remove | detach and scene membership transitions | reversible in principle; compatibility helper established | mutates actor keyword state/container and requires reliable inverse cleanup |
+| 3 | Collision query/toggle | scene positioning and forced alignment | toggle can be reversed | touches actor process/physics state and may cascade |
+| 4 | Actor transform setters | active scene and studio alignment, potentially every tick | old value could be captured/restored | visible movement, physics/process updates and multiple engine objects |
+| 5 | Player-3D refresh | active scene update, potentially every tick | maintained composition exists | large visible regeneration with equipment/node side effects |
+| 6 | Equipment/inventory | ordered actions when queued | inverse operation is possible but stateful | inventory/equip managers, messages and HUD cleanup; rollback is not trivial |
+| 7 | Animation/idle/graph work | scene setup and every active update | not generally reversible | unresolved graph hooks/functions and animation locking |
+| 8 | Morph/LooksMenu | ordered morph action | state can theoretically be restored | LooksMenu ABI/thread affinity and face dependencies remain gated |
+| 9 | HUD/UI | deferred equipment cleanup and UI state | observable UI state | known higher thread-affinity risk and unresolved HUD hook |
+
+The sixth diagnostic selects rank 1: one call to
+`PlayerCharacter::Get3D() const`. The exact target surface is the maintained
+player singleton relocation `REL::RelocationID(303410, 2690919)` and the
+maintained `TESObjectREFR::Get3D` virtual declaration (slot comment `0x8C` in
+historical CommonLibF4, CommonLibF4-NG, and maintained CommonLibF4). No new raw
+address or relocation is introduced. This is graded **maintained CommonLib API / runtime-test-required**, not independently disassembly-verified as a new slot.
+
+Historical reachability is direct: recovered `NonRendersafeAI` call site ->
+`HookedGameLoop` after original `ProcessQueues` -> `SceneManager::UpdateScenes`
+-> active `IScene::Update` -> `IScene::ForEachActor` ->
+`GameUtil::ActorIsEnabled` -> `Actor::Get3D`. The call is conditional on an
+attached, active scene with a resolved actor and uses the default `require3d`
+argument. It runs while the per-scene recursive mutex is held; the actor is kept
+alive by the resolved `NiPointer`. The call only returns the current scene-root
+pointer and has no NAF cleanup path because it is observational.
+
+For the controlled test, the lifetime-stable player singleton replaces a scene
+actor, avoiding scene initialization and handle resolution. The call runs once,
+only after `QGameDataLoaded()` and `Main::gameActive` are true. Logs record the
+worker thread and player pointer before the call, then the player and returned
+3D pointer after it. The returned pointer is never dereferenced or retained.
+`loaded` and `not-loaded` are both safe query outcomes, although a normally
+loaded save is expected to return a non-null root. No mutation occurs, so no
+rollback is required.
+
+The fifth diagnostic's three locked delay ticks and all overlap/queue/thread
+monitoring remain enabled. Full ordered execution is still unsafe because the
+queue stores arbitrary functions; equipment/inventory changes are stateful;
+morph and HUD paths have unresolved thread affinity; and scene actions reach
+unresolved animation hooks, actor transforms, collision, player-3D refresh and
+other gated systems.
+
+Sixth runtime plan:
+
+1. launch through F4SE 0.7.8 and load an ordinary save;
+2. remain idle for 30-60 seconds without opening NAF UI or starting a scene;
+3. optionally pause/unpause once, then exit normally;
+4. require one matching before/after `PlayerCharacter::Get3D` pair, the same
+   non-null player pointer in both lines, no crash, the three delay transitions,
+   stable queue identity, no overlap warning, and `maxInFlight=1`;
+5. do not generalize a pass beyond this single read-only virtual operation.

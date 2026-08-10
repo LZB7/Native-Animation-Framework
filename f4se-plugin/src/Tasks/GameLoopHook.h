@@ -21,6 +21,7 @@ namespace Tasks
 		inline std::atomic<std::int64_t> diagnosticLastEntryQPC{ 0 };
 		inline std::atomic<bool> diagnosticOverlapReported{ false };
 		inline std::atomic<std::uint32_t> diagnosticBookkeepingTicks{ 0 };
+		inline std::atomic<bool> diagnosticEngineReadAttempted{ false };
 		inline bool diagnosticOnly = false;
 
 		std::mutex alignActorsLock;
@@ -84,6 +85,20 @@ namespace Tasks
 
 			bool res = OriginalProcessQueues(qintfc, unk01, unk02);
 			if (diagnosticOnly) {
+				const auto* main = RE::Main::GetSingleton();
+				if (RE::Main::QGameDataLoaded() && main && main->gameActive &&
+					!diagnosticEngineReadAttempted.exchange(true, std::memory_order_relaxed)) {
+					auto* playerCharacter = RE::PlayerCharacter::GetSingleton();
+					logger::info("Engine-read diagnostic before PlayerCharacter::Get3D: thread={}, player={}",
+						threadID,
+						fmt::ptr(playerCharacter));
+					const auto* player3D = playerCharacter ? playerCharacter->Get3D() : nullptr;
+					logger::info("Engine-read diagnostic after PlayerCharacter::Get3D: thread={}, player={}, player3D={}, result={}",
+						threadID,
+						fmt::ptr(playerCharacter),
+						fmt::ptr(player3D),
+						player3D ? "loaded" : "not-loaded");
+				}
 				const auto bookkeeping = Scene::OrderedActionQueue::UpdateBookkeepingDiagnostic();
 				if (bookkeeping.previousDelay != bookkeeping.currentDelay) {
 					const auto bookkeepingTick = diagnosticBookkeepingTicks.fetch_add(1, std::memory_order_relaxed) + 1;
@@ -100,7 +115,6 @@ namespace Tasks
 					diagnosticThreadID.store(threadID, std::memory_order_relaxed);
 					LARGE_INTEGER frequency{};
 					QueryPerformanceFrequency(&frequency);
-					const auto* main = RE::Main::GetSingleton();
 					logger::info(
 						"Game-loop threading diagnostic #1 after ProcessQueues: thread={}, mainThread={}, gameDataLoaded={}, gameActive={}, inMenuMode={}, queue={}, entryQPC={}, durationQPC={}, frequency={}, entryInFlight={}, remainingInFlight={}, maxInFlight={}",
 						threadID,
