@@ -7,3 +7,9 @@ REL::ID(190119);  // IAnimationGraphManagerHolder::GetAnimationGraphProjectName
 REL::ID(674794);  // TESNPC::GetHeight(TESObjectREFR*, TESRace*)
 REL::ID(973227);  // SendHUDMessage::ClearMessages
 REL::ID(781703);  // BSInputEnableManager singleton
+REL::ID(672857);  // BGSAnimationSystemUtils::InitializeActorInstant
+REL::ID(839650);  // BGSAnimationSystemUtils::IsActiveGraphInTransition
+REL::ID(686648);  // BGSAnimationSystemUtils::IsIdleLoading
+REL::ID(897074);  // BGSAnimationSystemUtils::GetEventSourcePointersFromGraph
+REL::ID(639576);  // BGSAnimationSystemUtils::GetDefaultObjectForActionInitializeToBaseState
+REL::ID(22408);   // BGSAnimationSystemUtils::RunActionOnActor

@@ -383,3 +383,54 @@ reached linking.
 - No graph-name or HUD relocation is promoted from similarity alone. Animation
   event ownership, Havok graph internals, hit/effect ABI, camera/HUD hooks, and
   all interior sites remain unresolved as listed above.
+
+## Compile-queued event recovery (2026-08-10)
+
+This pass used `compile-engine-interface-3.log` as its work queue. One new
+relocation was promoted:
+
+| Interface | 1.10.163 | 1.11.221 | Grade and evidence |
+| --- | --- | --- | --- |
+| `BGSAnimationSystemUtils::GetEventSourcePointersFromGraph` | ID 897074, RVA 0x12CE440 | ID 2249847, RVA 0x1090410 | **Disassembly-verified function**: both adjust the reference to its graph-holder base at +0x48, call virtual slot 0x20 for the manager, forward the manager and output scrap array to the corresponding helper, release the smart pointer, and return the helper boolean. |
+
+NAF's old `BSAnimationGraphEvent` and maintained CommonLib's event are both
+0x18 with three pointer-sized fields in the same order. The historical first
+field was typed `TESObjectREFR*`; maintained CommonLib exposes it as const
+`uint64_t holderID`. NAF now stores the same pointer bit pattern in that opaque
+pointer-sized field and does not retain or release ownership. Tag and payload
+remain `BSFixedString`. This is **statically verified ABI adaptation**; the
+manual `AnimObjUnequip` dispatch still requires runtime testing.
+
+Unused duplicate wrappers (`GetActiveSyncInfo`, `WillEventChangeState`, and
+`GetAnimationMaxDuration`) were removed. `InitializeActorInstant` and
+`IsActiveGraphInTransition` now resolve to maintained declarations, but their
+maintained legacy-only IDs 672857 and 839650 are still **unresolved** for NG;
+their compile errors disappearing is not runtime verification. Top candidates
+2238120 and 2216792 were rejected because their argument/data flows do not
+match. Candidates for `IsIdleLoading` and `RunActionOnActor` were likewise
+rejected.
+
+NAF only consumed `TESHitEvent`'s victim/target reference. The custom 0x38/
+0xD8/0x108 damage, hit-data, and event declarations were removed. Maintained
+CommonLib documents changed sizes 0x40/0xE0/0x110 and exposes the required
+reference as `TESHitEvent::target` at 0xE0. Registration now uses maintained
+`TESHitEvent::GetEventSource` pair (989868, 1411899); death registration uses
+maintained pair (1465690, 2201833). NAF no longer depends on the remaining hit
+payload layout. This is a **maintained CommonLib API migration** and requires
+runtime event-delivery testing.
+
+| Remaining call site | Historical mechanism | Proposed NG mechanism | Grade | Compile impact / uncertainty |
+| --- | --- | --- | --- | --- |
+| animation initialization | Function ID 672857 | Maintained declaration, NG target unknown | Unresolved | Compiles, but cannot run safely until mapped |
+| transition polling | Function ID 839650 | Maintained declaration, NG target unknown | Unresolved | Compiles, but scene transitions require mapping |
+| idle loading | Function ID 686648 | No accepted candidate | Unresolved | Direct compile blocker remains |
+| default reset action / action dispatch | IDs 639576 / 22408 | No accepted candidates | Unresolved | Direct compile blockers remain |
+| graph project name | ID 190119 | No accepted replacement | Unresolved | Three direct compile errors remain |
+| effect highlighting | transient effect ID 652173 and finish path | Maintained effect types differ | Unresolved ABI/function | Leading compiler block after event cleanup |
+| HUD clearing | global queue wrapper ID 973227 | No accepted replacement | Unresolved | Four direct errors remain |
+| camera/HUD/interior hooks | detours and interior instruction sites | No established targets | Unresolved | High-risk; unchanged in this pass |
+
+After the hit/event migration, Release compilation reports **98 errors** with
+one warning. This clears MSVC's 100-error cap for the first time. Linking has
+not been reached. The leading errors are now the effect wrapper, BSModelDB,
+HUD clearing, graph project name, and camera layout/hooks.
