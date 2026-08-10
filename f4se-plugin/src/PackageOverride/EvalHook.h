@@ -22,7 +22,8 @@ namespace PackageOverride::EvalHook
 	}
 
 	void RegisterHook() {
-		REL::Relocation<EvaluatePackageSig> EvalPkgLoc{ REL::ID(1395257) };
+		// PANDA records the legacy/NG pair for Actor::EvaluatePackage.
+		REL::Relocation<EvaluatePackageSig> EvalPkgLoc{ REL::RelocationID(1395257, 2229805) };
 		REL::Relocation<CheckPackageSig> CheckPkgLoc{ REL::ID(609985) };
 
 		if (!evalHook.Create(reinterpret_cast<LPVOID>(EvalPkgLoc.address()), &HookedEvaluatePackage)) {

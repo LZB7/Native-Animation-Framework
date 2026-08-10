@@ -8,7 +8,8 @@ namespace LooksMenu
 	enum LMVersion
 	{
 		k1_6_20,
-		k1_6_18
+		k1_6_18,
+		k1_7_0_3
 	};
 
 	class BodyMorphInterface
@@ -74,12 +75,14 @@ namespace LooksMenu
 
 		BodyMorphInterface* g_bodyMorphInterface = nullptr;
 
-		uint64_t GetVersionOffset(uint64_t off1_6_18, uint64_t off1_6_20) {
+		uint64_t GetVersionOffset(uint64_t off1_6_18, uint64_t off1_6_20, uint64_t off1_7_0_3) {
 			switch (version) {
 			case k1_6_18:
 				return off1_6_18;
 			case k1_6_20:
 				return off1_6_20;
+			case k1_7_0_3:
+				return off1_7_0_3;
 			default:
 				return 0;
 			}
@@ -93,13 +96,13 @@ namespace LooksMenu
 		void RegisterHook() {
 			uintptr_t baseAddr = reinterpret_cast<uintptr_t>(GetModuleHandleA("f4ee.dll"));
 
-			if (!applyMorphsHook.Create(reinterpret_cast<LPVOID>(baseAddr + GetVersionOffset(0x10040, 0xFFCC)), &HookedApplyMorphs)) {
+			if (!applyMorphsHook.Create(reinterpret_cast<LPVOID>(baseAddr + GetVersionOffset(0x10040, 0xFFCC, 0x11400)), &HookedApplyMorphs)) {
 				logger::warn("Failed to create ApplyMorphsToShapes hook!");
 			} else {
 				originalApply = reinterpret_cast<ApplyMorphsToShapes*>(applyMorphsHook.GetTrampoline());
 			}
 
-			g_bodyMorphInterface = reinterpret_cast<BodyMorphInterface*>(baseAddr + GetVersionOffset(0xFB440, 0xF4DF0));
+			g_bodyMorphInterface = reinterpret_cast<BodyMorphInterface*>(baseAddr + GetVersionOffset(0xFB440, 0xF4DF0, 0x107E00));
 		}
 	}
 
@@ -118,6 +121,10 @@ namespace LooksMenu
 				case LOOKSMENU_1_6_20_CHECKSUM:
 					version = k1_6_20;
 					verStr = "1.6.20";
+					break;
+				case LOOKSMENU_1_7_0_3_CHECKSUM:
+					version = k1_7_0_3;
+					verStr = "1.7.0.3";
 					break;
 				default:
 					isInstalled = false;

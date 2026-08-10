@@ -12,6 +12,7 @@
 
 #define LOOKSMENU_1_6_18_CHECKSUM 0x57B3298
 #define LOOKSMENU_1_6_20_CHECKSUM 0x59F7081
+#define LOOKSMENU_1_7_0_3_CHECKSUM 0x5E8CF44
 
 #define HUD_AddRectangle "AddRectangle"
 #define HUD_AddText "AddText"
