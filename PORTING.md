@@ -608,3 +608,71 @@ clearing (4), `BSModelDB` request construction (2), `UI::UpdateMenuMode` (2),
 and one each for `Force3rdPerson` and `FreeUpAllMarkers` (19 total). The bounded
 candidate search for these exact interfaces timed out without producing a
 candidate; no evidence grade was changed as a result.
+
+## Targeted final blocker recovery (2026-08-10)
+
+This pass started at **19 MSVC diagnostics / 18 root call sites**. The current
+Release/x64/v143 pass reports **7 diagnostics / 5 root call sites**. Linking
+has not been reached.
+
+### Resolved interfaces
+
+- `PlayerCamera::Force3rdPerson` is **162201 -> 2248348**. The functions are
+  instruction-level equivalents: both test the current state ID, perform the
+  same conditional Pip-Boy/transition path, update `cameraTarget` at +0x64,
+  prepare the third-person state at +0x120, and invoke the verified SetState
+  pair 858847/2214742. This is disassembly verified and runtime-test-required.
+- `DisableInputForPlayer` is **53346 -> 2200872**. Both resolve or allocate the
+  reference's named input layer, invalidate through vslot +0x68 with
+  `0x80000000`, resolve the stored layer, disable the requested user-event
+  mask, and balance the layer reference. Disassembly verified.
+- `ReenableInputForPlayer` is **478350 -> 2200873**. Both resolve two stored
+  layer objects, invalidate the reference once, and release both layers. NG
+  uses its current destruction path after the refcount reaches zero.
+  Disassembly verified.
+- `SetAIControlled` is **1431972 -> 2233087**. The enter path calls the same
+  corresponding player-control and actor operations and clears global +0x88.
+  The leave path calls the verified input cleanup, restores the player-control
+  subsystem, and both paths update bit 1 at player +0xDFE. Disassembly
+  verified. NAF's existing enter/leave ordering is unchanged, so cleanup
+  symmetry is preserved. All eight AI/input call-site errors are eliminated.
+- The old `UI::UpdateMenuMode` relocation was replaced with a maintained-layout
+  composition. Under `UI::GetMenuMapRWLock()` it finds and retains the menu,
+  changes only `UI_MENU_FLAGS::kPausesGame`, updates `UI::menuMode`, notifies
+  `MenuModeCounterChangedEvent`, and notifies `MenuModeChangeEvent` only when
+  the aggregate counter crosses zero. This exactly follows old ID 241336's
+  control flow and offsets and is a **source-level semantic replacement using
+  maintained API/layout**. Both UI errors are eliminated; runtime testing is
+  required.
+
+### Remaining blocker evidence
+
+`BSModelDB::Demand` remains two root errors. Legitimate old actor/player model
+callers establish the 12-byte request as `lodFadeMult = kActors (3)`,
+`loadLevel = 0`, with `prepareAfterLoad`, `useErrorMarker`, `performProcess`,
+`createFadeNode`, and `loadTextures` set. `faceGenModel` is deliberately
+preserved from caller context. NAF's two calls inspect race skeletons outside a
+face-generation context, which supports the non-facegen variant, but the
+maintained Demand entries 1225688/1066398 still have no established NG IDs.
+No call was added until both the request and callable NG entry are established.
+
+HUD clearing remains four diagnostics at two call sites. Old ID 973227 has one
+engine caller (old ID 1088722, a menu construction path). It lazily obtains the
+queue and invokes 1109561 with a false byte. The queue operation locks, walks
+the queued pointer array, rebuilds its membership/index structure, and then
+performs cleanup. Structural searches around the verified ShowHUDMessage pair
+1163005/2222440 did not establish the NG queue identity or public equivalent;
+2222001 remains rejected.
+
+`FreeUpAllMarkers` remains one error. The semantic NG body near RVA 0x55F4E0
+has no Address Library ID, no direct call xrefs, no maintained method, and no
+Address-Library-addressed wrapper/thunk was found. Removing only
+`ExtraUsedMarkers` through maintained extra-data APIs would omit the
+furniture-manager release and is not equivalent. A module-base-plus-RVA call
+would require adopting and justifying a separate relocation policy, so work
+stopped before introducing it as requested.
+
+The corrected `SetLinkedRef` signature still uses legacy-only ID 192840 and
+remains runtime-unresolved. No new virtual slot or interior hook was promoted.
+The smallest remaining compile set is HUD clearing (4 diagnostics / 2 call
+sites), `BSModelDB::Demand` (2), and `FreeUpAllMarkers` (1).
