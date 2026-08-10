@@ -434,3 +434,94 @@ After the hit/event migration, Release compilation reports **98 errors** with
 one warning. This clears MSVC's 100-error cap for the first time. Linking has
 not been reached. The leading errors are now the effect wrapper, BSModelDB,
 HUD clearing, graph project name, and camera layout/hooks.
+
+## Full compile-error burn-down (2026-08-10)
+
+MSBuild printed every diagnostic twice (once during compilation and once in the
+failure summary). Deduplicating by file, line, code, and message gives the
+recorded starting total of 98. The primary-cluster inventory was:
+
+| Primary cluster | Errors | Translation units / call sites | Shared cause and disposition |
+| --- | ---: | --- | --- |
+| transient effect / highlighting | 11 | `RE/TESEffectShader.h`, `Menu/HighlightedObjectsContainer.h` | Obsolete duplicate `ReferenceEffect` plus missing Deweh play/finish conveniences; eliminated using maintained effect APIs and layouts. |
+| `BSModelDB` | 1 | `RE/BSModelDB.h` | NAF declared a namespace where maintained CommonLib declares `BSModelDB`; duplicate eliminated, exposing two real call-argument errors. |
+| HUD/UI | 13 | `OrderedActionQueue`, `HUDManager`, three menu classes, inventory/menu mode calls | Four HUD-clear errors remain unresolved; duplicate HUD declaration and three renamed input overrides were eliminated; two `UI::UpdateMenuMode` errors remain. |
+| `GetAnimationGraphProjectName` | 3 | `GraphHook`, `NAFStudioMenu`, `CreatorMenuHandler` | Legacy-only engine wrapper; unresolved. |
+| camera state/layout and hooks | 16 | `CamHook` | Old scalar member names did not match the maintained aggregate names; all layout-name errors eliminated. Hook target remains unresolved. |
+| animation initialization / transition / idle / action | 0 direct | Runtime paths documented below | The declarations currently compile, but the four legacy-only engine functions remain runtime blockers and are not counted as current diagnostics. |
+| ordinary source/API drift | 5 | three menu input overrides and two format cascades | Three eliminated by the maintained override name; two format errors remain secondary to missing getters. |
+| unresolved runtime-sensitive interfaces | 49 | chiefly `SceneBase`, `SceneManager`, studio/menu and Papyrus call sites | Missing Deweh actor/player/reference conveniences; each requires maintained-API replacement or focused recovery. |
+| other | 0 | — | — |
+
+The duplicate declarations are represented in their functional clusters above
+rather than double-counted: `ReferenceEffect`, the NAF `BSModelDB` namespace,
+and the local partial `HUDMenu` declaration were all obsolete against maintained
+CommonLib.
+
+### Verified source and layout migrations
+
+Highlight play now calls maintained `TESObjectREFR::ApplyEffectShader`. It is
+the maintained name for historical ID 652173 and returns the maintained
+`ShaderReferenceEffect`. Historical `ProcessLists::FinishShaderEffect` (ID
+631860, RVA 0xF0E060) was independently disassembled: it locks the magic-effect
+array, selects a shader effect by target handle and `effectData`, and writes
+`ReferenceEffect::finished = true`. NAF now performs that same narrow operation
+through maintained `ProcessLists::ForEachShaderEffect`, which supplies the lock
+and maintained 1.11.221 layouts. This is a **maintained CommonLib API plus
+disassembly-verified semantic replacement**; effect appearance and teardown
+still require runtime testing. The entire 11-error cluster disappeared (98 ->
+87).
+
+`FreeCameraState` retains size 0x58. Its historical scalars `x/y/z` at
+0x28-0x33 and `pitch/yaw` at 0x34-0x3B are represented by maintained
+`translation` (`NiPoint3`) and `rotation` (`BSTPoint2<float>`) at those exact
+offsets. NAF now uses the maintained member names with the same pitch/yaw axis
+ordering. This is a **statically verified layout/API migration** and removed all
+16 camera layout diagnostics (88 -> 72). It does not verify legacy update hook
+ID 541110 or any camera interior hook.
+
+The partial NAF `HUDMenu` declaration was removed. Its only use was testing the
+active `Pipboy` mode; maintained `HUDMenu::hudModes` and
+`HUDModeType::modeString` express that test directly. This is a **source-level
+semantic replacement using maintained layout** and removed four diagnostics
+(72 -> 68). The three menu input handlers now override maintained
+`BSInputEventUser::OnButtonEvent` rather than the historical `HandleEvent`
+name, removing three ordinary API errors (68 -> 65).
+
+### Intentionally unresolved compile blockers
+
+The obsolete NAF `BSModelDB` namespace and its incorrect two-argument wrapper
+were removed. Maintained CommonLib exposes the same historical Demand identity
+(ID 1225688) with the actual 12-byte `DBTraits::ArgsType`, not NAF's opaque
+`int64_t` default. The two skeleton-load calls are deliberately left as compile
+errors until the required request flags for this use are established; no
+aggregate defaults were guessed.
+
+HUD clear ID 973227 at old RVA 0xAE26E0 was re-examined. It lazily initializes
+a global queue object (callee ID 1175527), then passes a stack `false` byte to
+the queue operation at old ID 1109561. This confirms the previous behavioral
+description but does not establish either target identity in 1.11.221, so the
+four call-site diagnostics remain. Candidate 2222001 remains rejected.
+
+The final Release `ClCompile` pass reports **65 errors** and one command-line
+warning. Linking has not been reached. The largest remaining repeated roots are
+`Actor::ModifyKeyword` (8), `GetScale` (5 across actor/player call sites),
+`SetAIControlled` (4), `SetNoCollision` (4),
+`PlayerCharacter::ReenableInputForPlayer` (3), and multiple two-call-site
+actor/player helpers. The smallest named high-priority blocker set is:
+
+| Call site / interface | Current compile impact | Grade / remaining uncertainty |
+| --- | ---: | --- |
+| actor/player/reference Deweh conveniences | 50+ direct or cascading errors | Unresolved runtime-sensitive engine interfaces; audit individually by payoff. |
+| HUD `ClearMessages` | 4 | Historical mechanism established; 1.11.221 queue owner/operation unresolved. |
+| graph project name | 3 | Historical holder data flow established; replacement unresolved. |
+| `BSModelDB::Demand` request | 2 | Maintained API known; correct skeleton request arguments unresolved. |
+| `UI::UpdateMenuMode` | 2 | Maintained equivalent or focused recovery required. |
+| format diagnostics | 2 | Cascades from missing `GetScale`/`GetBaseFullName`; not independent runtime interfaces. |
+
+No new relocation pair, virtual slot, detour target, or interior hook was
+promoted in this pass. `InitializeActorInstant`,
+`IsActiveGraphInTransition`, `IsIdleLoading`, and `RunActionOnActor` retain
+their previous unresolved status and rejected candidates. Compilation does not
+currently force their recovery, and successful future linking would not make
+them runtime-safe.
