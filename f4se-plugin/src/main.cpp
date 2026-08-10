@@ -80,22 +80,30 @@ namespace
 		}
 	}
 
-	void InitializeHooking()
+	[[nodiscard]] bool InitializeHooking()
 	{
 		if constexpr (kStartupDiagnosticMode) {
-			logger::warn("Startup diagnostic mode: all gameplay hooks are deferred and their subsystems are unavailable");
-			logger::warn("Deferred hooks: game loop, graph update/Set3D, face update/lip, HUD mode, package evaluation/check, free camera update");
-			return;
+			logger::warn("Update diagnostic mode: only the verified game-loop observation hook is enabled; gameplay work remains gated");
+			auto& trampoline = F4SE::GetTrampoline();
+			trampoline.create(64);
+			if (!Tasks::GameLoopHook::RegisterHook(trampoline, true)) {
+				return false;
+			}
+			logger::warn("Deferred hooks: graph update/Set3D, face update/lip, HUD mode, package evaluation/check, free camera update");
+			return true;
 		}
 
 		auto& trampoline = F4SE::GetTrampoline();
 		trampoline.create(64);
-		Tasks::GameLoopHook::RegisterHook(trampoline);
+		if (!Tasks::GameLoopHook::RegisterHook(trampoline)) {
+			return false;
+		}
 		BodyAnimation::GraphHook::RegisterHook();
 		FaceAnimation::FaceUpdateHook::RegisterHook(trampoline);
 		Menu::HUDManager::RegisterHook(trampoline);
 		PackageOverride::EvalHook::RegisterHook();
 		CamHook::RegisterHook();
+		return true;
 	}
 }
 
@@ -158,7 +166,10 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		logger::critical("Exact-runtime compatibility validation failed; refusing to load NAF");
 		return false;
 	}
-	InitializeHooking();
+	if (!InitializeHooking()) {
+		logger::critical("Hook validation or installation failed; refusing to load NAF");
+		return false;
+	}
 
 	const auto messaging = F4SE::GetMessagingInterface();
 	if (!messaging || !messaging->RegisterListener(MessageHandler)) {

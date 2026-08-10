@@ -14,6 +14,9 @@ namespace Tasks
 		typedef bool(ProcessQueues)(void*, float, uint32_t);
 
 		REL::Relocation<ProcessQueues> OriginalProcessQueues;
+		inline std::atomic<std::uint64_t> diagnosticCallbackCount{ 0 };
+		inline std::atomic<std::uint32_t> diagnosticThreadID{ 0 };
+		inline bool diagnosticOnly = false;
 
 		std::mutex alignActorsLock;
 		std::vector<ActorAlignInfo> alignActors;
@@ -56,6 +59,21 @@ namespace Tasks
 
 		bool HookedGameLoop(void* qintfc, float unk01, uint32_t unk02) {
 			bool res = OriginalProcessQueues(qintfc, unk01, unk02);
+			if (diagnosticOnly) {
+				const auto count = diagnosticCallbackCount.fetch_add(1, std::memory_order_relaxed) + 1;
+				const auto threadID = static_cast<std::uint32_t>(GetCurrentThreadId());
+				if (count == 1) {
+					diagnosticThreadID.store(threadID, std::memory_order_relaxed);
+					logger::info("Game-loop diagnostic callback #1 after ProcessQueues on thread {}", threadID);
+				} else if (count <= 3 || count == 10 || count == 60) {
+					logger::info("Game-loop diagnostic callback #{} on thread {} (initial thread {})",
+						count,
+						threadID,
+						diagnosticThreadID.load(std::memory_order_relaxed));
+				}
+				return res;
+			}
+
 			Scene::SceneManager::UpdateScenes();
 			Scene::OrderedActionQueue::Update();
 
@@ -74,13 +92,30 @@ namespace Tasks
 			return res;
 		}
 
-		void RegisterHook(F4SE::Trampoline& trampoline)
+		[[nodiscard]] bool RegisterHook(F4SE::Trampoline& trampoline, bool a_diagnosticOnly = false)
 		{
 			//Main::UpdateNonRenderSafeAITasks + 0x1E
 			//Call to TaskQueueInterface::ProcessQueues
-			REL::Relocation<ProcessQueues> updateCallLoc{ REL::ID(338354), 0x1E };
+			//1.10.163: 338354 + 0x1E; 1.11.221: 2228937 + 0x1E.
+			//The unchanged numeric interior offset is independently verified, not translated.
+			REL::Relocation<ProcessQueues> updateCallLoc{ REL::RelocationID(338354, 2228937), 0x1E };
+			REL::Relocation<ProcessQueues> processQueues{ REL::RelocationID(882638, 2229181) };
+			const auto callSite = updateCallLoc.address();
+			std::int32_t displacement = 0;
+			std::memcpy(&displacement, reinterpret_cast<const void*>(callSite + 1), sizeof(displacement));
+			const auto encodedTarget = callSite + 5 + displacement;
+			if (*reinterpret_cast<const std::uint8_t*>(callSite) != 0xE8 || encodedTarget != processQueues.address()) {
+				logger::critical("Game-loop diagnostic hook validation failed at Address Library ID {} + 0x1E",
+					REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2228937 : 338354);
+				return false;
+			}
 
-			OriginalProcessQueues = trampoline.write_call<5>(updateCallLoc.address(), &HookedGameLoop);
+			diagnosticOnly = a_diagnosticOnly;
+			OriginalProcessQueues = trampoline.write_call<5>(callSite, &HookedGameLoop);
+			logger::info("Installed {}game-loop ProcessQueues hook at Address Library ID {} + 0x1E",
+				diagnosticOnly ? "diagnostic " : "",
+				REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2228937 : 338354);
+			return true;
 		}
 	}
 }
