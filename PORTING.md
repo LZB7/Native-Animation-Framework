@@ -837,3 +837,63 @@ types also retain the earlier ABI audit requirement. Until every class-A hook
 is recovered or explicitly prevented from registering, the produced artifact
 must remain an undeployed build artifact and must not be placed in the live
 F4SE plugin directory.
+
+## Main-menu startup diagnostic gate
+
+The complete synchronous initialization order was audited as:
+
+1. `F4SEPlugin_Query` creates the log and rejects non-1.11.221 runtimes.
+2. `F4SEPlugin_Load` calls `F4SE::Init`, which initializes `REL::Module`, loads
+   the Address Library database and captures F4SE interfaces.
+3. The exact-runtime `FreeUpAllMarkers` prologue guard is checked.
+4. Historical `InitializeHooking` allocated the trampoline and registered, in
+   order: game loop; graph update/Set3D; face update/lip; HUD mode; package
+   evaluate/check; free-camera update.
+5. Messaging, serialization and Papyrus callbacks were registered, game data
+   was initialized, and the game-data-ready message later registered menus and
+   entered additional subsystems.
+
+Registration of each detour/interior hook resolves and dereferences its target
+synchronously. Detour creation reads and patches the target prologue; call-site
+hooks patch the interior call instruction. Registration does not deliberately
+invoke the original target. The game-loop callback can nevertheless execute on
+the next engine frame; graph Set3D/update, facial update, HUD mode, package
+evaluation and camera update callbacks execute when their engine events occur.
+There are no ordering dependencies among these hooks for basic F4SE startup.
+
+For the first load only, `kStartupDiagnosticMode` is compile-time enabled in
+`main.cpp`. `InitializeHooking` returns before trampoline allocation or any
+relocation construction. The registered F4SE message listener logs message
+types and returns without game-data/menu initialization. Plugin load returns
+after messaging registration, before serialization, Papyrus, `Data::Global`,
+menus, scenes or gameplay systems are initialized. This is an explicit test
+configuration, not a claim that the hooks are obsolete or permanently
+optional. Every affected subsystem is logged as unavailable.
+
+### Hook matrix
+
+| Historical target | Purpose and historical hook semantics | NG target / offset | Evidence grade | Normal timing / diagnostic timing | Load status |
+| --- | --- | --- | --- | --- | --- |
+| `338354 + 0x1E` | Interior `call` from `Main::UpdateNonRenderSafeAITasks` to `TaskQueueInterface::ProcessQueues`; wrapper calls the original, then advances scenes, ordered actions and forced actor alignment | Unresolved | Historical source semantics; NG site unresolved | Every frame / registration deferred and scene scheduler unavailable | C: subsystem-only, but callback would execute immediately after load |
+| `1492656` | Entry detour of `IAnimationGraphManagerHolder::UpdateAnimationGraphManager`; observes graph update timing, calls original and updates NAF node graphs under NAF locks | Unresolved | Historical signature/source; NG entry unresolved | Graph update / deferred, body-animation graph subsystem unavailable | C |
+| `1216262` | Entry detour of `TESObjectREFR::Set3D`; calls original and refreshes registered NAF node graphs for the reference | Unresolved | Historical signature/source; NG entry unresolved | Reference 3D assignment / deferred, body-animation graph subsystem unavailable | C |
+| `317245 + 0xBA` | Interior call in `BSFaceGenNiNode::UpdateMorphing` to `BSFaceGenAnimationData::Update`; wrapper applies managed facial animation around the original update | Unresolved | Historical source/site description; NG instruction boundary unresolved | Face update / deferred, face animation unavailable | C |
+| `3139 + 0x158` | Interior call in `BSFaceGenAnimationData::Update` to `UpdateMorphsFromLip`; wrapper controls lip/morph processing for managed animation | Unresolved | Historical source/site description; NG instruction boundary unresolved | Lip update / deferred, face animation unavailable | C |
+| `1385889 + 0xA8` | Interior call in `HUDMenu::OnHUDMessage_SetMode` to `OnHUDModeChanged`; wrapper hides/restores NAF HUD around Pip-Boy mode, then calls original | Unresolved; distinct from verified HUD queue clear | Historical source/site description; NG instruction boundary unresolved | HUD mode message / deferred, NAF HUD unavailable | C |
+| `1395257 -> 2229805` plus `609985` | Paired package interception: suppresses actor package evaluation and new-package checks while NAF disallows evaluation; both wrappers conditionally call originals | EvaluatePackage pair is disassembly verified; CheckForNewPackage remains unresolved | Mixed: verified entry plus unresolved paired entry | Actor AI/package evaluation / entire pair deferred, package override unavailable | C; partial installation is unsafe |
+| `541110` | Entry detour of `FreeCameraState::Update`; calls original then applies active NAF free-camera translation/look-at input and node update | Unresolved | Historical signature/source; NG entry unresolved | Free-camera frame update / deferred, NAF camera controls unavailable | C |
+
+No hook was replaced by a maintained event in this pass: available F4SE task
+dispatch does not establish the post-`ProcessQueues` ordering required by the
+scene scheduler, and no maintained graph Set3D, face morph, HUD-mode, package
+decision or free-camera event was found that preserves the wrapper semantics.
+No new relocation or NG interior offset was promoted.
+
+With startup diagnostic mode enabled, no unresolved relocation is constructed,
+dereferenced, patched or called during synchronous initialization or the
+game-data-ready message. Release/x64/v143 still compiles and links with zero
+diagnostics, `COPY_BUILD=OFF`. This artifact is statically safe for a strictly
+main-menu-only diagnostic load: launch 1.11.221 through F4SE 0.7.8, reach the
+main menu without loading a save or opening NAF UI, exit, then inspect the F4SE
+loader and NAF logs for runtime/Address Library/guard/init success and the
+expected diagnostic-gate messages.
