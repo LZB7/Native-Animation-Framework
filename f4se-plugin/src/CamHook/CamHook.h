@@ -137,23 +137,21 @@ namespace CamHook
 						camNode->local.translate += (forward * forwardBackInput);
 						camNode->local.translate += (left * leftRightInput);
 
-						s->x = camNode->local.translate.x;
-						s->y = camNode->local.translate.y;
-						s->z = camNode->local.translate.z;
+						s->translation = camNode->local.translate;
 						
 						if (useExternalOrbit.load() == true && !orbitTarget.IsIdentity()) {
 							auto r = MathUtil::GetLookAtRotation(camNode->local.translate, orbitTarget.get());
-							s->yaw = r.x;
-							camNode->local.rotate.FromEulerAnglesZXY(s->yaw, s->pitch, 0.0f);
+							s->rotation.y = r.x;
+							camNode->local.rotate.FromEulerAnglesZXY(s->rotation.y, s->rotation.x, 0.0f);
 						}
 						
 					}
 
 					if (turnRightLeftInput != 0.0f || turnUpDownInput != 0.0f) {
 						doUpdate = true;
-						s->pitch += MathUtil::DegreeToRadian(turnUpDownInput * 0.5f);
-						s->yaw += MathUtil::DegreeToRadian(turnRightLeftInput * 0.5f);
-						camNode->local.rotate.FromEulerAnglesZXY(s->yaw, s->pitch, 0.0f);
+						s->rotation.x += MathUtil::DegreeToRadian(turnUpDownInput * 0.5f);
+						s->rotation.y += MathUtil::DegreeToRadian(turnRightLeftInput * 0.5f);
+						camNode->local.rotate.FromEulerAnglesZXY(s->rotation.y, s->rotation.x, 0.0f);
 					}
 				}
 
@@ -163,18 +161,18 @@ namespace CamHook
 					//We have to update both the free camera's numbers and the cam node's numbers to avoid input lag.
 					switch (pendingInput) {
 					case 1:
-						s->z += 1.0f;
+						s->translation.z += 1.0f;
 						camNode->local.translate.z += 1.0f;
 						break;
 					case 2:
-						s->z -= 1.0f;
+						s->translation.z -= 1.0f;
 						camNode->local.translate.z -= 1.0f;
 						break;
 					}
 
 					auto r = MathUtil::GetLookAtRotation(camNode->local.translate, lookAtNode->world.translate);
-					s->pitch = r.y;
-					s->yaw = r.x;
+					s->rotation.x = r.y;
+					s->rotation.y = r.x;
 
 					camNode->local.rotate.FromEulerAnglesZXY(r.x, r.y, 0.0f);
 				}

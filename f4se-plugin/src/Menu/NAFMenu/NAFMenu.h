@@ -155,7 +155,7 @@ namespace Menu
 			}
 		}
 
-		virtual void HandleEvent(const RE::ButtonEvent* a_event) override {
+		void OnButtonEvent(const RE::ButtonEvent* a_event) override {
 			if (!a_event->disabled && inputEventHandlingEnabled && menuObj.IsObject() && menuObj.HasMember("ProcessButtonEvent")) {
 				switch (a_event->GetBSButtonCode()) {
 					case RE::BS_BUTTON_CODE::kEscape:

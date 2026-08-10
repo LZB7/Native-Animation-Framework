@@ -4,21 +4,6 @@
 //stupid windows
 #undef DrawText
 
-namespace RE
-{
-	class HUDMenu
-	{
-	public:
-		bool CheckHUDMode(const BSFixedString& a_type)
-		{
-			using func_t = decltype(&HUDMenu::CheckHUDMode);
-			REL::Relocation<func_t> func{ REL::ID(1317216) };
-			return func(this, a_type);
-		}
-
-	};
-}
-
 namespace Menu
 {
 	typedef void(OnHUDModeChanged)(RE::HUDMenu*);
@@ -430,7 +415,10 @@ namespace Menu
 		}
 
 		static void OnHUDModeChanged(RE::HUDMenu* hud) {
-			if ((hud->CheckHUDMode("Pipboy")) && !hidden) {
+			const bool pipboyMode = std::ranges::any_of(hud->hudModes, [](const RE::HUDModeType& a_mode) {
+				return a_mode.modeString == "Pipboy";
+			});
+			if (pipboyMode && !hidden) {
 				SetAlpha(0.0f);
 				hidden = true;
 			} else if (hidden) {

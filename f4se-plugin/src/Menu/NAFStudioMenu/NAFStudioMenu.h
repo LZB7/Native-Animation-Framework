@@ -895,7 +895,7 @@ namespace Menu
 			}
 		}
 
-		virtual void HandleEvent(const RE::ButtonEvent* a_event) override
+		void OnButtonEvent(const RE::ButtonEvent* a_event) override
 		{
 			if (inputEventHandlingEnabled && a_event->strUserEvent != "NextFocus") {
 				switch (a_event->GetBSButtonCode()) {
