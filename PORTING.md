@@ -36,6 +36,14 @@ Those are useful references for NAF's Havok/math-heavy code, but they do not add
 because they are newer than the fork point. It is evidence, not the selected
 dependency.
 
+The first compiler pass adds an important qualification: the maintained fork
+dropped several Deweh APIs that NAF uses, while also adding declarations that
+overlap NAF's local RE shims. PANDA retains examples of those Deweh APIs (notably
+quaternion helpers and `Actor::GetSex`), but their single legacy IDs are not NG
+evidence. The selected strategy therefore remains the maintained NG runtime
+core, with only individually audited Deweh/PANDA declarations or local
+implementations restored. A wholesale PANDA substitution is still unjustified.
+
 ## Compatibility evidence levels
 
 - **Mechanically translated**: an authoritative old/NG ID pair exists and both
@@ -85,6 +93,12 @@ removed.
 | `CamHook.h` | 541110 | Unresolved; detour entry point requires matching |
 | Other custom RE wrappers | 69733, 652173, 356321, 1105206, 1225688, 1286348, 992878 | Unresolved; legacy IDs absent |
 | Studio settings/globals | 1302430, 644641 | Unresolved; global type and location require matching |
+
+`tools/match_runtime.py` now performs PE-unwind-bounded candidate searches using
+authoritative old/NG pairs from maintained headers as regional anchors. Its
+current fuzzy results are search hints only: no additional ID or interior-hook
+mapping has been promoted from that output because instruction/call semantics
+have not yet been established.
 
 CommonLib-provided RTTI/vtable constants used for `TESActionData` and
 `BSAnimGraphVisit::BShkbVisitor` now have NG-aware ID representations in the
