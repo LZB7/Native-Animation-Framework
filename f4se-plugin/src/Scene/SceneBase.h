@@ -75,7 +75,7 @@ namespace Scene
 	{
 		SceneManager::VisitScene(sceneId, [](IScene* scn) {
 			scn->ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap&) {
-				RE::BGSAnimationSystemUtils::InitializeActorInstant(currentActor, false);
+				RE::BGSAnimationSystemUtils::InitializeActorInstant(*currentActor, false);
 
 				if (currentActor == player) {
 					CamHook::LookAt(player->Get3D());
@@ -442,7 +442,7 @@ namespace Scene
 			for(auto& p : actors) {
 				t_intfc->AddTask([hndl = p.first]() {
 					if (auto a = hndl.get(); a != nullptr) {
-						RE::BSAnimationGraphEvent evnt{ a.get(), "AnimObjUnequip", "" };
+						RE::BSAnimationGraphEvent evnt{ reinterpret_cast<std::uint64_t>(a.get()), "AnimObjUnequip", "" };
 						RE::BGSAnimationSystemUtils::NotifyGraphSources(a.get(), evnt);
 					}
 				});

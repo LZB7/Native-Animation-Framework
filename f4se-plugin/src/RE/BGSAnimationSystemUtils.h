@@ -2,43 +2,8 @@
 
 namespace RE
 {
-	struct BSAnimationGraphEvent
-	{
-		TESObjectREFR* refr;
-		BSFixedString animEvent;
-		BSFixedString argument;  //Something like SoundPlay.>>Descriptorname<<
-	};
-
 	namespace BGSAnimationSystemUtils
 	{
-		struct ActiveSyncInfo
-		{
-			BSTObjectArena<BSTTuple<BSFixedString, float>> otherSyncInfo;
-			float currentAnimTime;
-			float animSpeedMult;
-			float totalAnimTime;
-		};
-
-		inline bool GetActiveSyncInfo(const IAnimationGraphManagerHolder* a_graphHolder, ActiveSyncInfo& a_infoOut)
-		{
-			using func_t = decltype(&GetActiveSyncInfo);
-			REL::Relocation<func_t> func{ REL::ID(1349978) };
-			return func(a_graphHolder, a_infoOut);
-		}
-
-		inline bool IsActiveGraphInTransition(const TESObjectREFR* a_refr)
-		{
-			using func_t = decltype(&IsActiveGraphInTransition);
-			REL::Relocation<func_t> func{ REL::ID(839650) };
-			return func(a_refr);
-		}
-
-		inline bool InitializeActorInstant(RE::Actor* a_actor, bool a_initializeNodes) {
-			using func_t = decltype(&InitializeActorInstant);
-			REL::Relocation<func_t> func{ REL::ID(672857) };
-			return func(a_actor, a_initializeNodes);
-		}
-
 		inline bool IsIdleLoading(RE::TESObjectREFR* a_ref, const BSFixedString& a_idl)
 		{
 			using func_t = decltype(&IsIdleLoading);
@@ -61,7 +26,7 @@ namespace RE
 
 		inline bool GetEventSourcePointersFromGraph(const TESObjectREFR* a_refr, BSScrapArray<BSTEventSource<RE::BSAnimationGraphEvent>*>& a_sourcesOut) {
 			using func_t = decltype(&GetEventSourcePointersFromGraph);
-			REL::Relocation<func_t> func{ REL::ID(897074) };
+			REL::Relocation<func_t> func{ REL::RelocationID(897074, 2249847) };
 			return func(a_refr, a_sourcesOut);
 		}
 
