@@ -1091,3 +1091,74 @@ sleeping, widening the callback, or initializing another subsystem. A
 a sufficiently long loaded-save run supports natural serialization but does not
 prove that the longer historical NAF workload could never extend across the next
 cycle.
+
+### Fourth diagnostic result and incremental workload plan
+
+The fourth loaded-save diagnostic reached at least callback 120. Worker identity
+continued to migrate and remained distinct from `Main::threadID`, while the
+opaque task-queue pointer stayed stable. Every sampled callback reported
+`entryInFlight=1`, `remainingInFlight=0`, and `maxInFlight=1`; the immediate
+overlap warning never fired. The recovered node is therefore runtime-executed,
+world-update active, worker-thread scheduled, thread-migrating, and empirically
+serialized for the observed run. This is not promoted to a formal no-overlap
+engine guarantee, nor does the evidence prove one invocation per rendered
+frame.
+
+Static registration nevertheless supports serialization as an intended engine
+property. Both runtimes register exactly one `NonRendersafeAI` node in the
+corresponding job graph, surrounded by named nodes and synchronization stages,
+and the callback performs a fixed update bundle. NAF contains no reentrancy
+test or outer callback mutex; instead it locks each state domain independently.
+Together with the runtime result, this strongly indicates that the original
+implementation relied on the job graph to schedule one logical invocation at a
+time, while allowing that node to migrate among workers. This remains an
+inference from graph identity, source structure and observation, not a formally
+documented scheduler contract.
+
+Historical post-`ProcessQueues` order and disposition:
+
+| Order | Work | Synchronization | Important calls/dependencies | Class |
+|---:|---|---|---|---|
+| 1 | Snapshot scene map | shared `scenesMapLock`; snapshot owns `shared_ptr`s | local container copy only | A, but not selected alone because it does not advance state |
+| 2 | Test queued detach eligibility | per-scene recursive `safe_mutex`; `shared_ptr::use_count` | local state/read-only bookkeeping | A for the test only |
+| 3 | Perform eligible detach | scene lock plus exclusive scene-map lock | removes map entry, walks actors, `EngineCompat::ModifyKeyword` | B; keyword/actor mutation is engine-facing |
+| 4 | Test scene update eligibility | scene lock | actor handle resolution and cell/loaded-data reads | B; layout is maintained, worker safety still needs validation |
+| 5 | Advance active scene | scene lock | animation transition/loading queries, idle playback, graph time, event delivery, actor transforms, collision, `UpdatePlayer3D` | C until graph and other unresolved interfaces are recovered; individual calls also require B validation |
+| 6 | Ordered-action delay test/decrement | `OrderedActionQueue::lock` | local `delayCounter` only | A |
+| 7 | Invoke queued custom/equipment/morph functions | same ordered-queue lock | arbitrary custom callback; equip manager; inventory; LooksMenu morph path | B for equip/inventory; C for arbitrary, morph and LooksMenu-sensitive work |
+| 8 | Deferred HUD cleanup reached by equipment actions | ordered-queue lock does not establish UI affinity | `SendHUDMessage::ClearMessages` and related UI state | C; HUD/UI remains gated |
+| 9 | Studio alignment snapshot/iteration | `alignActorsLock` | `NiPointer` vector and coordinate comparisons | A for container access only, but no useful state transition without actor work |
+| 10 | Apply studio alignment/collision correction | same alignment lock | `SetAngleOnReference`, `SetPosition`, collision/process compatibility calls | B/C; visible gameplay effect and unresolved subsystem dependencies |
+
+`InsertDelay(frames)` does not consult rendering. It enqueues a local lambda that
+adds `frames` to `delayCounter` when the ordered queue reaches it. Each later
+invocation of this exact game-loop callback decrements the counter once and
+returns before executing another queued action. Thus "frames" historically
+means `NonRendersafeAI` update cycles/callback ticks. Preserving that behavior
+does not require proving equivalence to rendered frames.
+
+The fifth diagnostic selects only order 6. At registration it takes the existing
+ordered-queue mutex and refuses to install unless the queue is empty and
+`delayCounter` is zero. It then seeds `delayCounter=3`. After each verified
+`ProcessQueues` call, a diagnostic-only helper takes the same mutex and performs
+only the historical `delayCounter > 0` decrement. It never invokes, removes or
+inspects the contents of a queued function. Three low-volume entries must show
+`3 -> 2`, `2 -> 1`, and `1 -> 0`, with `queued engine actions=0`. The existing
+threading samples and overlap warning remain active.
+
+Everything else remains gated: scene snapshot/update/detach, graph and animation
+work, actor/player updates, equipment and inventory operations, morphs,
+HUD/UI, studio alignment/collision, Papyrus, serialization, menus, package,
+camera and face systems. This diagnostic therefore validates NAF's own locked
+tick bookkeeping on the recovered worker node without causing gameplay-visible
+effects or entering an unresolved interface.
+
+Fifth runtime plan:
+
+1. launch Fallout 4 1.11.221 through F4SE 0.7.8 and load an ordinary save;
+2. remain idle for 30-60 seconds, optionally pause/unpause once;
+3. do not open NAF UI or start a scene;
+4. exit normally and inspect `NAF.log`;
+5. require the three ordered delay transitions, zero queued engine actions, no
+   overlap warning, `maxInFlight=1`, and the normal messages confirming all
+   gameplay initialization remains gated.

@@ -83,7 +83,7 @@ namespace
 	[[nodiscard]] bool InitializeHooking()
 	{
 		if constexpr (kStartupDiagnosticMode) {
-			logger::warn("Update diagnostic mode: only the verified game-loop observation hook is enabled; gameplay work remains gated");
+			logger::warn("Update diagnostic mode: verified game-loop hook plus category-A delay bookkeeping only; gameplay work remains gated");
 			auto& trampoline = F4SE::GetTrampoline();
 			trampoline.create(64);
 			if (!Tasks::GameLoopHook::RegisterHook(trampoline, true)) {

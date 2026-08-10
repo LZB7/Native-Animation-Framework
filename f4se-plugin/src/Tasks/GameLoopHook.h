@@ -20,6 +20,7 @@ namespace Tasks
 		inline std::atomic<std::uint32_t> diagnosticMaxInFlight{ 0 };
 		inline std::atomic<std::int64_t> diagnosticLastEntryQPC{ 0 };
 		inline std::atomic<bool> diagnosticOverlapReported{ false };
+		inline std::atomic<std::uint32_t> diagnosticBookkeepingTicks{ 0 };
 		inline bool diagnosticOnly = false;
 
 		std::mutex alignActorsLock;
@@ -83,6 +84,15 @@ namespace Tasks
 
 			bool res = OriginalProcessQueues(qintfc, unk01, unk02);
 			if (diagnosticOnly) {
+				const auto bookkeeping = Scene::OrderedActionQueue::UpdateBookkeepingDiagnostic();
+				if (bookkeeping.previousDelay != bookkeeping.currentDelay) {
+					const auto bookkeepingTick = diagnosticBookkeepingTicks.fetch_add(1, std::memory_order_relaxed) + 1;
+					logger::info("Category-A bookkeeping diagnostic #{}: ordered-action delay {} -> {}, queued engine actions={} (not executed)",
+						bookkeepingTick,
+						bookkeeping.previousDelay,
+						bookkeeping.currentDelay,
+						bookkeeping.queuedActions);
+				}
 				LARGE_INTEGER exitQPC{};
 				QueryPerformanceCounter(&exitQPC);
 				const auto remainingInFlight = diagnosticInFlight.fetch_sub(1, std::memory_order_acq_rel) - 1;
@@ -158,11 +168,19 @@ namespace Tasks
 				return false;
 			}
 
+			if (a_diagnosticOnly && !Scene::OrderedActionQueue::InitializeBookkeepingDiagnostic(3)) {
+				logger::critical("Category-A bookkeeping diagnostic requires an empty ordered-action queue and zero delay counter");
+				return false;
+			}
+
 			diagnosticOnly = a_diagnosticOnly;
 			OriginalProcessQueues = trampoline.write_call<5>(callSite, &HookedGameLoop);
 			logger::info("Installed {}game-loop ProcessQueues hook at Address Library ID {} + 0x1E",
 				diagnosticOnly ? "diagnostic " : "",
 				REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2228937 : 338354);
+			if (diagnosticOnly) {
+				logger::info("Category-A bookkeeping diagnostic armed: delayCounter=3; queued engine actions will remain deferred");
+			}
 			return true;
 		}
 	}
