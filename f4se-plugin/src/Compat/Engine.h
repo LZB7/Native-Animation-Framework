@@ -119,4 +119,33 @@ namespace EngineCompat
 		static REL::Relocation<func_t> func{ REL::RelocationID(149104, 2230240) };
 		func(a_actor);
 	}
+
+	inline void WarpToRef(RE::Actor* a_actor, const RE::TESObjectREFR* a_destination)
+	{
+		using func_t = void(RE::Actor*, const RE::NiPoint3&, float, float, RE::TESObjectCELL*, RE::TESWorldSpace*, bool, bool, bool);
+		static REL::Relocation<func_t> func{ REL::RelocationID(728864, 2229838) };
+		func(a_actor,
+			a_destination->data.location,
+			a_destination->data.angle.z,
+			0.0f,
+			a_destination->parentCell,
+			GetWorldSpace(a_destination->parentCell),
+			false,
+			false,
+			false);
+	}
+
+	inline void UpdatePlayer3D(RE::PlayerCharacter* a_player)
+	{
+		using func_t = void(RE::AIProcess*, RE::Actor*, bool);
+		static REL::Relocation<func_t> func{ REL::RelocationID(986782, 2231882) };
+		func(a_player->currentProcess, a_player, true);
+	}
+
+	inline void GetAnimationGraphProjectName(RE::IAnimationGraphManagerHolder* a_holder, RE::BSFixedString& a_name)
+	{
+		using func_t = void(RE::IAnimationGraphManagerHolder*, RE::BSFixedString&);
+		static REL::Relocation<func_t> func{ REL::RelocationID(190119, 2230292) };
+		func(a_holder, a_name);
+	}
 }

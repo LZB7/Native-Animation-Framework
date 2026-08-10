@@ -84,7 +84,7 @@ namespace Scene
 					player->DisableInputForPlayer("NAF_Scene", GetInputsToDisableForScene());
 				}
 
-				currentActor->SetGraphVariable("bHumanoidFootIKDisable", true);
+				currentActor->SetGraphVariableBool("bHumanoidFootIKDisable", true);
 			});
 
 			scn->ApplyEquipmentSet(scn->startEquipSet);
@@ -105,7 +105,7 @@ namespace Scene
 				bool hasPlayer = false;
 				scn->ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap&) {
 					hasPlayer = hasPlayer || currentActor == player;
-					currentActor->SetGraphVariable("bHumanoidFootIKDisable", false);
+					currentActor->SetGraphVariableBool("bHumanoidFootIKDisable", false);
 				}, false);
 				scn->TransitionToAnimation(nullptr);
 				scn->ApplyEquipmentSet(scn->stopEquipSet);
@@ -679,7 +679,7 @@ namespace Scene
 
 			ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap& props) {
 				if (currentActor == player) {
-					player->UpdatePlayer3D();
+					EngineCompat::UpdatePlayer3D(player);
 				}
 				RE::NiPoint3 actorLoc = location;
 				RE::NiPoint3 actorAngle = angle;
@@ -743,7 +743,7 @@ namespace Scene
 
 		for (auto& a : actors) {
 			if (a->parentCell != locationRef->parentCell)
-				a->WarpToRef(locationRef.get());
+				EngineCompat::WarpToRef(a.get(), locationRef.get());
 		}
 
 		if (EngineCompat::IsFurniture(locationRef.get())) {

@@ -7,6 +7,12 @@ REL::ID(190119);  // IAnimationGraphManagerHolder::GetAnimationGraphProjectName
 REL::ID(674794);  // TESNPC::GetHeight(TESObjectREFR*, TESRace*)
 REL::ID(973227);  // SendHUDMessage::ClearMessages
 REL::ID(781703);  // BSInputEnableManager singleton
+REL::ID(1431972); // PlayerCharacter::SetAIControlled
+REL::ID(53346);   // TESObjectREFR::DisableInputForPlayer
+REL::ID(478350);  // TESObjectREFR::ReenableInputForPlayer
+REL::ID(162201);  // PlayerCamera::Force3rdPerson
+REL::ID(1324833); // TESObjectREFR::FreeUpAllMarkers
+REL::ID(241336);  // UI::UpdateMenuMode
 REL::ID(672857);  // BGSAnimationSystemUtils::InitializeActorInstant
 REL::ID(839650);  // BGSAnimationSystemUtils::IsActiveGraphInTransition
 REL::ID(686648);  // BGSAnimationSystemUtils::IsIdleLoading

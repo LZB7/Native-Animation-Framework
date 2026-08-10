@@ -96,7 +96,7 @@ namespace Menu
 						c.animId = a.animId;
 						c.gender = restrictGenders ? static_cast<ActorGender>(a.actor->GetNPC()->GetSex()) : ActorGender::Any;
 						RE::BSFixedString behGraph;
-						a.actor->GetAnimationGraphProjectName(behGraph);
+						EngineCompat::GetAnimationGraphProjectName(a.actor.get(), behGraph);
 						c.behaviorGraphProject = behGraph;
 						if (useScales) {
 							c.scale = EngineCompat::GetScale(a.actor.get());

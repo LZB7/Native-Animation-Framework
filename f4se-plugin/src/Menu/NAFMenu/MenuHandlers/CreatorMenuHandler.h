@@ -779,7 +779,7 @@ namespace Menu::NAF
 				return result;
 
 			RE::BSFixedString behGraphName;
-			a_target->GetAnimationGraphProjectName(behGraphName);
+			EngineCompat::GetAnimationGraphProjectName(a_target, behGraphName);
 			if (auto info = Data::GetGraphInfo(behGraphName.c_str(), a_target->As<RE::Actor>()); info != nullptr) {
 				result.second = info->nodeList;
 				if (info->basePoseFile.has_value()) {
