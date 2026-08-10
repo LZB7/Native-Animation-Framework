@@ -70,7 +70,7 @@ namespace Menu
 						auto ControlMap = RE::ControlMap::GetSingleton();
 						auto UI = RE::UI::GetSingleton();
 						ControlMap->SetTextEntryMode(inTextEntry);
-						UI->UpdateMenuMode("NAFMenu", inTextEntry);
+						EngineCompat::UpdateMenuMode(UI, "NAFMenu", inTextEntry);
 					}
 					break;
 				}

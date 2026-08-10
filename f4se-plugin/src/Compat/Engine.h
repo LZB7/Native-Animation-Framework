@@ -148,4 +148,61 @@ namespace EngineCompat
 		static REL::Relocation<func_t> func{ REL::RelocationID(190119, 2230292) };
 		func(a_holder, a_name);
 	}
+
+	inline void UpdateMenuMode(RE::UI* a_ui, const RE::BSFixedString& a_menuName, bool a_enterMenuMode)
+	{
+		RE::BSAutoWriteLock lock{ RE::UI::GetMenuMapRWLock() };
+		const auto it = a_ui->menuMap.find(a_menuName);
+		if (it == a_ui->menuMap.end() || !it->second.menu) {
+			return;
+		}
+
+		auto* menu = it->second.menu.get();
+		if (menu->menuFlags.all(RE::UI_MENU_FLAGS::kPausesGame) == a_enterMenuMode) {
+			return;
+		}
+
+		const auto oldMenuMode = a_ui->menuMode;
+		menu->UpdateFlag(RE::UI_MENU_FLAGS::kPausesGame, a_enterMenuMode);
+		if (a_enterMenuMode) {
+			++a_ui->menuMode;
+		} else {
+			--a_ui->menuMode;
+		}
+
+		const RE::MenuModeCounterChangedEvent counterEvent{ a_menuName, a_enterMenuMode };
+		a_ui->GetEventSource<RE::MenuModeCounterChangedEvent>()->Notify(counterEvent);
+		if ((oldMenuMode == 0) != (a_ui->menuMode == 0)) {
+			const RE::MenuModeChangeEvent modeEvent{ a_menuName, a_ui->menuMode != 0 };
+			a_ui->GetEventSource<RE::MenuModeChangeEvent>()->Notify(modeEvent);
+		}
+	}
+
+	inline void Force3rdPerson(RE::PlayerCamera* a_camera)
+	{
+		using func_t = void(RE::PlayerCamera*);
+		static REL::Relocation<func_t> func{ REL::RelocationID(162201, 2248348) };
+		func(a_camera);
+	}
+
+	inline void DisableInputForPlayer(RE::PlayerCharacter* a_player, const char* a_layerName, std::uint32_t a_inputMask)
+	{
+		using func_t = void(RE::TESObjectREFR*, const char*, std::uint32_t);
+		static REL::Relocation<func_t> func{ REL::RelocationID(53346, 2200872) };
+		func(a_player, a_layerName, a_inputMask);
+	}
+
+	inline void ReenableInputForPlayer(RE::PlayerCharacter* a_player)
+	{
+		using func_t = void(RE::TESObjectREFR*);
+		static REL::Relocation<func_t> func{ REL::RelocationID(478350, 2200873) };
+		func(a_player);
+	}
+
+	inline void SetAIControlled(RE::PlayerCharacter* a_player, bool a_aiControlled)
+	{
+		using func_t = void(RE::PlayerCharacter*, bool);
+		static REL::Relocation<func_t> func{ REL::RelocationID(1431972, 2233087) };
+		func(a_player, a_aiControlled);
+	}
 }

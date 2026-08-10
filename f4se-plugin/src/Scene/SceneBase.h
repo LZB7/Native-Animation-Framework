@@ -80,8 +80,8 @@ namespace Scene
 				if (currentActor == player) {
 					CamHook::LookAt(player->Get3D());
 					GameUtil::SetFlyCam(true);
-					player->SetAIControlled(true);
-					player->DisableInputForPlayer("NAF_Scene", GetInputsToDisableForScene());
+					EngineCompat::SetAIControlled(player, true);
+					EngineCompat::DisableInputForPlayer(player, "NAF_Scene", GetInputsToDisableForScene());
 				}
 
 				currentActor->SetGraphVariableBool("bHumanoidFootIKDisable", true);
@@ -291,7 +291,7 @@ namespace Scene
 				} else {
 					if (RE::UI::GetSingleton()->GetMenuOpen("PipboyMenu"))
 						RE::UIMessageQueue::GetSingleton()->AddMessage("PipboyMenu", RE::UI_MESSAGE_TYPE::kHide);
-					RE::PlayerCamera::GetSingleton()->Force3rdPerson();
+					EngineCompat::Force3rdPerson(RE::PlayerCamera::GetSingleton());
 					EngineCompat::StopMoving(player, 5.0f);
 				}
 
@@ -331,8 +331,8 @@ namespace Scene
 				FaceAnimation::FaceUpdateHook::StopAnimation(currentActor->GetActorHandle());
 
 				if (currentActor == player) {
-					player->SetAIControlled(false);
-					player->ReenableInputForPlayer();
+					EngineCompat::SetAIControlled(player, false);
+					EngineCompat::ReenableInputForPlayer(player);
 				} else {
 					if (auto hadReadyWeap = GetProperty<bool>(props, kHadReadyWeapon); hadReadyWeap.has_value()) {
 						EngineCompat::ModifyKeyword(currentActor, Data::Forms::TeammateReadyWeaponKW, true);

@@ -25,7 +25,7 @@ namespace Menu::NAF
 					return RE::BSEventNotifyControl::kContinue;
 
 				if (event.opening) {
-					RE::UI::GetSingleton()->UpdateMenuMode("ContainerMenu", false);
+					EngineCompat::UpdateMenuMode(RE::UI::GetSingleton(), "ContainerMenu", false);
 				} else {
 					if (auto& a = state->sceneData->pendingActor; a.has_value()) {
 						auto targetActor = a.value().get().get();

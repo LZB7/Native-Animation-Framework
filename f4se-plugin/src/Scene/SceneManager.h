@@ -357,8 +357,8 @@ namespace Scene
 			}
 
 			if (a == player) {
-				player->DisableInputForPlayer("NAF_Scene", GetInputsToDisableForScene());
-				player->SetAIControlled(true);
+				EngineCompat::DisableInputForPlayer(player, "NAF_Scene", GetInputsToDisableForScene());
+				EngineCompat::SetAIControlled(player, true);
 				state->playerWalkInstance = uid;
 				keyReg = Data::Events::Subscribe(Data::Events::HUD_UP_KEY_DOWN, &OnHudUpKey);
 
@@ -399,8 +399,8 @@ namespace Scene
 			}
 
 			if (ref == player) {
-				player->ReenableInputForPlayer();
-				player->SetAIControlled(false);
+				EngineCompat::ReenableInputForPlayer(player);
+				EngineCompat::SetAIControlled(player, false);
 				state->playerWalkInstance = 0;
 
 				F4SE::GetTaskInterface()->AddUITask([]() {

@@ -435,7 +435,7 @@ namespace Papyrus::NAF
 
 	void ReEnablePlayerInput(std::monostate)
 	{
-		player->ReenableInputForPlayer();
+		EngineCompat::ReenableInputForPlayer(player);
 	}
 
 	/*
