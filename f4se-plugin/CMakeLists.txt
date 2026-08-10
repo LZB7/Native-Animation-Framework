@@ -92,7 +92,13 @@ endif ()
 find_package(spdlog REQUIRED CONFIG)
 find_package(libzippp 3.0 REQUIRED)
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/ik")
+# The pinned ik build increments a counter in its source tree on every build.
+# Build an exact working copy so generated metadata cannot dirty the gitlink.
+set(NAF_IK_SOURCE_COPY "${CMAKE_CURRENT_BINARY_DIR}/pinned-sources/ik")
+file(REMOVE_RECURSE "${NAF_IK_SOURCE_COPY}")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/extern/ik/" DESTINATION "${NAF_IK_SOURCE_COPY}"
+	PATTERN ".git" EXCLUDE)
+add_subdirectory("${NAF_IK_SOURCE_COPY}" "${CMAKE_CURRENT_BINARY_DIR}/extern/ik")
 
 # ---- Add source files ----
 
