@@ -18,7 +18,7 @@ namespace Menu
 				RE::UI_MENU_FLAGS::kCompanionAppAllowed
 			);
 
-			depthPriority.set(RE::UI_DEPTH_PRIORITY::kBook);
+			depthPriority = RE::UI_DEPTH_PRIORITY::kBook;
 
 			const auto ScaleformManager = RE::BSScaleformManager::GetSingleton();
 			if (!ScaleformManager->LoadMovieEx(*this, "Interface/NAFHUDMenu.swf", "root.Menu_mc", RE::Scaleform::GFx::Movie::ScaleModeType::kShowAll)) {

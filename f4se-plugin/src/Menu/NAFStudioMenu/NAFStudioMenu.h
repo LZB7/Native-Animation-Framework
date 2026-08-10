@@ -376,7 +376,7 @@ namespace Menu
 				RE::UI_MENU_FLAGS::kCompanionAppAllowed,
 				RE::UI_MENU_FLAGS::kUsesCursor);
 
-			depthPriority.set(RE::UI_DEPTH_PRIORITY::kHUD);
+			depthPriority = RE::UI_DEPTH_PRIORITY::kHUD;
 
 			const auto ScaleformManager = RE::BSScaleformManager::GetSingleton();
 			if (!ScaleformManager->LoadMovieEx(*this, "Interface/NAFStudioMenu.swf", "root.Menu_mc", RE::Scaleform::GFx::Movie::ScaleModeType::kShowAll)) {

@@ -1,5 +1,20 @@
 #pragma once
 
+namespace cereal
+{
+	template <class Archive>
+	void serialize(Archive& a_archive, RE::NiPoint3& a_value)
+	{
+		a_archive(a_value.x, a_value.y, a_value.z);
+	}
+
+	template <class Archive>
+	void serialize(Archive& a_archive, RE::NiQuaternion& a_value)
+	{
+		a_archive(a_value.w, a_value.x, a_value.y, a_value.z);
+	}
+}
+
 namespace Serialization
 {
 	namespace General
@@ -25,7 +40,7 @@ namespace Serialization
 		template <typename T>
 		RE::BSPointerHandle<T> EmptyHandle()
 		{
-			return RE::BSPointerHandle<T>(RE::BSUntypedPointerHandle(0));
+			return {};
 		}
 
 		template <typename T>
@@ -45,7 +60,7 @@ namespace Serialization
 		{
 			auto frm = DeserializeForm<T>(formId);
 			if (frm != nullptr) {
-				return  RE::BSPointerHandle<T>(RE::BSUntypedPointerHandle(frm->GetHandle().native_handle()));
+				return RE::BSPointerHandle<T>(frm);
 			} else {
 				logger::warn(FMT_STRING("Ref ID from co-save is not valid. Empty handle will be used."));
 				return EmptyHandle<T>();
@@ -233,7 +248,8 @@ namespace Serialization
 
 			uint32_t hash() const
 			{
-				return data.native_handle_const();
+				auto handle = data;
+				return handle.native_handle();
 			}
 
 			RE::BSPointerHandle<T> native() const {
@@ -247,11 +263,11 @@ namespace Serialization
 
 			bool operator==(SerializableHandle<T> other) const
 			{
-				return data.native_handle_const() == other.data.native_handle_const();
+				return data == other.data;
 			}
 
 			operator bool() const {
-				return data.native_handle_const() > 0;
+				return static_cast<bool>(data);
 			}
 
 			template <class Archive>

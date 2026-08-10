@@ -6,7 +6,15 @@
 
 namespace Data
 {
-	using SkeletonMapType = std::map<RE::BSFixedString, RE::BSFixedString>;
+	struct BSFixedStringLess
+	{
+		[[nodiscard]] bool operator()(const RE::BSFixedString& a_lhs, const RE::BSFixedString& a_rhs) const noexcept
+		{
+			return _stricmp(a_lhs.c_str(), a_rhs.c_str()) < 0;
+		}
+	};
+
+	using SkeletonMapType = std::map<RE::BSFixedString, RE::BSFixedString, BSFixedStringLess>;
 
 	class Animation;
 	class Position;
@@ -94,7 +102,7 @@ namespace Data
 			}
 		};
 
-		inline static ThreadSafeAccessor<std::map<RE::BSFixedString, RE::BSFixedString>> RaceLinkMap;
+		inline static ThreadSafeAccessor<SkeletonMapType> RaceLinkMap;
 
 		inline static IDMap<Race> Races;
 		inline static IDMap<Animation> Animations;

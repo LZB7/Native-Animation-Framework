@@ -458,7 +458,7 @@ public:
 			if (segs.empty())
 				return {};
 
-			Segment curSeg;
+			Segment curSeg = segs.front();
 
 			if (t < segs.front().startTime) {
 				curSeg = segs.front();

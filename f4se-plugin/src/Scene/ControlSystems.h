@@ -75,7 +75,9 @@ namespace Scene
 		template <class Archive>
 		void serialize(Archive& ar, const uint32_t)
 		{
-			ar(cereal::base_class<IControlSystem>(this), currentAnim, state._impl, id, queuedNextId, startMorphSet, stopMorphSet);
+			auto stateValue = state.underlying();
+			ar(cereal::base_class<IControlSystem>(this), currentAnim, stateValue, id, queuedNextId, startMorphSet, stopMorphSet);
+			state = static_cast<StateFlag>(stateValue);
 		}
 	};
 

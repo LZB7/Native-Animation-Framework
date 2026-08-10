@@ -20,7 +20,7 @@ namespace Menu
 				RE::UI_MENU_FLAGS::kUsesMovementToDirection
 			);
 
-			depthPriority.set(RE::UI_DEPTH_PRIORITY::kTerminal);
+			depthPriority = RE::UI_DEPTH_PRIORITY::kTerminal;
 
 			const auto ScaleformManager = RE::BSScaleformManager::GetSingleton();
 			if (!ScaleformManager->LoadMovieEx(*this, "Interface/NAFMenu.swf", "root.Menu_mc", RE::Scaleform::GFx::Movie::ScaleModeType::kShowAll)) {
