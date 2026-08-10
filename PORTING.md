@@ -1436,3 +1436,181 @@ Overall rule: Addictol and its PDB may identify high-quality candidates and
 provide independent corroboration. Any NAF engine-facing relocation, virtual
 slot, ABI-sensitive layout, detour entry, or interior instruction site remains
 subject to the existing old/new binary semantic verification threshold.
+
+## Dear-Modding-FO4/CommonLibF4 reference audit
+
+Audited standalone commit `54c5f576e31410f393abebeebca366e970e824f4`
+with `commonlib-shared` commit
+`dfd28a41a832108c4de1367608bd42e1ba477212`. This is the same CommonLib
+revision pinned by the audited Addictol checkout; AddictolCrashLogger pins the
+older CommonLib commit `a08c731eead4dfc6ea55aea4649c22aec05a47fe`.
+The repository remains reference-only and was not substituted for NAF's
+selected dependency.
+
+### Runtime and relocation architecture
+
+The fork explicitly models three runtime classes:
+
+| Runtime index | Version range used by the code | Intended label |
+|---:|---|---|
+| 0 | exactly `1.10.163.0` | OG |
+| 1 | greater than OG through `1.10.984.0` | NG |
+| 2 | greater than `1.10.984.0`, including `1.11.221.0` | AE |
+
+`REL::VariantID` accepts a runtime-ordered mixture of Address Library IDs and
+`REL::Offset` RVAs. Missing trailing operands repeat the last supplied value,
+so `{ og, ng }` means “use the NG identifier for AE too”; it does not perform a
+semantic translation. Three-operand declarations are used where AE has a
+distinct ID namespace. The fork's recent history explicitly includes runtime
+`1.11.221.0` support and synchronization of libxse's 1.11.221 data.
+
+The Address Library lookup is fail-closed. Older sorted formats require
+`lower_bound` to return an entry whose ID is exactly equal. New dense format 5
+requires the ID to be in range and its resolved offset to be nonzero. The
+loader also validates runtime version and the library hash. This is materially
+safer than the pre-fix alandtse lookup that returned the next sorted record for
+a missing NG ID, and independently validates the strict check now carried by
+NAF's selected dependency.
+
+The AE identifiers are not numerically compatible with NAF's supplied legacy-
+format 1.11.221 database. For example, the fork declares player singleton AE
+ID `4798212`; looking that number up in NAF's supplied database yields RVA
+`0x31E2DD0`, not the player global. The fork expects its newer AE namespace/
+database format. Numeric IDs must therefore never be copied between these
+schemes without resolving them using the matching database.
+
+### PlayerCharacter singleton reconciliation
+
+The fork declares:
+
+```text
+OG ID 303410 / NG ID 2690919 / AE ID 4798212
+REL::Relocation<NiPointer<PlayerCharacter>*>
+return singleton->get()
+```
+
+This agrees with historical Deweh, PANDA, alandtse and Addictol on the storage
+model: one intrusive `NiPointer<PlayerCharacter>` global and one pointer
+extraction, not an extra global-wrapper dereference. It materially clarifies
+runtime selection: `2690919` belongs to 1.10.984, while 1.11.221 selects the
+third entry. The fork does not ship the matching AE Address Library in its
+source tree, so AE ID `4798212` cannot be resolved directly with the audited
+source alone. It must not be interpreted through NAF's supplied older
+namespace, where it maps elsewhere.
+
+The fork therefore does not independently produce numeric RVA `0x32D22E0` from
+its own files. It does strongly corroborate the runtime-classification and
+indirection analysis that led to that RVA. NAF's mapping remains independently
+**disassembly verified** as old ID `303410` / RVA `0x5AA4388` to supplied-library
+ID `2698073` / RVA `0x32D22E0`, using the matched constructors/initializers and
+global retain/store/release sequence. There is no semantic conflict: the two
+AE IDs belong to different Address Library namespaces.
+
+### TESObjectREFR::Get3D and a declaration-order defect
+
+All compared families label the no-argument virtual `Get3D()` as slot `0x8C`
+(byte offset `0x460`). Historical Deweh and PANDA place a separate preceding
+overload in slot `0x8B`, then the no-argument method in `0x8C`. The audited
+Dear-Modding fork, CommonLibF4-NG, and the currently selected alandtse header
+instead declare the no-argument method first while retaining comments
+`// 8C` and `// 8B`:
+
+```text
+declared first:  Get3D() const                 // comment 8C
+declared second: Get3D(bool) const             // comment 8B
+```
+
+C++ vtable order follows declaration order, not comments. This is an ABI-
+significant discrepancy, not cosmetic naming drift.
+
+The Addictol Crash Logger PDB distinguishes concrete 1.11.221 symbols:
+
+- RVA `0x50D9A0`: `TESObjectREFR::Get3D(void)`;
+- RVA `0x50DA00`: `TESObjectREFR::Get3D(BSScrapArray<NiAVObject*>&)`;
+- RVA `0xD5BCC0`: `PlayerCharacter::Get3D(void)`.
+
+Independent inspection of the clean 1.11.221 executable and NAF's supplied
+Address Library resolves the primary `TESObjectREFR` vtable (ID `179707`) to
+RVA `0x249CBC8`; entry `0x8C` points to PDB-named RVA `0x50D9A0`. The primary
+`PlayerCharacter` vtable (ID `1400465`) resolves to RVA `0x2564848`; entry
+`0x8C` points to PDB-named RVA `0xD5BCC0`. Thus the no-argument call is now
+**statically verified with Address Library, vtable, clean-binary and PDB
+evidence** at slot `0x8C` / byte offset `0x460`.
+
+The selected header's current source ordering would dispatch a no-argument
+source call through physical slot `0x8B`, despite its `0x8C` comment. The PDB
+also contradicts the header's asserted `bool` signature for the other named
+TESObjectREFR overload by naming an array-reference overload at `0x50DA00`;
+slot `0x8B` requires further signature reconstruction. This does not establish
+worker-thread safety. It does establish that corrected test six must not be
+rerun using ordinary virtual dispatch from the current misordered declaration.
+No diagnostic was changed during this audit, per the stage restriction.
+
+### Unresolved-interface findings
+
+| Interface | Dear-Modding declaration/address evidence | Comparison and grade |
+|---|---|---|
+| `FreeUpAllMarkers` | no wrapper/ID in CommonLib | PDB alone names RVA `0x55F490`; existing disassembly-verified guarded fallback remains authoritative |
+| `SetLinkedRef` | `void TESObjectREFR::SetLinkedRef(Actor*, BGSKeyword*)`, IDs `192840 / 2202684`; AE repeats the latter | supplied 1.11.221 DB resolves `2202684` to PDB-named RVA `0x5645B0`; strong address/signature candidate, still needs focused caller/body verification because header first parameter is narrower than PDB's `TESObjectREFR*` |
+| `GetAnimationGraphProjectName` | absent from holder wrapper and IDs | PDB-named RVA `0x818730` remains the best candidate; no new callable declaration |
+| `InitializeActorInstant` | `bool(Actor&, bool)`, IDs `672857 / 2236393` | supplied DB resolves `2236393` to PDB-named RVA `0xE13E40`; independent source/address agreement, still binary-semantic verification required |
+| `IsActiveGraphInTransition` | wrapper takes `const TESObjectREFR*`, IDs `839650 / 2214305` | supplied DB resolves to PDB-named RVA `0x806370`; PDB names a reference parameter, so exact const/pointer ABI semantics require checking |
+| `IsIdleLoading` | not found | unresolved; no evidence of removal or replacement |
+| `RunActionOnActor` | not found | unresolved; no evidence of removal or replacement |
+| graph variable setters | holder wrappers and IDs `1437197/2214543`, `27400/2214545`, `732926/2214544` | agrees with already migrated maintained API surface; source/address evidence |
+| graph manager holder | virtual slots `0x00-0x19`, including manager get/set at `0x04/0x05` | broad declaration agreement; slot comments remain declaration-only until a used slot is checked |
+| `BSModelDB::Demand` | overloads returning `BSResource::ErrorCode`; IDs `1066398/2275153` and `1225688/2275154`; 12-byte `ArgsType` | agrees with NAF's recovered signatures/argument layout; supplied DB resolves target RVAs `0x17B3E30` and `0x17B3FB0` |
+| `BSInputEnableManager` | singleton `781703/2689007/4796297`, size `0x180`, allocation and enable wrappers | useful three-runtime layout/API evidence; AE ID namespace must be resolved with matching DB before use |
+| HUD clearing | empty `ClearHUDMessagesEvent` plus complete RTTI/vtable identities | strengthens event-subsystem identity but exposes no send/clear helper equivalent to NAF's historical stateful queue operation |
+| player camera | size `0x1B0`; singleton, push/pop/set-state and mode operations | useful callable surface; does not identify legacy camera detour `541110` or prove transition equivalence |
+| package/process | extensive `AIProcess`, actor package and `TESPackageEvent` declarations | useful reference surface but no direct NAF package-hook mapping |
+| hit/effect | `DamageImpactData`, `HitData`, `TESHitEvent`, reference effect and art/shader APIs | layouts agree with selected CommonLib; no new proof for NAF's transient-effect behavior |
+| Papyrus/events | maintained VM/event source wrappers with F4SE lifecycle support | useful API confirmation; no direct resolution of gated NAF registration semantics |
+| collision/player 3D | filter no-collision helper, reference 3D update APIs, PlayerCharacter 3D overrides | callable candidates only; `Get3D` slot issue above is load-test relevant |
+
+### Structure and Havok comparison
+
+The following sizes and substantive member offsets agree with NAF's selected
+alandtse dependency: `PlayerCharacter 0xE10`, `TESObjectREFR 0x110`,
+`BSAnimationGraphManager 0xE0`, `BSAnimationGraphVariableCache 0x40`,
+`BSAnimationGraphEvent 0x18`, `DamageImpactData 0x40`, `HitData 0xE0`,
+`TESHitEvent 0x110`, `FreeCameraState 0x58`, `BSInputEnableManager 0x180`, and
+`BSLightingShaderProperty 0xE8`. Graph-manager arrays, cache pointer/lock,
+active-graph fields, hit-data offsets and input-manager locks/layers also match.
+Most differences are namespace/type-wrapper spelling (`REX::TEnumSet` versus
+`REX::EnumSet`) or header organization and do not justify churn.
+
+The Dear-Modding fork supplies extensive generated Havok RTTI/vtable IDs but
+does not declare the detailed `hkbCharacter`, `hkbBehaviorGraph`, generator or
+root-generator layouts NAF historically depended upon. It is therefore less
+useful than NAF's selected CommonLib plus the historical/PANDA/NG sources for
+those ABI-sensitive interiors. Generated RTTI ID agreement is object-identity
+evidence, not layout evidence.
+
+The important structural disagreement exposed by this audit is the
+`TESObjectREFR::Get3D` overload declaration order/signature. No other audited
+size difference warrants changing NAF declarations at this stage.
+
+### Addictol upstreaming and disposition
+
+This repository is the generalized engine layer Addictol consumes, rather than
+an independent implementation isolated from Addictol. Its history includes
+explicit 1.11.221/libxse synchronization, hundreds of OG mappings, three-way
+RTTI IDs, AE singleton mappings, player/camera/input helpers, animation-system
+wrappers, hit-event layouts and model-demand APIs subsequently used by Addictol.
+That makes it valuable corroborating collaborative RE evidence, but the shared
+dependency lineage means agreement between Addictol and this fork is not two
+fully independent sources.
+
+Audit disposition:
+
+- player singleton understanding is strengthened but its verified NAF RVA does
+  not change;
+- the fork's AE ID cannot be used with NAF's supplied Address Library namespace;
+- `Get3D(void)` slot `0x8C` is now independently statically verified;
+- the current selected header's declaration order is unsafe for the planned
+  source-level virtual call;
+- test six must remain on hold until that ABI issue is deliberately corrected
+  or the verified slot is invoked through an equally narrow, guarded mechanism;
+- no runtime code, diagnostic, hook, relocation or build artifact was changed
+  during this reference-only audit.
