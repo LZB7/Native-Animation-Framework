@@ -580,3 +580,31 @@ unchanged: no argument flags, queue target, or project accessor were guessed.
 The four animation functions explicitly deprioritized for this stage remain
 unchanged because none is a current compiler diagnostic. No virtual slot or
 interior-hook location was newly promoted in this pass.
+
+## Final compile-blocker pass (2026-08-10)
+
+Release/x64/v143 started at **27 diagnostics** and now reports **19**. Linking
+has not been reached. The reductions were: `SetLinkedRef` 1, `WarpToRef` 1,
+graph-variable setting 2, `UpdatePlayer3D` 1, and
+`GetAnimationGraphProjectName` 3.
+
+| Family | Start | End | Result / evidence |
+| --- | ---: | ---: | --- |
+| `SetLinkedRef` | 1 | 0 | Historical Deweh and PANDA declarations accept `const TESObjectREFR*`; the maintained/NG `Actor*` narrowing was corrected. Pointer ABI is unchanged. The legacy engine ID 192840 itself still lacks an established NG pair, so the call remains runtime-unresolved. |
+| `Force3rdPerson` | 1 | 1 | Old ID 162201 performs conditional transition bookkeeping, target update, third-person state preparation, and `SetState`; maintained `SetState` alone is not equivalent. Unresolved. |
+| `UpdatePlayer3D` | 1 | 0 | Old ID 894747 is only a wrapper loading `currentProcess` and tail-calling core 986782 with `(process, player, true)`. Core **986782 -> 2231882** is instruction-level equivalent, including TLS marker, actor/process fields, branches, and corresponding callees. Disassembly verified; runtime test required. |
+| `WarpToRef` | 1 | 0 | Old ID 728864 maps to refactored NG wrapper **2229838**. It consumes the same destination position, Z angle, zero X rotation, cell, exterior worldspace, and three false flags before delegating to the NG move core. Disassembly verified; cell/physics behavior requires runtime testing. |
+| `FreeUpAllMarkers` | 1 | 1 | Old ID 1324833 releases FURN/TERM marker state and removes extra data type 0x12. The equivalent enlarged NG function was found immediately before ID 2202576 at RVA 0x55F4E0, but its entry has no Address Library ID. No unsafe RVA relocation was added. |
+| graph bool setter | 2 | 0 | Old wrapper 1437197 and NG **2214543** are byte/instruction equivalent typed wrappers and call corresponding typed cores. Disassembly verified; runtime test required. |
+| `UI::UpdateMenuMode` | 2 | 2 | Old ID 241336 locks the menu map, changes flag 1 at menu +0x58, maintains UI menu-mode count +0x1E0, and dispatches two events. Candidates 2283112 and 4506182 were rejected because they do not implement that behavior. |
+| `BSModelDB::Demand` | 2 | 2 | Maintained API requires a 12-byte `DBTraits::ArgsType`. NAF's old wrapper supplied a reference to an 8-byte integer default (`3`), leaving byte 8 outside the object; that undefined historical call cannot establish the six request bits. No flags were guessed. |
+| graph project name | 3 | 0 | **190119 -> 2230292** is disassembly verified. NG inlines the former helper: holder vslot 0x20, manager lifetime, lock +0xC8, active index +0xD8, graph array +0x40/+0x48/+0x50, and project-string leaf all correspond. Runtime test required for returned string ownership. |
+| HUD clear | 4 | 4 | Old coupled IDs 973227/1109561 remain understood only historically; the NG queue owner and operation are unresolved. Candidate 2222001 remains rejected. |
+| AI/input cluster | 8 | 8 | Historical `SetAIControlled` calls several actor/player operations, clears global state, conditionally invokes input restoration, and changes bit 1 at player +0xDFE. Disable/reenable input manages named input-layer/extra-data objects and invalidation/release paths. It is not equivalent to guessed flag writes or a blanket input-manager toggle; NG targets remain unresolved. |
+
+No virtual slot or interior hook was newly promoted. The smallest remaining
+compile-blocker set is the AI/input state machine (8 diagnostics), HUD queue
+clearing (4), `BSModelDB` request construction (2), `UI::UpdateMenuMode` (2),
+and one each for `Force3rdPerson` and `FreeUpAllMarkers` (19 total). The bounded
+candidate search for these exact interfaces timed out without producing a
+candidate; no evidence grade was changed as a result.
