@@ -40,7 +40,7 @@ namespace Menu
 
 		void Add(RE::TESObjectREFR* ref) {
 			if (ref && HasEffect()) {
-				hoverEffect->Play(ref);
+				EngineCompat::PlayEffectShader(hoverEffect, ref);
 				refs.insert(ref->GetHandle());
 			}
 		}
@@ -54,7 +54,7 @@ namespace Menu
 		void Remove(RE::TESObjectREFR* ref)
 		{
 			if (ref && refs.contains(ref->GetHandle())) {
-				hoverEffect->Stop(ref);
+				EngineCompat::StopEffectShader(hoverEffect, ref);
 			}
 		}
 
@@ -63,7 +63,7 @@ namespace Menu
 				for (auto& h : refs) {
 					auto r = h.get().get();
 					if (r) {
-						hoverEffect->Stop(r);
+						EngineCompat::StopEffectShader(hoverEffect, r);
 					}
 				}
 			}
