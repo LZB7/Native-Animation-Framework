@@ -248,3 +248,92 @@ source into the build tree and configures that copy. The original submodule is
 unchanged and remains clean after builds; its expected numeric value was not
 modified. The historical script may still warn while operating on the build
 copy, but it no longer dirties pinned dependency content.
+
+## Focused engine-interface recovery (2026-08-10)
+
+This pass began from concrete compiler blockers and did not run a broad
+relocation sweep. It established one safe layout migration and one important
+limitation of the supplied historical binary.
+
+### Animation graph manager and input declarations
+
+NAF's local `BSAnimationGraphVariableCache` and `BSAnimationGraphManager`
+declarations were compared field-by-field with maintained CommonLibF4. The
+inheritance, member sequence, offsets (`graph` 0x40, `updateLock` 0xC8,
+`activeGraph` 0xD8), alignment, and total sizes (0x40 and 0xE0) agree. NAF now
+uses the maintained declarations. This is **statically verified layout/API**;
+the contained `BShkbAnimationGraph`/Havok layouts and operations remain
+unresolved. Current `hkRefPtr` exposes its pointer as `_ptr`, so graph/root
+generator access was migrated without changing ownership or adding an engine
+call.
+
+The NAF-local `BSInputEnableManager` declaration had no call sites anywhere in
+NAF; it was included only through `ExtraREClasses.h`. It has been removed rather
+than reconstructing three unused legacy relocations (781703, 920956, 230159).
+Maintained CommonLib does declare the 0x180 manager and implements
+`ClearForcedState`/`ForceUserEventEnabled` locally under its lock, but its
+singleton still uses legacy-only ID 781703. No singleton mapping is asserted.
+
+### Historical executable is not a static disassembly image
+
+The supplied 1.10.163 executable is version-correct and retains its previously
+recorded SHA-256, but its `.text` section is SteamStub-encrypted: `.text` spans
+RVA 0x1000-0x2C0BF8F and has measured entropy 8.000 bits/byte. It also contains
+the `.bind` section typical of that wrapper. At Address Library ID 1446774
+(RVA 0xE35510), the on-disk bytes decode as random/invalid instructions rather
+than a function prologue. By contrast, the supplied 1.11.221 image has a normal
+`.text` entropy of 6.475 and ID 2231704 at RVA 0xCFAD40 disassembles as a
+coherent 0x390-byte function.
+
+Consequently the requested old/new instruction-level comparison cannot be
+performed from the current historical file. PE unwind boundaries and similarity
+scores derived from encrypted old bytes are not semantic evidence and all such
+earlier candidate output is disregarded. Focused analysis tools are retained in
+`tools/dump_function.py` and `tools/focused_interfaces.h` so the audit can be
+repeated against an unpacked image.
+
+PANDA records the following explicit pairs, and both sides resolve in their
+respective Address Library databases:
+
+- `AIProcess::SetupSpecialIdle`: 1446774 -> 2231704
+- `AIProcess::ClearCurrentPackage`: 241540 -> 2231582
+- `AIProcess::ClearCurrentDataForProcess`: 577581 -> 2232435
+
+These remain **mechanically translated only**. PANDA's declaration is useful
+source evidence, and the proposed NG targets contain executable code, but the
+historical implementations cannot yet be compared for signature, argument use,
+side effects, or call-graph identity. They have therefore not been added to NAF.
+PANDA leaves `GetAnimationGraphProjectName` (190119), actor/race-dependent
+`TESNPC::GetHeight` (674794), HUD `ClearMessages` (973227), and the input
+singleton (781703) as legacy-only IDs as well.
+
+### Unresolved interface table
+
+| NAF call site | Historical mechanism | 1.10.163 evidence | Proposed 1.11.221 mechanism | Grade | Remaining uncertainty |
+| --- | --- | --- | --- | --- | --- |
+| `GameUtil::AcquireGraphLock` | Direct manager fields and Havok pointers | Deweh layout/source | Maintained manager layout; local Havok traversal | Manager layout statically verified; traversal unresolved | `BShkbAnimationGraph`, character, behavior graph, root generator layouts and called functions |
+| `SmartIdle` / `DynamicIdle` | `AIProcess::PlayIdle(actor*, 0x35, idle)` | Historical NAF call plus Deweh wrapper | Maintained `PlayIdle` -> `SetupSpecialIdle`, PANDA pair 1446774->2231704 | Mechanically translated only | Old executable must be decrypted to verify argument mapping, default action and side effects |
+| `PackageOverride::Manager` | `ClearCurrentPackage`, `ClearCurrentDataForProcess`, then actor package evaluation | Deweh signatures; old IDs 241540/577581 | PANDA pairs 2231582/2232435; EvaluatePackage pair previously recorded | Mechanically translated only | Instruction/call semantic comparison and operation ordering |
+| graph-name users | Engine wrapper ID 190119, output `BSFixedString&` | Deweh/PANDA agree on signature | No established target | Unresolved | Focused old/new function and caller analysis |
+| `GameUtil::CalcActorScale` | `TESNPC::GetHeight(refr, race)`, ID 674794 | Deweh/PANDA agree on actor/race arguments | No maintained equivalent or established target | Unresolved | Must preserve actor/race-dependent calculation, not substitute raw NPC height fields |
+| `SceneBase::ClearAnimObjects` | Construct event with holder pointer and notify graph event sources | Deweh event field is `TESObjectREFR*` | Maintained event field is `const uint64_t holderID` | Unresolved ABI/semantics | Determine whether field is pointer bits, handle/ID, or changed ownership; verify source dispatch function |
+| `OrderedActionQueue` | HUD `ClearMessages`, ID 973227 | Deweh/PANDA legacy wrapper | No established target | Unresolved | Focused UI call graph and message-queue global analysis |
+| camera/HUD hooks | Detour or interior call-site patches | Historical IDs/offsets only; historical `.text` encrypted | No established targets | Unresolved | Requires unpacked old code, then independent instruction-boundary/register/trampoline audit |
+| hit/effect call sites | Custom event structures and transient-effect ID 652173 | Deweh layouts/wrappers | Maintained event/effect types exist but differ | Unresolved ABI/semantics | Constructor/access pattern and dispatch analysis; minimize fields used by NAF |
+
+### Build boundary after this pass
+
+A Release `ClCompile` pass still reaches the 100-error cap (102 reported) and
+does not reach linking. The previous `BSAnimationGraphManager` redefinition and
+`hkRefPtr::get` errors are gone, as are all NAF-local `BSInputEnableManager`
+errors. The leading failures are now the duplicate animation event/utility
+declarations, hit/effect declarations, and the unresolved engine-facing methods
+listed above. No new 1.11.221 relocation, virtual slot, or interior offset was
+promoted in this pass.
+
+To continue instruction-level recovery without weakening the evidence standard,
+the exact missing input is an **unpacked/decrypted Fallout4.exe 1.10.163.0** (or
+a full module image dumped from a running 1.10.163 process after SteamStub has
+decrypted `.text`). It should retain the normal PE image layout/RVAs so the
+1.10.163 Address Library remains applicable. The live 1.11.221 installation
+does not need to be modified.
