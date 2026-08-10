@@ -1,5 +1,6 @@
 #pragma once
 #include <random>
+#include "Misc/MathUtil.h"
 #include "Structs.h"
 
 namespace Papyrus::NAF
@@ -631,7 +632,7 @@ namespace Papyrus::NAF
 		if (!object3d || !parent3d)
 			return result;
 
-		RE::NiTransform transform = object3d->world.WorldToLocal(parent3d->world);
+		RE::NiTransform transform = MathUtil::WorldToLocal(object3d->world, parent3d->world);
 
 		if (a_object->Is<RE::Actor>()) {
 			transform.rotate.ToEulerAnglesZXY(result[2], result[0], result[1]);
