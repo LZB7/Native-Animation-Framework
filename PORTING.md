@@ -94,6 +94,9 @@ plus runtime testing.
 
 ## Development environment and build attempt
 
+- Fallout4.exe reference: independently verified file/product version
+  1.10.163.0, SHA-256
+  `55F57947DB9E05575122FAE1088F0B0247442F11E566B56036CAA0AC93329C36`.
 - Fallout4.exe: 1.11.221.0, SHA-256
   `428F9996CC4248E26C0F62F9FDD3EAF0E5EB305834B67EE5996538E593218B61`.
 - F4SE installation: loader and `f4se_1_11_221.dll` version 0.7.8; matching
@@ -101,22 +104,27 @@ plus runtime testing.
 - Address Library: `version-1-11-221-0.bin` is installed.
 - LooksMenu: installed `f4ee.dll` is version 1.7.0.3 and matches the supplied DLL.
 - Python: available through the Codex workspace runtime, not normal `PATH`.
-- CMake 4.4.2 and Ninja 1.13.0: installed workspace-locally for this audit.
-- Visual Studio/MSVC: not found in PATH, standard VS 2022 Community/Build Tools
-  locations, Visual Studio registry keys, uninstall registry entries, or a
-  filename search of the available C:, user Desktop/source, and D: locations.
-- Windows SDK: no installed-kit registry entry was found.
-- vcpkg: not found in PATH, environment variables, or standard checked paths.
+- CMake 4.4.2: installed workspace-locally and used for generation.
+- Visual Studio 2022 Build Tools 17.14.37516.0: found at
+  `D:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools`; MSVC v143
+  19.44.35228 and Windows SDK 10.0.28000.0 are usable.
+- vcpkg: `C:/Dev/vcpkg`, version 2026-07-27. The manifest's builtin baseline
+  resolves successfully.
 
-Configuration was attempted with the Ninja generator, NG-only options, and
-`COPY_BUILD=OFF`. CMake stopped at `project()` because no C++ compiler exists;
-it also warned that `VCPKG_ROOT` is unset. Consequently compilation has not been
-attempted and no DLL has been produced.
+Configuration now succeeds in `f4se-plugin/build-1.11.221` with the Visual
+Studio 2022 generator, NG-only options, and `COPY_BUILD=OFF`. The top-level
+manifest needed `rapidcsv`, which CommonLibF4 requires but NAF did not list.
+CMake 4 also requires a 3.5 policy floor for the pinned ik revision, and the
+MSVC runtime expression was corrected so Release selects `MultiThreadedDLL`.
 
-The exact build prerequisites still needed are Visual Studio 2022 Build Tools
-with the MSVC x64 C++ workload and a Windows SDK, plus vcpkg at the manifest's
-pinned baseline. After those are available, configuration will expose any source
-API migrations required by the selected CommonLib revision.
+The first Release compile builds the pinned ik library and CommonLibF4, then
+stops while compiling NAF. The initial errors are source/API migration issues:
+NAF declarations now duplicate types present in the selected CommonLib
+(`BSAnimationGraphEvent`, `BGSAnimationSystemUtils::ActiveSyncInfo`, and math
+types), while NAF also relies on Deweh extensions absent from the selected
+alandtse header set (`NiQuaternion` helpers and `Actor::GetSex`). This is
+evidence that adopting alandtse unchanged is insufficient. No DLL has been
+produced; compilation success and runtime compatibility remain separate gates.
 
 The audit helper is maintained at `../tools/audit_runtime.py` in the project
 workspace. Resolving the remaining custom legacy IDs without guessing requires

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
+# CMake 4 removed compatibility modes older than 3.5.  The pinned historical
+# ik dependency still declares 3.2, but does not rely on pre-3.5 behavior.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # ---- Options ----
 
 option(COPY_BUILD "Copy the build output to the Fallout 4 directory." ON)
@@ -26,7 +30,7 @@ else ()
 endif ()
 
 set(Boost_USE_STATIC_RUNTIME OFF CACHE BOOL "")
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Release>:Release>DLL" CACHE STRING "")
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "")
 
 # ---- Project ----
 

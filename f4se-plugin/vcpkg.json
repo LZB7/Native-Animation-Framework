@@ -12,6 +12,7 @@
     "spdlog",
     "zstr",
     "nlohmann-json",
+    "rapidcsv",
     "cereal",
     "libzippp",
     "fp16"
