@@ -30,7 +30,7 @@ namespace Menu::NAF
 					if (auto& a = state->sceneData->pendingActor; a.has_value()) {
 						auto targetActor = a.value().get().get();
 						if (targetActor) {
-							targetActor->ModifyKeyword(Data::Forms::ShowWornItemsKW, false);
+							EngineCompat::ModifyKeyword(targetActor, Data::Forms::ShowWornItemsKW, false);
 							a = std::nullopt;
 						}
 					}
@@ -93,7 +93,7 @@ namespace Menu::NAF
 				bool hadSWIKeyword = a->HasKeyword(Data::Forms::ShowWornItemsKW);
 				if (!hadSWIKeyword)
 				{
-					a->ModifyKeyword(Data::Forms::ShowWornItemsKW, true);
+					EngineCompat::ModifyKeyword(a, Data::Forms::ShowWornItemsKW, true);
 				}
 
 				auto state = PersistentMenuState::GetSingleton();

@@ -276,7 +276,7 @@ namespace Menu::NAF
 					if (!inSlot) {
 						auto& s = data->studioActors[selectedStudioActor];
 						s.actor.reset(a);
-						s.originalScale = a->GetScale();
+						s.originalScale = EngineCompat::GetScale(a);
 					}
 				}
 				manager->RefreshList(true);
@@ -838,7 +838,7 @@ namespace Menu::NAF
 			GetActorInput([&](bool ok, RE::Actor* a) {
 				if (ok) {
 					data->studioActors.clear();
-					data->studioActors.emplace_back(RE::NiPointer<RE::Actor>(a), data->activeBodyAnim.value(), QBodyAnimSampleRate(), a->GetScale());
+					data->studioActors.emplace_back(RE::NiPointer<RE::Actor>(a), data->activeBodyAnim.value(), QBodyAnimSampleRate(), EngineCompat::GetScale(a));
 					data->ClearActiveBodyAnimProject();
 
 					auto UI = RE::UI::GetSingleton();

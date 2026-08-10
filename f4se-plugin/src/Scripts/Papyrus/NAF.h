@@ -171,7 +171,7 @@ namespace Papyrus::NAF
 			return;
 		}
 
-		a_actor->ModifyKeyword(Data::Forms::NAFDoNotUseKW, !a_usable);
+		EngineCompat::ModifyKeyword(a_actor, Data::Forms::NAFDoNotUseKW, !a_usable);
 	}
 
 	bool SetPackageOverride(std::monostate, RE::Actor* a_actor, RE::TESPackage* a_pkg)

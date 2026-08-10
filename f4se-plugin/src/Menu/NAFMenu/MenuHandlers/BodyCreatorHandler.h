@@ -82,7 +82,7 @@ namespace Menu::NAF
 					}
 					std::string prntStr = "Target Parent: [None]";
 					if (auto a = curTargetParent.first.get(); a != nullptr && !curTargetParent.second.empty()) {
-						prntStr = std::format("Target Parent: {} - {}", a->GetBaseFullName(), curTargetParent.second);
+						prntStr = std::format("Target Parent: {} - {}", EngineCompat::GetBaseFullName(a.get()), curTargetParent.second);
 					}
 					result.push_back({ NAFStudioMenu::GetTargetChainEnabled(activeChain) ? "Disable" : "Enable", Bind(&BodyCreatorHandler::ToggleChainEnabled) });
 					result.push_back({ prntStr, Bind(&BodyCreatorHandler::GotoAttachTarget) });

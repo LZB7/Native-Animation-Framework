@@ -224,7 +224,7 @@ namespace Scene
 				return;
 			}
 
-			actor->ModifyKeyword(Data::Forms::NAFInSceneKW, inScene);
+			EngineCompat::ModifyKeyword(actor, Data::Forms::NAFInSceneKW, inScene);
 		}
 
 		static void AttachScene(std::shared_ptr<IScene> scn) {
@@ -379,7 +379,7 @@ namespace Scene
 			}
 
 			a->StopCombat();
-			a->StopAlarmOnActor();
+			EngineCompat::StopAlarmOnActor(a);
 			a->SetLinkedRef(destRefr, Data::Forms::NAFWalkToKW);
 			if (PackageOverride::Set(a->GetActorHandle(), Data::Forms::NAFWalkPackage, true, std::make_unique<WalkFinishedFunctor>(uid))) {
 				SetActorInScene(a, true);
@@ -441,7 +441,7 @@ namespace Scene
 				} else if (IsActorInScene(a, ignoreInScene)) {
 					return { kActorInScene };
 				} else if (a == player && locationRef->parentCell != nullptr && player->parentCell != nullptr &&
-					locationRef->parentCell->GetWorldSpace() != player->parentCell->GetWorldSpace()) {
+					EngineCompat::GetWorldSpace(locationRef->parentCell) != EngineCompat::GetWorldSpace(player->parentCell)) {
 					return { kPlayerWrongWorldspace };
 				}
 			}

@@ -66,8 +66,8 @@ namespace Tasks
 				}
 				if (!MathUtil::CoordsWithinError(info.actor->data.location, info.location)) {
 					info.actor->SetPosition(info.location, true);
-					info.actor->DisableCollision();
-					info.actor->SetNoCollision(true);
+					EngineCompat::DisableCollision(info.actor.get());
+					EngineCompat::SetNoCollision(info.actor.get(), true);
 				}
 			}
 

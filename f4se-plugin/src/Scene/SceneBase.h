@@ -55,7 +55,7 @@ namespace Scene
 					if (auto customScale = GetProperty<float>(props, kScale); customScale.has_value()) {
 						targetScale = customScale.value();
 					} else if (auto npc = currentActor->GetNPC(); currentActor != player && npc != nullptr) {
-						targetScale = player->GetScale();
+						targetScale = EngineCompat::GetScale(player);
 					}
 
 					targetScale = GameUtil::CalcActorScale(currentActor, targetScale);
@@ -265,23 +265,23 @@ namespace Scene
 			SetAnimMult(100);
 
 			ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap& props) {
-				currentActor->StopInteractingQuick();
+				EngineCompat::StopInteractingQuick(currentActor);
 
 				if (currentActor != player) {
 					if (currentActor->HasKeyword(Data::Forms::TeammateReadyWeaponKW)) {
 						props[kHadReadyWeapon].value = true;
-						currentActor->ModifyKeyword(Data::Forms::TeammateReadyWeaponKW, false);
+						EngineCompat::ModifyKeyword(currentActor, Data::Forms::TeammateReadyWeaponKW, false);
 					}
 
-					if (currentActor->GetCanDoFavor()) {
+					if (EngineCompat::GetCanDoFavor(currentActor)) {
 						props[kWasCommandable].value = true;
-						currentActor->SetCanDoFavor(false);
+						EngineCompat::SetCanDoFavor(currentActor, false);
 					}
 
-					currentActor->ModifyKeyword(Data::Forms::BlockActivationKW, true);
+					EngineCompat::ModifyKeyword(currentActor, Data::Forms::BlockActivationKW, true);
 					currentActor->StopCombat();
-					currentActor->StopAlarmOnActor();
-					currentActor->SetRestrained(true);
+					EngineCompat::StopAlarmOnActor(currentActor);
+					EngineCompat::SetRestrained(currentActor, true);
 
 					if (currentActor->currentProcess != nullptr) {
 						currentActor->currentProcess->ignoringCombat = true;
@@ -292,13 +292,13 @@ namespace Scene
 					if (RE::UI::GetSingleton()->GetMenuOpen("PipboyMenu"))
 						RE::UIMessageQueue::GetSingleton()->AddMessage("PipboyMenu", RE::UI_MESSAGE_TYPE::kHide);
 					RE::PlayerCamera::GetSingleton()->Force3rdPerson();
-					player->StopMoving(5.0f);
+					EngineCompat::StopMoving(player, 5.0f);
 				}
 
 				currentActor->SetPosition(location, true);
 				currentActor->SetAngleOnReference(angle);
-				currentActor->ClearLookAtTarget();
-				currentActor->TurnOffHeadtracking();
+				EngineCompat::ClearLookAtTarget(currentActor);
+				EngineCompat::TurnOffHeadtracking(currentActor);
 			});
 
 			status = SceneState::Active;
@@ -326,8 +326,8 @@ namespace Scene
 			SetAnimMult(100);
 
 			ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap& props) {
-				currentActor->EnableCollision();
-				currentActor->SetNoCollision(false);
+				EngineCompat::EnableCollision(currentActor);
+				EngineCompat::SetNoCollision(currentActor, false);
 				FaceAnimation::FaceUpdateHook::StopAnimation(currentActor->GetActorHandle());
 
 				if (currentActor == player) {
@@ -335,19 +335,19 @@ namespace Scene
 					player->ReenableInputForPlayer();
 				} else {
 					if (auto hadReadyWeap = GetProperty<bool>(props, kHadReadyWeapon); hadReadyWeap.has_value()) {
-						currentActor->ModifyKeyword(Data::Forms::TeammateReadyWeaponKW, true);
+						EngineCompat::ModifyKeyword(currentActor, Data::Forms::TeammateReadyWeaponKW, true);
 					}
 
 					if (auto wasCmdable = GetProperty<bool>(props, kWasCommandable); wasCmdable.has_value()) {
-						currentActor->SetCanDoFavor(true);
+						EngineCompat::SetCanDoFavor(currentActor, true);
 					}
 
 					if (currentActor->currentProcess != nullptr) {
 						currentActor->currentProcess->ignoringCombat = false;
 					}
 
-					currentActor->SetRestrained(false);
-					currentActor->ModifyKeyword(Data::Forms::BlockActivationKW, false);
+					EngineCompat::SetRestrained(currentActor, false);
+					EngineCompat::ModifyKeyword(currentActor, Data::Forms::BlockActivationKW, false);
 					PackageOverride::Clear(currentActor->GetActorHandle(), true);
 					currentActor->EvaluatePackage(false, true);
 				}
@@ -693,8 +693,8 @@ namespace Scene
 				}
 				if (!MathUtil::CoordsWithinError(currentActor->data.location, actorLoc)) {
 					currentActor->SetPosition(actorLoc, true);
-					currentActor->DisableCollision();
-					currentActor->SetNoCollision(true);
+					EngineCompat::DisableCollision(currentActor);
+					EngineCompat::SetNoCollision(currentActor, true);
 				}
 			});
 		}
@@ -746,7 +746,7 @@ namespace Scene
 				a->WarpToRef(locationRef.get());
 		}
 
-		if (locationRef->IsFurniture()) {
+		if (EngineCompat::IsFurniture(locationRef.get())) {
 			locationRef->FreeUpAllMarkers();
 		}
 

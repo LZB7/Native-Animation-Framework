@@ -99,7 +99,7 @@ namespace Menu
 						a.actor->GetAnimationGraphProjectName(behGraph);
 						c.behaviorGraphProject = behGraph;
 						if (useScales) {
-							c.scale = a.actor->GetScale();
+							c.scale = EngineCompat::GetScale(a.actor.get());
 						}
 					}
 					animContainer.SaveToFile(path);
@@ -352,8 +352,8 @@ namespace Menu
 					g->TransitionToAnimation(nullptr, 1.0f);
 					g->creator.reset();
 				});
-				a.actor->EnableCollision();
-				a.actor->SetNoCollision(false);
+				EngineCompat::EnableCollision(a.actor.get());
+				EngineCompat::SetNoCollision(a.actor.get(), false);
 			}
 			managedActors.clear();
 		}
@@ -1030,7 +1030,7 @@ namespace Menu
 					g->creator->SaveToNANIM(a.animId, data->bodyAnims);
 
 					BodyAnimation::NANIM::AnimationData::MetaData meta;
-					meta.data["actor_scale"].push_back(std::format("{}", a.actor->GetScale()));
+					meta.data["actor_scale"].push_back(std::format("{}", EngineCompat::GetScale(a.actor.get())));
 					auto& enabledChains = meta.data["enabled_ik_chains"];
 					for (auto& c : g->ikManager.GetChainList()) {
 						if (g->ikManager.GetChainEnabled(c)) {
