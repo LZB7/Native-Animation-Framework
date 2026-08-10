@@ -1019,3 +1019,75 @@ Third test plan:
 A pass will grade the hook **runtime-startup/world-update verified**, while its
 normal scene/action/alignment workload remains disabled and not gameplay
 verified.
+
+### Third diagnostic: worker-thread execution
+
+The save-loaded third diagnostic runtime test invoked the recovered hook
+repeatedly without a crash. Callback 1 ran on Windows thread `215544`, callback
+2 on `206108`, callback 3 on `215544`, callback 10 on `200192`, and callback 60
+on `206108`. The first callback observed `Main::threadID == 59924`,
+`QGameDataLoaded() == true`, `gameActive == true`, and `inMenuMode == false`.
+Installation, execution, world-load activation, and repeated execution are now
+runtime verified. Single-thread or game-main-thread execution is contradicted.
+
+`Main::threadID` is not an inferred label. In the 1.11.221 `Main` constructor,
+ID `2228905` / RVA `0xC2F5C0`, the engine calls imported
+`KERNEL32!GetCurrentThreadId` and stores EAX at `Main + 0x40`. The field therefore
+records the Windows thread that constructs `Main`; it is not updated for each
+job callback. The diagnostic's `GetCurrentThreadId` values use the same Windows
+identity domain, so the differing IDs prove that `NonRendersafeAI` ran on job
+workers rather than the `Main` construction/game thread.
+
+The scheduling identity is also explicit in both binaries. In 1.10.163 the
+function/name pair table contains wrapper ID `691099` / RVA `0xCBDEF0` beside
+the string `NonRendersafeAI`; the wrapper performs preparatory call ID `731640`,
+loads `Main`, and tail-jumps to ID `338354`. In 1.11.221 the corresponding table
+entry contains wrapper ID `2227597` / RVA `0xBD5DE0` beside the same
+`NonRendersafeAI` string; it performs preparatory call ID `2192054`, loads
+`Main`, and tail-jumps to ID `2228937`. The surrounding paired job names and
+ordering also correspond (`VMRenderSafe`, `PostSwap`, `IOSync`,
+`NonRendersafeAI`, `BreakableFXManager`, and later physics/animation jobs).
+The NG table is consumed by job-list construction ID `2227625`, which registers
+the callback graph with the engine job system. This is disassembly evidence that
+worker scheduling and possible thread migration are historical semantics, not a
+side effect of the NG mapping.
+
+The table contains `NonRendersafeAI` once, establishing one node execution per
+job-list cycle. It does not, by itself, prove that job-list cycles equal rendered
+frames or that successive cycles cannot overlap. The original source comment
+says scene `Update` occurs between frames, and `delayCounter` decrements once per
+hook invocation, demonstrating that NAF expected a serialized once-per-update
+cadence rather than main-thread identity. The third test's rapid count and thread
+migration do not resolve cycle cadence or overlap.
+
+Original callback thread-affinity audit:
+
+| Work | NAF synchronization | Engine/thread-affinity assessment |
+|---|---|---|
+| Scene-map snapshot and detach selection | shared `scenesMapLock`; shared ownership snapshot | B: NAF-protected; no main-thread-only operation by itself |
+| Per-scene advancement and detach cleanup | recursive `IScene::lock` serializes each scene | B/D/E: NAF state is protected, but graph queries, idle playback, actor state and event work assume the serialized engine update context; main-thread affinity is not established |
+| Ordered queue and frame delays | one recursive `safe_mutex` protects queue, persistent equipment state and `delayCounter` | B/D: NAF-serialized; cadence assumes one invocation per update cycle |
+| Equip/unequip and inventory changes | executed while ordered-queue lock is held | D/E: actor/equip manager operations were intentionally run from `NonRendersafeAI`, but their independent NG worker-safety is not yet proven |
+| Morph and HUD work in ordered actions | ordered-queue lock only | E: NAF serialization does not prove LooksMenu/UI thread safety; these must remain disabled |
+| Scene animation synchronization and player-3D refresh | per-scene lock | D/E: historically placed in the non-render-safe AI job; engine graph/API affinity still requires runtime validation |
+| Studio forced alignment and collision correction | `alignActorsLock` | B/D/E: vector access is protected; actor transform, collision and process calls require the verified update context and are not proven safe under overlapping callbacks |
+
+There is no outer NAF lock covering scene advancement, ordered actions and
+alignment as one transaction, and no TLS-based thread selection. Per-scene,
+queue and alignment locks prevent same-container races, but callbacks could
+interleave between stages if successive engine job-list cycles overlap. The
+original implementation therefore appears to rely on serialized execution of
+the named engine job node, not on a fixed Windows thread. That serialization is
+not yet runtime verified, so reconnecting gameplay work remains unsafe.
+
+The fourth diagnostic retains the verified hook and all gameplay gates. It adds
+an atomic in-flight counter spanning only the natural original `ProcessQueues`
+call, a maximum-in-flight counter, QPC entry/duration/delta timestamps, thread
+ID, and the opaque queue pointer value (logged but never dereferenced). It logs
+samples 1, 2, 3, 10, 60 and 120. This can establish natural overlap, worker
+migration, stable queue identity, and approximate job-cycle cadence without
+sleeping, widening the callback, or initializing another subsystem. A
+`maxInFlight` greater than one proves concurrent callbacks; a value of one over
+a sufficiently long loaded-save run supports natural serialization but does not
+prove that the longer historical NAF workload could never extend across the next
+cycle.

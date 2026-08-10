@@ -16,6 +16,10 @@ namespace Tasks
 		REL::Relocation<ProcessQueues> OriginalProcessQueues;
 		inline std::atomic<std::uint64_t> diagnosticCallbackCount{ 0 };
 		inline std::atomic<std::uint32_t> diagnosticThreadID{ 0 };
+		inline std::atomic<std::uint32_t> diagnosticInFlight{ 0 };
+		inline std::atomic<std::uint32_t> diagnosticMaxInFlight{ 0 };
+		inline std::atomic<std::int64_t> diagnosticLastEntryQPC{ 0 };
+		inline std::atomic<bool> diagnosticOverlapReported{ false };
 		inline bool diagnosticOnly = false;
 
 		std::mutex alignActorsLock;
@@ -58,28 +62,65 @@ namespace Tasks
 		}
 
 		bool HookedGameLoop(void* qintfc, float unk01, uint32_t unk02) {
+			const auto threadID = static_cast<std::uint32_t>(GetCurrentThreadId());
+			LARGE_INTEGER entryQPC{};
+			QueryPerformanceCounter(&entryQPC);
+			const auto previousEntryQPC = diagnosticLastEntryQPC.exchange(entryQPC.QuadPart, std::memory_order_relaxed);
+			const auto inFlight = diagnosticInFlight.fetch_add(1, std::memory_order_acq_rel) + 1;
+			auto observedMaximum = diagnosticMaxInFlight.load(std::memory_order_relaxed);
+			while (observedMaximum < inFlight &&
+				!diagnosticMaxInFlight.compare_exchange_weak(observedMaximum, inFlight, std::memory_order_relaxed)) {
+			}
+			const auto count = diagnosticCallbackCount.fetch_add(1, std::memory_order_relaxed) + 1;
+			if (diagnosticOnly && inFlight > 1 && !diagnosticOverlapReported.exchange(true, std::memory_order_relaxed)) {
+				logger::warn("Concurrent game-loop diagnostic callbacks detected at #{}: thread={}, queue={}, entryQPC={}, entryInFlight={}",
+					count,
+					threadID,
+					fmt::ptr(qintfc),
+					entryQPC.QuadPart,
+					inFlight);
+			}
+
 			bool res = OriginalProcessQueues(qintfc, unk01, unk02);
 			if (diagnosticOnly) {
-				const auto count = diagnosticCallbackCount.fetch_add(1, std::memory_order_relaxed) + 1;
-				const auto threadID = static_cast<std::uint32_t>(GetCurrentThreadId());
+				LARGE_INTEGER exitQPC{};
+				QueryPerformanceCounter(&exitQPC);
+				const auto remainingInFlight = diagnosticInFlight.fetch_sub(1, std::memory_order_acq_rel) - 1;
 				if (count == 1) {
 					diagnosticThreadID.store(threadID, std::memory_order_relaxed);
+					LARGE_INTEGER frequency{};
+					QueryPerformanceFrequency(&frequency);
 					const auto* main = RE::Main::GetSingleton();
 					logger::info(
-						"Game-loop diagnostic callback #1 after ProcessQueues: thread={}, mainThread={}, gameDataLoaded={}, gameActive={}, inMenuMode={}",
+						"Game-loop threading diagnostic #1 after ProcessQueues: thread={}, mainThread={}, gameDataLoaded={}, gameActive={}, inMenuMode={}, queue={}, entryQPC={}, durationQPC={}, frequency={}, entryInFlight={}, remainingInFlight={}, maxInFlight={}",
 						threadID,
 						main ? main->threadID : 0,
 						RE::Main::QGameDataLoaded(),
 						main && main->gameActive,
-						main && main->inMenuMode);
-				} else if (count <= 3 || count == 10 || count == 60) {
-					logger::info("Game-loop diagnostic callback #{} on thread {} (initial thread {})",
+						main && main->inMenuMode,
+						fmt::ptr(qintfc),
+						entryQPC.QuadPart,
+						exitQPC.QuadPart - entryQPC.QuadPart,
+						frequency.QuadPart,
+						inFlight,
+						remainingInFlight,
+						diagnosticMaxInFlight.load(std::memory_order_relaxed));
+				} else if (count <= 3 || count == 10 || count == 60 || count == 120) {
+					logger::info("Game-loop threading diagnostic #{}: thread={}, initialThread={}, queue={}, entryQPC={}, deltaFromPreviousQPC={}, durationQPC={}, entryInFlight={}, remainingInFlight={}, maxInFlight={}",
 						count,
 						threadID,
-						diagnosticThreadID.load(std::memory_order_relaxed));
+						diagnosticThreadID.load(std::memory_order_relaxed),
+						fmt::ptr(qintfc),
+						entryQPC.QuadPart,
+						previousEntryQPC ? entryQPC.QuadPart - previousEntryQPC : 0,
+						exitQPC.QuadPart - entryQPC.QuadPart,
+						inFlight,
+						remainingInFlight,
+						diagnosticMaxInFlight.load(std::memory_order_relaxed));
 				}
 				return res;
 			}
+			diagnosticInFlight.fetch_sub(1, std::memory_order_acq_rel);
 
 			Scene::SceneManager::UpdateScenes();
 			Scene::OrderedActionQueue::Update();
