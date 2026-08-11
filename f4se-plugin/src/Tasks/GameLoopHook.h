@@ -21,10 +21,27 @@ namespace Tasks
 		inline std::atomic<std::int64_t> diagnosticLastEntryQPC{ 0 };
 		inline std::atomic<bool> diagnosticOverlapReported{ false };
 		inline std::atomic<std::uint32_t> diagnosticBookkeepingTicks{ 0 };
-		inline std::atomic<bool> diagnosticEngineReadAttempted{ false };
+		inline std::atomic<bool> diagnosticEligibilityAttempted{ false };
 		inline bool diagnosticOnly = false;
 		inline constexpr std::size_t playerGet3DSlot = 0x8C;
 		inline constexpr std::uintptr_t playerGet3DRVA_1_11_221 = 0xD5BCC0;
+
+		[[nodiscard]] bool IsReadableMemory(const void* a_address, std::size_t a_size)
+		{
+			if (!a_address || a_size == 0) {
+				return false;
+			}
+
+			MEMORY_BASIC_INFORMATION memory{};
+			if (VirtualQuery(a_address, &memory, sizeof(memory)) != sizeof(memory) ||
+				memory.State != MEM_COMMIT || memory.Protect == PAGE_NOACCESS || (memory.Protect & PAGE_GUARD) != 0) {
+				return false;
+			}
+
+			const auto begin = reinterpret_cast<std::uintptr_t>(a_address);
+			const auto regionEnd = reinterpret_cast<std::uintptr_t>(memory.BaseAddress) + memory.RegionSize;
+			return begin <= regionEnd && a_size <= regionEnd - begin;
+		}
 
 		[[nodiscard]] bool ValidatePlayerObjectForDiagnostic(
 			RE::PlayerCharacter* a_player,
@@ -37,9 +54,7 @@ namespace Tasks
 				return false;
 			}
 
-			MEMORY_BASIC_INFORMATION memory{};
-			if (VirtualQuery(a_player, &memory, sizeof(memory)) != sizeof(memory) ||
-				memory.State != MEM_COMMIT || memory.Protect == PAGE_NOACCESS || (memory.Protect & PAGE_GUARD) != 0) {
+			if (!IsReadableMemory(a_player, sizeof(RE::PlayerCharacter))) {
 				return false;
 			}
 
@@ -120,37 +135,60 @@ namespace Tasks
 			if (diagnosticOnly) {
 				const auto* main = RE::Main::GetSingleton();
 				if (RE::Main::QGameDataLoaded() && main && main->gameActive &&
-					!diagnosticEngineReadAttempted.exchange(true, std::memory_order_relaxed)) {
+					!diagnosticEligibilityAttempted.exchange(true, std::memory_order_relaxed)) {
 					REL::Relocation<RE::NiPointer<RE::PlayerCharacter>*> playerSingleton{ REL::RelocationID(303410, 2698073) };
 					RE::PlayerCharacter* rawIntrusivePointer = nullptr;
 					std::memcpy(&rawIntrusivePointer, reinterpret_cast<const void*>(playerSingleton.address()), sizeof(rawIntrusivePointer));
 					auto* playerCharacter = playerSingleton->get();
 					std::uintptr_t playerVtable = 0;
 					std::uintptr_t playerGet3DTarget = 0;
-					logger::info("Engine-read diagnostic player singleton storage: thread={}, relocationID={}, global={}, rawNiPointer={}, resolvedPlayer={}",
+					logger::info("Test-seven eligibility diagnostic player singleton: thread={}, relocationID={}, global={}, rawNiPointer={}, resolvedPlayer={}",
 						threadID,
 						REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2698073 : 303410,
 						fmt::ptr(reinterpret_cast<void*>(playerSingleton.address())),
 						fmt::ptr(rawIntrusivePointer),
 						fmt::ptr(playerCharacter));
 					if (!ValidatePlayerObjectForDiagnostic(playerCharacter, playerVtable, playerGet3DTarget)) {
-						logger::critical("Engine-read diagnostic rejected PlayerCharacter ABI: player={}, vtable={}, slot8C={}, expected={}; Get3D will not be called",
+						logger::critical("Test-seven eligibility diagnostic rejected PlayerCharacter ABI: player={}, vtable={}, slot8C={}, expected={}; eligibility reads suppressed",
 							fmt::ptr(playerCharacter),
 							fmt::ptr(reinterpret_cast<void*>(playerVtable)),
 							fmt::ptr(reinterpret_cast<void*>(playerGet3DTarget)),
 							fmt::ptr(reinterpret_cast<void*>(REL::Module::get().base() + playerGet3DRVA_1_11_221)));
 					} else {
-						logger::info("Engine-read diagnostic before PlayerCharacter::Get3D: thread={}, player={}, vtable={}, slot8C={}",
-							threadID,
-							fmt::ptr(playerCharacter),
-							fmt::ptr(reinterpret_cast<void*>(playerVtable)),
-							fmt::ptr(reinterpret_cast<void*>(playerGet3DTarget)));
-						const auto* player3D = playerCharacter->Get3D();
-						logger::info("Engine-read diagnostic after PlayerCharacter::Get3D: thread={}, player={}, player3D={}, result={}",
-							threadID,
-							fmt::ptr(playerCharacter),
-							fmt::ptr(player3D),
-							player3D ? "loaded" : "not-loaded");
+						// Reproduce only the read side of the historical scene eligibility path:
+						// UpdateScenes' cell-loaded gate, followed by ActorIsEnabled's form flags
+						// and its already verified Get3D virtual. No scene object is constructed.
+						auto* parentCell = playerCharacter->GetParentCell();
+						if (!IsReadableMemory(parentCell, sizeof(RE::TESObjectCELL))) {
+							logger::critical("Test-seven eligibility diagnostic rejected parent cell: thread={}, player={}, parentCell={}; remaining reads suppressed",
+								threadID,
+								fmt::ptr(playerCharacter),
+								fmt::ptr(parentCell));
+						} else {
+							auto* const cellLoadedData = parentCell->loadedData;
+							const auto formFlags = playerCharacter->GetFormFlags();
+							const bool deleted = playerCharacter->IsDeleted();
+							const bool disabled = playerCharacter->IsDisabled();
+							const RE::NiAVObject* player3D = nullptr;
+							if (!deleted && !disabled) {
+								player3D = playerCharacter->Get3D();
+							}
+							const bool cellReady = cellLoadedData != nullptr;
+							const bool actorEnabled = !deleted && !disabled && player3D != nullptr;
+							logger::info(
+								"Test-seven eligibility diagnostic complete: thread={}, player={}, formFlags=0x{:08X}, deleted={}, disabled={}, parentCell={}, cellLoadedData={}, player3D={}, cellReady={}, actorEnabled={}, syntheticEligible={}, mutationPerformed=false",
+								threadID,
+								fmt::ptr(playerCharacter),
+								formFlags,
+								deleted,
+								disabled,
+								fmt::ptr(parentCell),
+								fmt::ptr(cellLoadedData),
+								fmt::ptr(player3D),
+								cellReady,
+								actorEnabled,
+								cellReady && actorEnabled);
+						}
 					}
 				}
 				const auto bookkeeping = Scene::OrderedActionQueue::UpdateBookkeepingDiagnostic();

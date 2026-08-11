@@ -1871,3 +1871,116 @@ The corrected test-six behavior is unchanged: it resolves exact player ID
 without dereferencing the result. With the bounded startup relocation set now
 clean, this diagnostic DLL is suitable to rerun but has not been deployed or
 executed here.
+
+## Corrected test-six result and test-seven eligibility diagnostic
+
+The corrected sixth runtime diagnostic passed on Fallout 4 `1.11.221.0`.
+Runtime evidence established all of the following in the tested environment:
+
+- exact player singleton ID `2698073` resolved the expected
+  `NiPointer<PlayerCharacter>` storage;
+- one `get()` produced a plausible, readable player object;
+- the player vtable lay in Fallout4.exe `.rdata` and physical slot `0x8C`
+  equaled the verified `PlayerCharacter::Get3D(void)` target at RVA
+  `0xD5BCC0`;
+- corrected normal C++ virtual dispatch returned a valid, non-null 3D pointer;
+- the call completed without a crash from the serialized, thread-migrating
+  `NonRendersafeAI` callback;
+- delay bookkeeping again completed `3 -> 2 -> 1 -> 0` and sampled callbacks
+  retained `maxInFlight=1`.
+
+The player singleton, corrected `TESObjectREFR`/`PlayerCharacter` virtual
+ordering, slot `0x8C`, and this one bounded worker-context `Get3D()` call are
+therefore **runtime validated for the tested 1.11.221 environment**. This does
+not establish safety for other actor virtuals or arbitrary scene work.
+
+### Historical read path and mutation boundary
+
+The normal historical path after `ProcessQueues` is:
+
+```text
+SceneManager::UpdateScenes
+  -> lock-protected scene-map snapshot
+  -> per-scene recursive lock
+  -> detach/status/noUpdate/actor-count reads
+  -> resolve first actor NiPointer
+  -> actor->parentCell and parentCell->loadedData reads
+  -> IScene::Update                         [subsystem-specific work begins]
+  -> IScene::ForEachActor
+  -> resolve each actor NiPointer
+  -> GameUtil::ActorIsEnabled
+       -> TESForm::IsDeleted
+       -> TESForm::IsDisabled
+       -> TESObjectREFR::Get3D
+  -> caller-provided scene update operation [first mutation varies by scene]
+```
+
+`UpdateScenes` itself can mutate before `IScene::Update` when it services a
+queued detach, so invoking it is outside this diagnostic. `IScene::Update` is
+also a virtual subsystem boundary and may immediately advance state, start
+animation work, process packages, or perform transforms. Test seven therefore
+constructs no scene and calls neither function. It reproduces only the common
+cell-readiness and `ActorIsEnabled` reads on the lifetime-stable player.
+
+### Exact test-seven read inventory
+
+| order | read | mechanism/evidence | mutation or affinity assessment |
+|---:|---|---|---|
+| 1 | game loaded/active | `Main::QGameDataLoaded()` IDs `384264/2228956`; `Main::GetSingleton()` IDs `756304/2698043` | exact current IDs and previously runtime exercised; observational gate |
+| 2 | player singleton | IDs `303410/2698073`, one `NiPointer::get()` | exact current ID, disassembly verified and test-six runtime validated |
+| 3 | player object/vtable | `VirtualQuery`, module `.rdata`, physical slot inspection | local validation only; fails closed |
+| 4 | parent cell | inline `TESObjectREFR::GetParentCell()`, member offset `0xB8` | direct field read; offset agrees across historical Deweh, NG, PANDA, selected and Dear declarations |
+| 5 | cell loaded data | `TESObjectCELL::loadedData`, member offset `0xD0` | direct field read after committed/readable cell validation; same offset across the compared declarations |
+| 6 | form flags | inline `TESForm::GetFormFlags()`, member offset `0x10` | direct local field read; no relocation or virtual call |
+| 7 | deleted state | `formFlags` bit 5 through inline `IsDeleted()` | pure mask; identical historical/NG/PANDA/selected/Dear implementation |
+| 8 | disabled state | `formFlags` bit 11 through inline `IsDisabled()` | pure mask; identical historical/NG/PANDA/selected/Dear implementation |
+| 9 | loaded 3D | normal virtual `PlayerCharacter::Get3D()` at physical slot `0x8C` | disassembly verified and test-six runtime validated; returned pointer is logged only |
+
+There are no new relocations or virtual slots in test seven. All relocations
+reachable by the diagnostic and its update hook have exact records in the
+supplied 1.11.221 database and retain their prior evidence grades. No reachable
+method depends on an eager unresolved global.
+
+The field reads are genuinely local in the selected headers and compile to no
+engine call. `IsDeleted()` and `IsDisabled()` are not source-qualified `const`,
+but their bodies only mask `formFlags`; the missing qualifier does not imply a
+hidden mutation. `Get3D()` remains the only engine-dispatched/read-looking call.
+Its bounded use is runtime validated, but that result remains specific to this
+object and observed worker context. Reading `parentCell->loadedData` does not
+request or create loaded data; the diagnostic rejects an unreadable cell rather
+than attempting recovery or lazy loading.
+
+### Test-seven implementation and plan
+
+The one-shot diagnostic runs only after `QGameDataLoaded()` and
+`Main::gameActive`. It validates the player exactly as test six did, validates
+the complete parent-cell object range with `VirtualQuery`, then records:
+
+- player and worker thread;
+- raw form flags and decoded deleted/disabled bits;
+- parent cell and existing loaded-data pointer;
+- current player 3D pointer;
+- separate `cellReady`, `actorEnabled`, and combined synthetic eligibility;
+- an explicit `mutationPerformed=false` marker.
+
+The `Get3D()` call is short-circuited exactly like `ActorIsEnabled` if deleted
+or disabled. Any failed player, vtable, slot, or cell validation suppresses the
+remaining sequence. No pointer is retained and no returned object is
+dereferenced. Scene progression, detach processing, animation, packages,
+ordered callbacks, equipment, collision, transforms, player-3D refresh,
+morphs, LooksMenu, HUD/UI, studio, Papyrus, serialization, camera and all other
+gameplay hooks remain gated. Existing delay and concurrency diagnostics remain
+active.
+
+Test-seven runtime plan:
+
+1. launch Fallout 4 1.11.221 through F4SE 0.7.8 and load an ordinary save;
+2. remain idle briefly without opening NAF UI or starting a scene;
+3. exit normally and inspect `NAF.log`;
+4. require one `Test-seven eligibility diagnostic complete` entry with valid
+   pointers, `mutationPerformed=false`, continued delay transitions, no
+   concurrency warning, and `maxInFlight=1`.
+
+A pass validates only this synthetic player eligibility read sequence. It does
+not yet authorize real scene iteration, handle resolution for arbitrary actors,
+or any state mutation.
