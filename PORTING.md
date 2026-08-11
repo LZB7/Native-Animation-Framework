@@ -2828,3 +2828,71 @@ studio, Papyrus, serialization, full scenes/playback, and full LooksMenu morph
 behavior remain gated. Papyrus/serialization is the recommended next coherent
 stage because it provides the intended public and persistence lifecycle for
 the now-restored package manager before camera/studio/full-scene activation.
+
+### Package validator runtime regression
+
+The first package-enabled runtime build failed closed after the already-known-
+good game-loop, graph, and face/lip hooks installed. Its only package message
+was `Package/process hook validation failed`; neither package target was
+patched and F4SE correctly treated NAF as incompatible.
+
+The failure was in the new `Actor::EvaluatePackage` validator, not its
+relocation. Clean Fallout4.exe 1.11.221 at ID `2229805`, RVA `0xC69240`, begins:
+
+```
+40 53 56 57 48 83 EC 60 48 8B 01 0F B6 F2 B2 01
+```
+
+The validator incorrectly expected:
+
+```
+53 56 57 48 83 EC 60 48 8B 01 0F B6 F2 B2 01
+```
+
+It had been transcribed from mnemonic disassembly and omitted the otherwise
+easy-to-overlook `0x40` REX prefix on `push rbx` and `0x48` REX.W prefix on
+`mov rax,[rcx]`. Consequently byte zero necessarily failed on an unmodified
+function and short-circuit evaluation meant the `CheckforNewPackage`
+validator was never evaluated. The clean target remains the callable
+PDB-named `Actor::EvaluatePackage(bool,bool)` entry with the previously
+verified RCX/DL/R8B ABI and virtual/process control flow.
+
+Clean `AIProcess::CheckforNewPackage` at ID `2231539`, RVA `0xCEFAD0`, begins:
+
+```
+48 89 6C 24 20 56 41 56 41 57 48 83 EC 20
+```
+
+and already agrees exactly with its validator. Its PDB identity, argument
+consumption, actor-state reads, player exclusion, process-level dispatch and
+Boolean return remain verified. Neither mapping changed.
+
+Addictol's source contains no hook or patch for either `0xC69240` or
+`0xCEFAD0`. Its package-related `Package Allocate Location` fix instead
+patches the call at runtime-specific ID `2211931 + 0x144` to wrap
+`ExtraDataList::GetPrimitive`. It does not overlap either NAF detour entry or
+validated byte range. The failed build did not log live bytes, so that run
+cannot independently prove no other plugin modified live memory; however, the
+bad NAF signature alone fully explains the deterministic rejection. No hook
+chaining is introduced or required by the available source evidence.
+
+Validation now evaluates and reports both functions independently before any
+detour installation. For each target it records the semantic name, exact ID,
+resolved address, expected unmasked bytes, actual live bytes, every mismatch,
+page protection/executability, and recognizes an original body, near/short
+direct jump with destination, RIP-relative indirect jump, breakpoint/guard,
+or another unexpected patch. A failure still prevents both package patches;
+there is no fuzzy signature search, clean-byte restoration, or detour
+overwrite. This also confirms NAF installation order cannot be responsible:
+the preceding NAF hooks patch the game-loop queue call, graph entries, and two
+face call sites, none of which overlaps either package entry.
+
+The corrected Release x64/v143 build has zero compiler/linker errors with
+`COPY_BUILD=OFF`. The 12-record package audit and the 63-record HUD, 16-record
+graph, and 3-record face audits all pass. Output remains
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; corrected SHA-256:
+`BF7A704FC316045325DA68CF436352C68FBDBE9A11B363DB8FFBA922EE8AAA68`.
+It is safe to rerun the same production package test. If a prior plugin has in
+fact patched either entry in the live process, the enhanced validator will
+identify the exact target, bytes, branch shape/destination, and refuse to
+install rather than blindly overwrite it.
