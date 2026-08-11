@@ -3810,3 +3810,83 @@ expected next boundary is `external-event dispatch returned`, followed by
 post-start graph initialization, animation assignment, dynamic-idle request,
 and actual playback. Stop through **Active Scenes** and verify full cleanup;
 do not save while the scene is active.
+
+## `SceneEndedData` Actor-array ABI recovery
+
+The first production `RBBelly1` scene subsequently completed dynamic-idle
+assignment, entered `Active`, played the solo HKX, and completed StopScene's
+actor/package/input/collision cleanup. `NAF::SceneStarted` and the simple
+`NAF::SceneEnded` external events both built and returned. The remaining crash
+occurred before any Actor array element was inserted, while constructing the
+second argument for `NAF::SceneEndedData`. These milestones are therefore
+runtime verified independently of the array-packing failure: solo playback,
+dynamic-idle request, active scene lifetime, gameplay teardown,
+`SceneStarted`, and simple `SceneEnded` dispatch.
+
+The shipped `NAF.psc` contract and unchanged 1.0.14 C++ event path agree that
+`NAF::SceneEndedData` takes `(NAF:SceneId akScene, Actor[] akActors)`. Original
+NAF sends it synchronously after the simple end event from the same scene-end
+notification; the port did not move it across cleanup. `Events::SceneData`
+owns `NiPointer<Actor>` entries, so the actors remain strongly referenced while
+the temporary `vector<Actor*>` is packed. The rebuilt DLL logs the retained
+element count and null count before packing. The observed fault preceded the
+element loop, so neither Actor lifetime nor lifecycle ordering caused this
+crash.
+
+Instruction-level reconstruction found the actual ABI defect. The AE VM vtable
+at RVA `0x28F1D70` contains:
+
+* physical slot `0x19` / byte offset `0xC8`, ID `2315148`, RVA `0x21123A0`:
+  `bool CreateArray(const TypeInfo&, uint32_t, BSTSmartPointer<Array>&)`;
+* physical slot `0x1A` / byte offset `0xD0`, ID `2315147`, RVA `0x2112220`:
+  `bool CreateArray(RawType, const BSFixedString&, uint32_t,
+  BSTSmartPointer<Array>&)`.
+
+The TypeInfo entry receives `this` in RCX, a `TypeInfo*` in RDX, the 32-bit
+count in R8D, and the output smart-pointer address in R9. It normalizes the
+array tag (primitive array codes subtract `0xA`; complex object/struct arrays
+clear pointer bit zero) before entering the common allocator. The RawType entry
+uses RCX/RDX/R8/R9 for `this`, raw element type, type-name reference, and count;
+its fifth output argument is on the stack. Return type is `bool` for both.
+
+The previous header edit placed these overload declarations in apparent slot
+order. Under the MSVC ABI, members of this overload set are emitted into the
+vftable in reverse declaration order. The resulting NAF machine code called
+`[vtable+0xD0]` with the three-argument TypeInfo register layout. The RawType
+entry consequently read the TypeInfo pointer as a raw enum, the count as a
+`BSFixedString` reference, the output address as the count, and a nonexistent
+fifth argument as the output smart pointer. At RVA `0x21210D4` the shared array
+allocator attempted to release that bogus output value. The crash logger's
+nearest PDB label, `PostCachedErrorToLogger`, was misleading: the VM had not
+reached an Actor-type lookup error path, and `0xFFFFFFFF` was the intrusive
+reference decrement constant, not evidence of an invalid Actor RawType.
+
+Both `IVirtualMachine` and `Internal::VirtualMachine` now deliberately declare
+the RawType overload before the TypeInfo overload, with an MSVC-vftable note.
+The rebuilt Actor-array packer emits `call [vtable+0xC8]`, verified directly in
+`NAF.dll`; the scene-event audit rejects the old `+0xD0` call shape. The same
+MSVC overload rule applies to `DispatchMethodCall`: the handle overload is
+declared before the object overload so physical slots remain object `0x2D` and
+handle `0x2E`. This corrects the broader external-event dispatch surface rather
+than special-casing `SceneEndedData`.
+
+`TypeInfo` remains eight bytes. AE encodes primitive arrays as element RawType
+plus `0xA`, and complex object/struct arrays by setting bit zero on the aligned
+type-info pointer. `GetTypeInfo<vector<Actor*>>()` correctly resolves the Actor
+`ObjectTypeInfo` and applies the complex array bit; `CreateArray(TypeInfo)` is
+the correct overload. A separate helper defect was found proactively:
+`TypeInfo::SetArray(false)` subtracted `kArrayEnd` (`0x12`) for primitive arrays.
+It now subtracts the verified array tag `kArrayStart` (`0xA`). Object packing,
+`Variable` insertion, structure wrapping, and array ownership otherwise match
+the Dear/CommonLib implementation and AE allocator semantics; no NAF-specific
+array workaround or event suppression was introduced.
+
+`tools/audit_scene_event_relocations.py` now verifies 11 exact AE records,
+seven physical VM slots, both overload declaration-order guards, primitive
+array decoding, and the compiled Actor-array call site. The complete HUD,
+graph, face, package, Papyrus/serialization, camera, menu, scene, playback, and
+scene-event audit suite passes. Release x64/v143 builds and links with zero
+errors and `COPY_BUILD=OFF`. The same solo `RBBelly1` start/run/stop sequence is
+ready for a full retest; success requires the retained-actor log, completed
+`SceneEndedData` argument construction and dispatch, stable gameplay, and
+normal post-scene AI/package restoration.

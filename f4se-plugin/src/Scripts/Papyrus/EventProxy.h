@@ -48,9 +48,15 @@ namespace Papyrus
 
 				std::vector<RE::Actor*> actors;
 				actors.reserve(d->actors.size());
+				std::size_t nullActors = 0;
 				for (const auto& a : d->actors) {
-					actors.push_back(a.get());
+					auto* actor = a.get();
+					nullActors += actor == nullptr;
+					actors.push_back(actor);
 				}
+				logger::info(
+					"Papyrus scene event '{}': retained actor array count={}, null actors={}",
+					PEVENT_SCENE_END_DATA, actors.size(), nullActors);
 
 				GameUtil::SendPapyrusEventWithCallback(PEVENT_SCENE_END_DATA, callback, PackSceneId(d->id), actors);
 			}

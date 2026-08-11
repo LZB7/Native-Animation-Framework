@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import struct
 from pathlib import Path
 
@@ -18,6 +19,8 @@ EXPECTED = {
     "ArrayWrapper<Variable>::ReplaceArray (adjacent compatibility path)": (2250435, 0x10B6100),
     "Stack::GetPageForFrame (adjacent native path)": (2314680, 0x20F32F0),
     "Stack::GetStackFrameVariable (adjacent native path)": (2314681, 0x20F3360),
+    "VirtualMachine::CreateArray(RawType,...)": (2315147, 0x2112220),
+    "VirtualMachine::CreateArray(TypeInfo,...)": (2315148, 0x21123A0),
 }
 
 VM_SLOTS = {
@@ -69,6 +72,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("database", type=Path)
     parser.add_argument("executable", type=Path)
+    parser.add_argument("--plugin", type=Path)
     parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
 
@@ -98,8 +102,23 @@ def main() -> int:
     )
     for header in headers:
         text = header.read_text(encoding="utf-8")
-        check_order(text, "CreateArray(const TypeInfo&", "CreateArray(TypeInfo::RawType", str(header), failures)
-        check_order(text, "DispatchMethodCall(const BSTSmartPointer<Object>&", "DispatchMethodCall(std::uint64_t", str(header), failures)
+        # MSVC reverses members within these overload sets when laying out the vftable.
+        check_order(text, "CreateArray(TypeInfo::RawType", "CreateArray(const TypeInfo&", str(header), failures)
+        check_order(text, "DispatchMethodCall(std::uint64_t", "DispatchMethodCall(const BSTSmartPointer<Object>&", str(header), failures)
+
+    type_info = (
+        args.source_root / "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/BSScript/TypeInfo.h"
+    ).read_text(encoding="utf-8")
+    if "data.rawType -= RawType::kArrayStart" not in type_info:
+        failures.append("TypeInfo::SetArray(false) does not remove the verified +0xA primitive-array tag")
+
+    if args.plugin:
+        plugin = args.plugin.read_bytes()
+        call_prefix = rb"\x48\x8B\x03\x4C\x8D\x4D.\x48\x8D\x55.\x48\x8B\xCB\xFF\x90"
+        if not re.search(call_prefix + rb"\xC8\x00\x00\x00", plugin, re.DOTALL):
+            failures.append("compiled Actor-array packer does not call physical VM slot 0x19 (+0xC8)")
+        if re.search(call_prefix + rb"\xD0\x00\x00\x00", plugin, re.DOTALL):
+            failures.append("compiled Actor-array packer still calls RawType slot 0x1A (+0xD0) with the TypeInfo ABI")
 
     if failures:
         for failure in failures:
