@@ -1748,3 +1748,126 @@ player, vtable and exact `0x8C` target validation; one before/after log pair;
 no crash; and `maxInFlight=1`. Only that result may classify this one
 `PlayerCharacter::Get3D()` read as runtime-safe in the observed worker context.
 The DLL was built but was not deployed or executed in this stage.
+
+## Exact-ID startup failure 1378547 and bounded relocation audit
+
+The corrected test-six DLL failed closed on runtime `1.11.221.0` before the
+bounded player diagnostic with:
+
+```text
+REL/IDDB.cpp(145): Failed to find the id within the address library: 1378547
+```
+
+This is a successful detection by the exact-ID hardening, not evidence about
+`PlayerCharacter::Get3D()`: the virtual call was never reached. Approximate or
+next-record lookup remains prohibited.
+
+### Owner, startup path, and namespace
+
+ID `1378547` belonged to the selected CommonLib declaration
+`RE::CombatUtilities::fWorldGravity` in `RE/Bethesda/Utilities.h`. Its original
+form was a namespace-scope `REL::Relocation<float>` initialized with the single
+old-runtime ID. Because `RE/Fallout.h` includes this header, MSVC emitted a CRT
+dynamic initializer into NAF even though NAF never reads world gravity. The
+effective path was:
+
+```text
+Windows loader -> CRT _initterm -> fWorldGravity initializer
+  -> REL::Relocation<float> -> REL::ID::address -> exact IDDB lookup -> fail
+```
+
+The supplied databases resolve the semantic pair as follows:
+
+| runtime | supplied-library ID | RVA | evidence |
+|---|---:|---:|---|
+| 1.10.163 | `1378547` | `0x5AD87C0` | exact old database record; selected historical declaration |
+| 1.11.221 | `2700340` | `0x33058E8` | exact current database record; Dear/CommonLib independently pairs and names the global |
+
+Dear/CommonLib represents `WorldGravity` as `{ 1378547, 2700340 }` and repeats
+the current entry for its NG/AE variants. Consequently this failure is **not**
+another case where the second member of a two-runtime pair was actually a
+1.10.984-only ID. It was an OG-only single ID incorrectly treated as
+runtime-invariant. Evidence grade: **source/address-database corroborated**;
+the current global's semantic name is not promoted as PDB/disassembly proof.
+
+`CombatUtilities::GetWorldGravity()` now performs lazy function-local
+resolution using `REL::RelocationID(1378547, 2700340)`. This both records the
+correct supplied-library namespace and prevents an unused engine global from
+being resolved before `F4SEPlugin_Load`.
+
+### Eager relocation hazards
+
+The pre-fix Release PDB and PE CRT initializer table exposed ten CommonLib
+engine globals that were resolved merely by loading the DLL:
+
+| declaration | old selected addressing | disposition |
+|---|---|---|
+| full-screen blur disable | `372489 / 2713225` | lazy accessor; current ID exists exactly |
+| get-hit effect disable | `1523708 / 2713237` | lazy accessor; current ID exists exactly |
+| power-armor Pip-Boy image flag | old-only `1065542` | lazy accessor with corroborated current `2713203` |
+| radial-blur disable | `1500590 / 2713225` | lazy accessor; current ID exists exactly |
+| temporal-AA mask | old-only `775377` | lazy accessor with corroborated current `2713052` |
+| power-armor battery setting | old-only `1134204` | lazy accessor; retained as unresolved until invoked because Dear points at a different current global |
+| world gravity | old-only `1378547` | lazy accessor; corrected current ID `2700340` |
+| workshop placement data | old-only `1279207` | lazy accessor; deferred and unresolved if invoked |
+| workshop current row | old-only `833923` | lazy accessor; deferred and unresolved if invoked |
+| workshop placement handle | old-only `526727` | lazy accessor; deferred and unresolved if invoked |
+
+The Dear AE workshop candidates (`4797261`, `4797160`, and `4797235`) were not
+copied: their exact current records are useful candidates, but NAF does not use
+these interfaces and their semantics have not been independently verified.
+Likewise, the battery-setting ID is not changed merely because another fork
+names a candidate.
+
+After a full clean rebuild, none of the ten engine-global initializer symbols
+remains in the Release PDB. Hook state objects still have ordinary CRT
+construction, but their default-constructed relocation members do not resolve
+an ID; registration of all other gameplay hooks remains gated. Therefore no
+deferred subsystem address is known to resolve eagerly during startup.
+
+### Bounded two-ID audit
+
+The first pass was deliberately limited to interfaces transitively reachable
+from plugin initialization, the diagnostic `NonRendersafeAI` hook, its guards,
+the player singleton, and the one bounded `Get3D()` call.
+
+| interface | old/current IDs | current status |
+|---|---|---|
+| full-screen blur disable | `372489 / 2713225` | exact current record; now unreachable at startup |
+| get-hit effect disable | `1523708 / 2713237` | exact current record; now unreachable at startup |
+| radial-blur disable | `1500590 / 2713225` | exact current record; now unreachable at startup |
+| game-loop containing function | `338354 / 2228937` | exact, disassembly- and runtime-verified |
+| `ProcessQueues` original | `882638 / 2229181` | exact, disassembly- and runtime-verified |
+| `Main` singleton | `756304 / 2698043` | exact and exercised by prior diagnostics |
+| `QGameDataLoaded` | `384264 / 2228956` | exact and exercised by prior diagnostics |
+| player singleton | `303410 / 2698073` | exact; disassembly-verified `NiPointer<PlayerCharacter>` storage at RVA `0x32D22E0` |
+
+Eight NAF/startup-diagnostic reachable two-ID interfaces were audited. All
+eight select an exact record in the supplied 1.11.221 namespace; five engine
+interfaces have the stronger existing static/runtime evidence listed above,
+and the three image-space globals have exact-record plus independent-source
+corroboration but are no longer startup reachable. Zero current second IDs in
+this bounded set are 1.10.984-only and zero bounded-path relocations remain
+unresolved. The already-corrected `2690919` player failure remains the known
+historical example of a 1.10.984 ID incorrectly selected as AE; it is not part
+of the current set.
+
+`REL::IDDB::id2offset()` still requires `lower_bound` to return a record whose
+ID equals the requested ID. Missing records fail closed with the requested ID
+and runtime. No nearest-record fallback or fuzzy lookup was restored.
+
+### Build and test-six readiness
+
+A clean Release/x64/v143 rebuild completed with zero compiler and linker
+errors and `COPY_BUILD=OFF`. The clean rebuild was necessary because an
+initial incremental artifact retained the old precompiled-header initializer;
+the final PDB dry audit confirms its removal. The known pinned-`ik` timestamp
+warning remains confined to the generated build copy and does not alter the
+historical submodule.
+
+The corrected test-six behavior is unchanged: it resolves exact player ID
+`2698073`, validates player memory, the Fallout4.exe `.rdata` vtable, and slot
+`0x8C == base + 0xD5BCC0`, then performs exactly one normal C++ `Get3D()` call
+without dereferencing the result. With the bounded startup relocation set now
+clean, this diagnostic DLL is suitable to rerun but has not been deployed or
+executed here.
