@@ -2191,3 +2191,130 @@ This is a production HUD-path test, not a release-readiness claim. HUD mode
 event delivery, Scaleform asset loading, overlay hide/show, alpha restoration,
 and shutdown cleanup remain runtime-test-required. All unrelated subsystem
 hooks and gameplay initialization remain disabled.
+
+## HUD restoration regression audit
+
+### Runtime failure and exact owner of ID 2193197
+
+The first HUD-enabled launch failed closed after `kGameDataReady(true)` and
+before HUD event registration completed:
+
+```text
+REL/IDDB.cpp(145): Failed to find the id within the address library: 2193197
+```
+
+The owner is `MemoryManager::GetSingleton()` in selected CommonLibF4's
+`MemoryManager.h`. The historical declaration was
+`RelocationID(343176, 2193197)`. Dear-Modding/CommonLibF4 and Addictol model it
+explicitly as the three-runtime tuple `{343176, 2193197, 4471522}`: `2193197`
+is the 1.10.984 ID, while `4471522` is the 1.11.221 entry. In NAF's supplied
+1.11.221 database, `2193197` is absent and exact ID `4471522` resolves to RVA
+`0x1DFF80`.
+
+The exact runtime call chain was:
+
+```text
+F4SE kGameDataReady(true)
+ -> MessageHandler
+ -> HUDManager::RegisterHUDModeEvents
+ -> HUDModeEvent::GetEventSource (ID 4801988)
+ -> null source requires new BSTGlobalEvent::EventSource
+ -> CommonLib engine allocator
+ -> MemoryManager::GetSingleton
+ -> exact lookup of stale ID 2193197
+```
+
+This relocation is lazy but genuinely required. It was not an unused eager
+global. Focused 1.10.163/1.11.221 disassembly verifies the replacement: both
+functions test the initialization state for `2`, obtain the manager storage,
+invoke their runtime-specific initialization helper when needed, and return
+the manager. Old ID `343176` is RVA `0x48A0`; current ID `4471522` is RVA
+`0x1DFF80`. Evidence grade: **three-runtime namespace identification plus
+disassembly-verified function**.
+
+### Regression and build-tree comparison
+
+The HUD commits `c1560a7`, `41eb44c`, and `7deba89`, and CommonLib commit
+`ef33245`, did not revert the earlier safety changes. The actual headers and
+sources used by the generated Visual Studio projects retain:
+
+- exact-match/fail-closed `IDDB::id2offset`; there is no nearest-record path;
+- `PlayerCharacter::GetSingleton()` IDs `303410/2698073`, with
+  `NiPointer<PlayerCharacter>` storage and one `get()`; `2690919` is absent;
+- physical `TESObjectREFR` declaration order `Get3D(bool)` at slot `0x8B`, then
+  `Get3D()` at slot `0x8C`;
+- the ten function-local lazy engine-global relocations from CommonLib commit
+  `d4eb940`, including `CombatUtilities::fWorldGravity` IDs
+  `1378547/2700340`;
+- the sole raw-RVA exception at `FreeUpAllMarkers` entry `0x55F490`, with its
+  exact-runtime and prologue guards; `0x55F4B0` is not a callable entry;
+- the verified game-loop containing ID `2228937 + 0x1E`, including direct-call
+  validation against `ProcessQueues` ID `2229181`.
+
+The failed DLL was built from CommonLib commit `ef33245`, whose ancestry
+contains `d4eb940`, `66ad564`, and `6bfc088`. `CMakeCache.txt`, `NAF.vcxproj`,
+and `CommonLibF4.vcxproj` all resolve includes and sources to the checked-out
+`f4se-plugin/extern/CommonLibF4/CommonLibF4` tree. No vcpkg, PANDA,
+Dear-Modding, alternate alandtse checkout, or stale generated include directory
+is selected.
+
+### Bounded reachable relocation sweep
+
+The failure exposed one three-runtime collapse and the bounded sweep found 16
+additional OG-only declarations on the newly reachable menu path before a
+second launch. They are now old/current pairs:
+
+| group | corrected 1.11.221 IDs |
+|---|---|
+| `IMenu` | `ShouldHandleEvent` `2287392`; `PassesRenderConditionText` `2287379`; `OnSetSafeRect` `2287375`; `ProcessScaleformEvent` `2287395`; `RefreshPlatform` `2287374` |
+| Scaleform wrappers | `BSGFxObject::AcquireFlashObjectByPath` `2287015`; `BSGFxShaderFXTarget::ProcessEvent` `2287033` |
+| `GameMenuBase` virtuals | `SetIsTopButtonBar` `2223204`; `OnMenuDisplayStateChanged` `2223205`; shader-quad cache/transfer `2223200/2223201`; viewport `2223202`; append shader information `2223203` |
+| menu behavior | `UIUtils::PlayMenuSound` `2249707`; `SendHUDMessage::PushHUDMode` `2222443`; `PopHUDMode` `2222444` |
+
+These IDs exist exactly in the supplied database at the Dear-mapped RVAs; PDB
+names independently agree where public symbols are present. No Dear/Addictol
+AE numeric ID was copied across namespaces: every promoted number is the exact
+record in NAF's supplied database. Commit `435bc9d` contains these CommonLib
+corrections, including `MemoryManager::GetSingleton` ID `4471522`.
+
+`tools/audit_hud_relocations.py` records the bounded startup/game-loop/HUD
+surface and requires both exact ID presence and the expected RVA. It checks 47
+interfaces: memory allocation and string pooling, event sources, UI/menu queue,
+Scaleform construction, active menu virtual helpers, HUD message functions,
+and the verified queue hook. The supplied 1.11.221 database passes all 47.
+The audit deliberately excludes still-gated animation, face, package, camera,
+studio, scene, Papyrus, and serialization surfaces.
+
+### HUD header and ABI audit
+
+The selected and Dear declarations agree on the NAF-used virtual order and on
+the sizes of `IMenu` (`0x70`), `GameMenuBase` (`0xE0`), `BSGFxObject`
+(`0x38`), `BSGFxDisplayObject` (`0x50`), `BSGFxShaderFXTarget` (`0xB0`),
+`BSScaleformManager` (`0x40`), `UIMessageQueue` (`0x220`), and `HUDModeEvent`
+(`0x08`). The HUD change introduced no vtable reordering or overload change.
+The engine-invoked `IMenu`/`GameMenuBase` declarations keep matching physical
+order; only their callable relocation bodies were corrected.
+
+Dear's AE `UI` is `0x260`, while the selected header remains `0x250`, because
+the tail containing the timer/boolean state differs. NAF does not construct or
+size `UI`, nor access those tail fields. It uses the unchanged leading
+event-source bases, `GetSingleton`, `RegisterSink`, and engine
+`RegisterMenu`. This discrepancy is documented as an **inactive layout
+concern/runtime-test-required**, not papered over with speculative padding.
+`HUDMenu` internals are no longer used because `HUDModeEvent` replaced the
+legacy interior hook.
+
+### Fix and clean build
+
+CommonLib commit `435bc9d` corrects the one 1.10.984-as-AE mapping and the 16
+reachable OG-only declarations. Exact lookup remains unchanged. A full CMake
+reconfigure followed by Release clean and rebuild compiled all CommonLib and
+NAF objects and linked with zero errors and `COPY_BUILD=OFF`. The pinned `ik`
+timestamp script still emits its previously documented development warnings;
+it does not alter the pinned dependency tree or affect the DLL result.
+
+The production HUD test remains the next runtime goal. The corrected build is
+statically safe to rerun under the same HUD-only gates; no additional gameplay
+subsystem was enabled by this audit. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`636E67D740BBEBAAF5B0CB090222A47B0597FB196CABC5A89EC32A6B83445BF3`.
