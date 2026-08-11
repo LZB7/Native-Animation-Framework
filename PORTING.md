@@ -3052,3 +3052,88 @@ the recommended next stage: they are needed before deferred `SCNE`, `TASK`,
 `EQPT`, `UID`, `BODY`, `FACE` and `SHUD` records or the remaining scene-facing
 Papyrus natives can be safely activated. Camera should remain a separate later
 stage unless scene prerequisite analysis proves it mandatory.
+
+## Papyrus/serialization exact-ID regression audit
+
+The first production lifecycle attempt failed closed on Address Library ID
+`2689134`. Exact matching behaved correctly and remains mandatory; no nearest
+record, fuzzy lookup, or raw-RVA fallback was introduced.
+
+### Owner, timing, and runtime namespace
+
+The sole owner in the effective build tree was selected CommonLibF4
+`RE::GameVM::GetSingleton()` in
+`CommonLibF4/include/RE/Bethesda/GameScript.h`. Its declaration was
+`RelocationID(996227, 2689134)` with storage type `GameVM**`. The lookup occurs
+inside the F4SE Papyrus registration callback, not while registering the F4SE
+serialization callbacks and not while reading a co-save. The precise enabled
+path is:
+
+`F4SE Papyrus callback -> Papyrus::RegisterFunctions -> PAPYRUS_BIND(SetPackageOverride) -> IVirtualMachine::BindNativeMethod -> NativeFunction constructor -> GetTypeInfo<Actor/TESPackage> -> GameVM::GetSingleton`.
+
+The first two settings natives have primitive types and do not require object
+type information. `SetPackageOverride` is the first enabled native whose actor
+and package arguments cause CommonLib's object-type lookup to acquire the game
+VM, which explains why the stale singleton was reached during registration.
+
+Dear CommonLib and Addictol explicitly model this singleton as the three-way
+mapping `996227 / 2689134 / 4796420` for OG 1.10.163 / NG 1.10.984 / AE
+1.11.221. Thus `2689134` is another 1.10.984-as-AE collapse in the selected
+two-ID CommonLib model. This is not an OG-invariant error and not a
+serialization-format failure.
+
+The 1.11.221 Crash Logger PDB names `g_GameVM` at RVA `0x30E0288`. The supplied
+1.11.221 Address Library independently maps that exact RVA to ID `4796420`.
+Selected CommonLib now uses `RelocationID(996227, 4796420)` while retaining the
+verified `GameVM**` indirection. This correction is in CommonLib commit
+`1034e4b`. Dear's numeric AE record agrees here with the supplied namespace,
+but the promotion rests on the PDB RVA and exact supplied-database record, not
+on numeric copying alone.
+
+### Expanded reachable audit
+
+`tools/audit_papyrus_serialization.py` now requires the Address Library and
+checks 15 exact ID/RVA pairs covering the bounded lifecycle's VM singleton,
+native dispatch body, allocator/reallocator/scrap heap, BSStringPool operations,
+actor-handle operations and `Actor::GetActorHandle`. It also source-guards the
+corrected GameVM selector and the native-call selector. The known stale
+`TESForm::GetAllForms` declarations `2689178/2689189` remain recorded as
+1.10.984-only but unreachable.
+
+The reachable-path review found no second bad ID beyond `2689134`. The active
+17-native surface divides as follows: primitive settings calls are local;
+package calls use the already verified package/handle surface; HUD calls use
+the already verified UI/Scaleform surface; VM registration uses maintained
+virtual slots plus the audited allocator/string/type-information paths. The
+`NativeFunctionBase::Call` record ID `2314780` exists exactly at PDB-consistent
+RVA `0x20F9870`. No enabled path uses the `vmobject`-only legacy single ID in
+`BSScriptUtil`, scene event dispatch, or the unregistered structure-returning
+scene natives.
+
+There are no namespace-scope `REL::Relocation` objects in the bounded
+Papyrus/serialization implementation. All audited CommonLib relocations are
+function-local statics and resolve only when the owning operation is reached.
+The `EventRegistrations` state allocation is ordinary local heap state; its
+`GameVM` access is confined to the unused `Dispatch` template and is not
+instantiated by the enabled lifecycle.
+
+Deferred records remain literal passive preservation. `LoadCallback` reads the
+F4SE record bytes and only deserializes a version-5 `HUD` record. Every other
+type/version, including `PACK`, is moved directly into `DeferredRecord` without
+calling `DeserializeForm`, `DeserializeHandle`, `TESForm::GetAllForms`, scene,
+studio, camera, morph, or package fixups. Save writes those original bytes back.
+The historical unique ID `'NAF'`, record version 5, four-byte size prefix,
+cereal payload and serialized widths are unchanged.
+
+All audits pass after the correction: 15 Papyrus/serialization, 63 HUD, 16
+graph, 3 face/lip and 12 package exact-record checks (109 bounded assertions
+across the subsystem scripts, with intentional overlap for shared primitives).
+A clean Release x64/v143 build completes with zero compiler/linker errors and
+`COPY_BUILD=OFF`. No deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`48A02A2D2858220AB80B3C89325B8B9CD56B9FB7E8095E98890E90824BA08A28`.
+
+It is safe to rerun the unchanged production lifecycle test: load a save,
+verify the HUD/graph/face/package baseline and 17-native registration, exercise
+one enabled native, create and load a new save, verify HUD restoration and
+passive deferred-record preservation, then exercise revert and retain all logs.
