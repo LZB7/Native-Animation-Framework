@@ -1984,3 +1984,87 @@ Test-seven runtime plan:
 A pass validates only this synthetic player eligibility read sequence. It does
 not yet authorize real scene iteration, handle resolution for arbitrary actors,
 or any state mutation.
+
+## Test-seven result and test-eight mutation selection audit
+
+Test seven passed on Fallout 4 `1.11.221.0`. The one-shot diagnostic reported
+`deleted=false`, `disabled=false`, readable parent-cell and loaded-cell-data
+pointers, a non-null player 3D, `cellReady=true`, `actorEnabled=true`,
+`syntheticEligible=true`, and `mutationPerformed=false`. Concurrency monitoring
+remained `maxInFlight=1`.
+
+The following exact path is now **runtime validated in the tested environment**:
+
+- player singleton ID `2698073` and one `NiPointer<PlayerCharacter>::get()`;
+- `TESForm::formFlags` at `+0x10` and deleted/disabled bit decoding;
+- `TESObjectREFR::parentCell` at `+0xB8`;
+- `TESObjectCELL::loadedData` at `+0xD0`;
+- corrected `PlayerCharacter::Get3D()` physical slot `0x8C`;
+- the combined synthetic actor-eligibility result;
+- this bounded sequence from the observed serialized, thread-migrating
+  `NonRendersafeAI` worker context.
+
+This promotion remains specific to these reads and does not extend to other
+actor virtuals, arbitrary references, scene iteration, or mutation.
+
+### Reversible-mutation ranking
+
+| rank | candidate | forward/rollback evidence | target and side-effect assessment | disposition |
+|---:|---|---|---|---|
+| 1 | reference keyword add/remove | `AddKeyword` old/current IDs `640674/2200860`; `RemoveKeyword` `281170/2200861` | membership operations are adjacent inverses, but both mark the reference changed with flag `0x80000000`; no isolated reference/test keyword pair is currently available | rejected for this build |
+| 2 | local no-collision bit | direct `LOADED_REF_DATA::flags` bit `0x0800`, disassembly-verified historical behavior | exact bit pre-state and rollback are possible, but the only bounded object is the player and player collision is explicitly excluded | blocked on controlled non-player reference |
+| 3 | actor favor state | query/set IDs `46113/2230148` and `391670/2230149`, disassembly verified | setter has player/package/process side effects when clearing; historical scene path excludes the player | rejected |
+| 4 | restrained state | setter IDs `316742/2229910`, disassembly verified | enabling invokes additional interaction/movement behavior, so a false call does not restore the complete pre-state | rejected |
+| 5 | collision disable/enable | IDs `475952/2229653` and `1274117/2229652` | character-controller/physics transition has broader state and player collision is excluded | rejected |
+| 6 | transform/scale | maintained or recovered setters | visible physics/3D consequences and expressly outside test-eight scope | rejected |
+
+Animation, inventory/equipment, morphs, HUD/UI, camera, packages, player-3D
+refresh, studio, Papyrus and serialization remain excluded without further
+ranking because the requested stage already classifies them as too broad.
+
+### Keyword operation evidence and rollback defect
+
+Focused old/current disassembly independently verifies the add mapping:
+
+| operation | 1.10.163 | 1.11.221 | semantic evidence |
+|---|---:|---:|---|
+| add reference keyword | ID `640674`, RVA `0x3F7040` | ID `2200860`, RVA `0x4FDDE0` | instruction-identical control flow: null guard, `IKeywordFormBase::HasKeyword`, extra-keyword update with `true`, virtual change mark `0x80000000`, common post-update call |
+| remove reference keyword | ID `281170`, RVA `0x3F70E0` | ID `2200861`, RVA `0x4FDE80` | same structure with the membership test reversed and extra-keyword update with `false`; independently verified earlier and reconfirmed here |
+
+The functions are true membership inverses, not merely similarly named
+candidates. They are not complete state inverses: a successful add and a
+successful remove both invoke the reference change-mark path with
+`0x80000000`. Membership can be restored immediately, but the diagnostic
+cannot truthfully assert that the reference's change/save state equals its
+pre-test state without manipulating additional internal change tracking. Such
+manipulation would expand rather than bound the mutation.
+
+The project contains NAF-specific keywords, but they have actual framework
+semantics (`NAFInScene`, walk-linked-reference use, exclusion, and related
+flows). None is a dedicated diagnostic-only form. Mutating one on the player
+would violate the requirement not to use the player's gameplay keyword state.
+Creating a synthetic keyword through `IFormFactory` was also rejected: the
+selected CommonLib's factory-array second ID `2689177` is absent from the
+supplied 1.11.221 database (the exact current record is `4796464` at RVA
+`0x30E0950`), and object creation/destruction plus worker-thread allocation
+would introduce new lifetime and thread-affinity questions solely to enable the
+test. No ID was changed or promoted for that unused path.
+
+### Test-eight disposition and exact blocker
+
+No mutation is enabled and no test-eight DLL is produced in this stage. The
+existing test-seven DLL must not be relabeled as a mutation diagnostic.
+
+The smallest missing input is a disposable, non-player reference in a test
+save whose identity and lifecycle are controlled. For the lowest-risk
+candidate, it should be a nonessential actor/reference with loaded
+`LOADED_REF_DATA`, not used by quests, packages, workshops, ownership,
+dialogue, factions or persistence-sensitive gameplay. Its exact FormID/load
+order (or a small dedicated test plugin containing it) is required. With that
+target, the direct no-collision bit can be tested transactionally by capturing
+bit `0x0800`, toggling it once, verifying the changed bit, restoring the exact
+original bit, and verifying restoration. No Havok function or new relocation
+would be involved.
+
+Until such an isolated target exists, crossing the mutation boundary would
+either modify prohibited player state or falsely claim rollback completeness.
