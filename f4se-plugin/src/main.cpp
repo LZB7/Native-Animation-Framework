@@ -28,52 +28,46 @@ bool g_gameDataReady = false;
 #include "API/API.h"
 namespace
 {
-	// This build is intentionally limited to F4SE discovery and plugin-load
-	// diagnostics.  No gameplay subsystem may initialize until its hook set has
-	// been independently recovered for 1.11.221.
-	inline constexpr bool kStartupDiagnosticMode = true;
+	// Restore subsystems coherently.  This stage enables only the production HUD
+	// path; all scene, graph, face, package, camera, studio, Papyrus and
+	// serialization work remains unavailable.
+	inline constexpr bool kHUDSubsystemEnabled = true;
+	inline constexpr bool kGameplaySubsystemsEnabled = false;
 
 	void MessageHandler(F4SE::MessagingInterface::Message* a_msg)
 	{
 		if (!a_msg) {
 			return;
 		}
-		if constexpr (kStartupDiagnosticMode) {
-			logger::info("Startup diagnostic received F4SE message type {}; gameplay initialization remains gated", a_msg->type);
-			return;
-		}
-
 		switch (a_msg->type) {
 			case F4SE::MessagingInterface::kGameDataReady:
 			{
 				if (static_cast<bool>(a_msg->data)) {
-					logger::info("Game data finished loading, registering NAF menu...");
+					logger::info("Game data finished loading; initializing the production NAF HUD subsystem");
 
 					auto ui = RE::UI::GetSingleton();
-					if (ui) {
-						ui->RegisterSink(Tasks::TimerThread::GetSingleton());
-						ui->RegisterSink(Menu::HUDManager::GetSingleton());
-						Menu::Register(ui);
+					if (!ui) {
+						logger::critical("HUD initialization failed: UI singleton is unavailable");
+						break;
 					}
-					
-					logger::info("Linking references...");
-					Utility::StartPerformanceCounter();
 
-					Data::Global::InitGameData();
-
-					double performanceSeconds = Utility::GetPerformanceCounter();
-					logger::info("Finished linking in {:.3f}s", performanceSeconds);
-					logger::info("Ready!");
+					if (!Menu::HUDManager::RegisterHUDModeEvents()) {
+						logger::critical("HUD initialization failed: HUD mode event registration was unavailable");
+						break;
+					}
+					ui->RegisterSink(static_cast<RE::BSTEventSink<RE::MenuOpenCloseEvent>*>(Menu::HUDManager::GetSingleton()));
+					Menu::RegisterHUD(ui);
 
 					g_gameDataReady = true;
-					Data::Events::Send(Data::Events::GAME_DATA_READY);
+					logger::info("Production NAF HUD registered; all unrelated gameplay subsystems remain gated");
 				}
 
 				break;
 			}
 			case F4SE::MessagingInterface::kPostLoad:
 			{
-				LooksMenu::Init();
+				logger::debug("Post-load received; LooksMenu integration remains gated in the HUD-only stage");
+				break;
 			}
 			default:
 				break;
@@ -82,27 +76,13 @@ namespace
 
 	[[nodiscard]] bool InitializeHooking()
 	{
-		if constexpr (kStartupDiagnosticMode) {
-			logger::warn("Update diagnostic mode: verified game-loop hook, category-A delay bookkeeping, and one bounded player 3D read; gameplay work remains gated");
-			auto& trampoline = F4SE::GetTrampoline();
-			trampoline.create(64);
-			if (!Tasks::GameLoopHook::RegisterHook(trampoline, true)) {
-				return false;
-			}
-			logger::warn("Deferred hooks: graph update/Set3D, face update/lip, HUD mode, package evaluation/check, free camera update");
-			return true;
-		}
-
 		auto& trampoline = F4SE::GetTrampoline();
 		trampoline.create(64);
 		if (!Tasks::GameLoopHook::RegisterHook(trampoline)) {
 			return false;
 		}
-		BodyAnimation::GraphHook::RegisterHook();
-		FaceAnimation::FaceUpdateHook::RegisterHook(trampoline);
-		Menu::HUDManager::RegisterHook(trampoline);
-		PackageOverride::EvalHook::RegisterHook();
-		CamHook::RegisterHook();
+		logger::warn("Deferred hooks: graph update/Set3D, face update/lip, package evaluation/check, free camera update");
+		logger::info("Legacy HUD interior hook is replaced by the maintained HUDModeEvent source");
 		return true;
 	}
 }
@@ -179,8 +159,9 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		logger::info("Registered with F4SE messaging interface.");
 	}
 
-	if constexpr (kStartupDiagnosticMode) {
-		logger::warn("Startup diagnostic initialization complete; serialization, Papyrus, game data, menus, scenes and gameplay subsystems are disabled");
+	if constexpr (!kGameplaySubsystemsEnabled) {
+		logger::info("HUD-enabled development initialization complete; awaiting game data before HUD registration");
+		logger::warn("Serialization, Papyrus, scenes, graph, face, package, camera, studio and LooksMenu gameplay integration remain gated");
 		return true;
 	}
 

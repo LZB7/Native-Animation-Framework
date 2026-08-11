@@ -6,8 +6,6 @@
 
 namespace Menu
 {
-	typedef void(OnHUDModeChanged)(RE::HUDMenu*);
-
 	struct Vector2
 	{
 		float x = 0.0f;
@@ -93,7 +91,9 @@ namespace Menu
 		}
 	};
 
-	class HUDManager : public RE::BSTEventSink<RE::MenuOpenCloseEvent>
+	class HUDManager :
+		public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
+		public RE::BSTEventSink<RE::HUDModeEvent>
 	{
 	public:
 		typedef std::unordered_map<uint32_t, HUDElement> HUDElementMap;
@@ -137,6 +137,28 @@ namespace Menu
 				}
 			}
 
+			return RE::BSEventNotifyControl::kContinue;
+		}
+
+		virtual RE::BSEventNotifyControl ProcessEvent(const RE::HUDModeEvent& a_event, RE::BSTEventSource<RE::HUDModeEvent>*) override
+		{
+			if (!a_event.currentHUDModes) {
+				logger::warn("HUD mode event did not provide a mode array");
+				return RE::BSEventNotifyControl::kContinue;
+			}
+
+			const bool pipboyMode = std::ranges::any_of(*a_event.currentHUDModes, [](const RE::HUDModeType& a_mode) {
+				return a_mode.modeString == "Pipboy";
+			});
+			if (pipboyMode && !hidden) {
+				SetAlpha(0.0f);
+				hidden = true;
+			} else if (!pipboyMode && hidden) {
+				SetAlpha(1.0f);
+				hidden = false;
+			}
+
+			logger::debug("NAF HUD visibility updated from HUDModeEvent: pipboyMode={}, hidden={}", pipboyMode, hidden);
 			return RE::BSEventNotifyControl::kContinue;
 		}
 
@@ -414,27 +436,16 @@ namespace Menu
 			}
 		}
 
-		static void OnHUDModeChanged(RE::HUDMenu* hud) {
-			const bool pipboyMode = std::ranges::any_of(hud->hudModes, [](const RE::HUDModeType& a_mode) {
-				return a_mode.modeString == "Pipboy";
-			});
-			if (pipboyMode && !hidden) {
-				SetAlpha(0.0f);
-				hidden = true;
-			} else if (hidden) {
-				SetAlpha(1.0f);
-				hidden = false;
-			}
-			OriginalHUDModeChanged(hud);
-		}
-
-		static void RegisterHook(F4SE::Trampoline& trampoline)
+		[[nodiscard]] static bool RegisterHUDModeEvents()
 		{
-			//HUDMenu::OnHUDMessage_SetMode + 0xA8
-			//Call to HUDMenu::OnHUDModeChanged
-			REL::Relocation<Menu::OnHUDModeChanged> modeChangedLoc{ REL::ID(1385889), 0xA8 };
-
-			OriginalHUDModeChanged = trampoline.write_call<5>(modeChangedLoc.address(), &OnHUDModeChanged);
+			auto* source = RE::HUDModeEvent::GetEventSource();
+			if (!source) {
+				logger::critical("Failed to obtain HUDModeEvent source");
+				return false;
+			}
+			source->RegisterSink(GetSingleton());
+			logger::info("Registered NAF HUD visibility handler with maintained HUDModeEvent source");
+			return true;
 		}
 
 		static void Update(float delta) {
@@ -566,6 +577,5 @@ namespace Menu
 		inline static bool hidden = false;
 		inline static std::atomic<RE::GameMenuBase*> menuInstance = nullptr;
 
-		inline static REL::Relocation<Menu::OnHUDModeChanged> OriginalHUDModeChanged;
 	};
 }

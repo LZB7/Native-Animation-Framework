@@ -7,6 +7,10 @@
 
 namespace Menu
 {
+	void RegisterHUD(RE::UI* ui) {
+		ui->RegisterMenu("NAFHUDMenu", Menu::NAFHUDMenu::Create);
+	}
+
 	void Register(RE::UI* ui) {
 		ui->RegisterMenu("NAFMenu", Menu::NAFMenu::Create);
 		ui->RegisterMenu("NAFHUDMenu", Menu::NAFHUDMenu::Create);
