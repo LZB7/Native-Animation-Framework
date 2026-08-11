@@ -66,14 +66,14 @@ SAFE_NATIVES = {
 	"StopScene",
 	"GetSceneFromActor",
 	"IsSceneRunning",
+	"ToggleMenu",
+	"WalkToAndStartScene",
 }
 
 GATED_NATIVES = {
-    "ToggleMenu",
     "IsActorUsable",
     "SetActorUsable",
     "PlayDynamicIdle",
-    "WalkToAndStartScene",
     "SetScenePosition",
     "GetSceneActors",
     "GetSceneHKXs",

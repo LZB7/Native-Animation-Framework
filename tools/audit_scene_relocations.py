@@ -43,6 +43,12 @@ EXPECTED = {
     "AIProcess::ClearCurrentPackage": (2231582, 0xCF1340),
     "AIProcess::ClearCurrentDataForProcess": (2232435, 0xD394F0),
     "Actor::EvaluatePackage": (2229805, 0xC69240),
+    "TESDataHandler singleton": (4796135, 0x30DC080),
+    "TESObjectREFR::SetLinkedRef": (2202684, 0x5645B0),
+    "ControlMap singleton": (4799307, 0x31E5B08),
+    "ControlMap::PushInputContext": (2268335, 0x166F430),
+    "ControlMap::PopInputContext": (2268336, 0x166F500),
+    "ControlMap::SetTextEntryMode": (4491359, 0x166F9A0),
 }
 
 SOURCE_GUARDS = {
@@ -64,6 +70,25 @@ SOURCE_GUARDS = {
         "REL::RelocationID(422985, 4796465)",
         "REL::RelocationID(691815, 4796476)",
     ),
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESDataHandler.h": (
+        "REL::RelocationID(711558, 4796135)",
+    ),
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
+        "REL::RelocationID(192840, 2202684)",
+    ),
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/ControlMap.h": (
+        "REL::RelocationID(325206, 4799307)",
+        "REL::RelocationID(1270079, 4491359)",
+    ),
+    "f4se-plugin/src/Scripts/Papyrus.h": (
+        "PAPYRUS_BIND(ToggleMenu)",
+        "PAPYRUS_BIND(WalkToAndStartScene)",
+    ),
+    "f4se-plugin/src/Menu/Menu.h": ("RegisterProductionSceneMenu",),
+    "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/MainMenuHandler.h": (
+        '{ "New Scene", BindGoto(kNewScene) }',
+        '{ "Active Scenes", BindGoto(kManageScenes) }',
+    ),
 }
 
 FORBIDDEN = (
@@ -72,6 +97,9 @@ FORBIDDEN = (
     "REL::ID(639576)",
     "REL::RelocationID(422985, 2689178)",
     "REL::RelocationID(691815, 2689189)",
+    "REL::RelocationID(711558, 2688883)",
+    "REL::RelocationID(325206, 2692014)",
+    "REL::ID(192840)",
 )
 
 

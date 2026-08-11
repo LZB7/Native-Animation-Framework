@@ -3469,3 +3469,98 @@ repeat is separately required to promote player AI/input/camera symmetry.
 Advanced LooksMenu morphs, equipment actions, arbitrary callbacks, studio,
 walk-to-scene, group/tree control, broader Papyrus APIs and active scene
 serialization remain gated.
+
+## Scene-entry relocation regression audit and production UI restoration
+
+The first scene-enabled runtime build failed closed on ID `2688883` before a
+scene could start. The owner is `TESDataHandler::GetSingleton()` in selected
+CommonLib (`TESDataHandler.h`); the declaration was
+`RelocationID(711558, 2688883)`. `2688883` is the 1.10.984 singleton ID and is
+absent from the supplied 1.11.221 database. It became reachable when
+`Data::Global::InitGameData()` began linking NAF forms/animation data through
+`Forms::GetFormPointers()` and `TESDataHandler::LookupForm`; earlier bounded
+builds did not execute that game-data linking path. Dear's OG/NG/AE tuple,
+Addictol, the exact supplied record and the 1.11.221 PDB agree on ID `4796135`,
+RVA `0x30DC080`, named `g_TESDataHandler`. The selected accessor now uses that
+AE ID and preserves its original pointer indirection.
+
+The expanded literal-selector sweep found 19 source IDs absent from the AE
+database outside the verified surface: two are confined to the still-gated
+Studio menu and seventeen are legacy NAF-local animation/Havok/geometry/menu
+declarations whose call sites remain unreachable or have already been replaced
+by verified production interfaces. None is reachable through basic scene data
+linking, menu entry, start/stop, or cleanup. The scene audit was expanded from
+34 to 40 exact records and now fails on recurrence of the stale
+`TESDataHandler`, `ControlMap`, form-map, idle/action, or `SetLinkedRef`
+selectors. The remaining subsystem audits continue to delimit the transitive
+HUD, graph, face, package, Papyrus/serialization and camera surfaces.
+
+### `SetLinkedRef` and walk-to-scene
+
+Historical ID `192840` (RVA `0x481020`) and AE RVA `0x5645B0` were compared
+instruction by instruction. Both consume `RCX=this`, `RDX=new linked
+reference`, and `R8=keyword`; query the existing linked-reference extra data;
+compare old/new targets; mark reference change flag `0x100`; update the extra
+data; propagate old/new cell/world persistence state; and balance associated
+reference notifications. Both are `void` and preserve the historical
+`const TESObjectREFR*` source signature at the ABI boundary. The AE PDB names
+the entry `TESObjectREFR::SetLinkedRef(TESObjectREFR*,BGSKeyword*)`, and the
+supplied database maps ID `2202684` exactly to RVA `0x5645B0`. Evidence grade:
+**disassembly-verified function**. CommonLib now selects
+`RelocationID(192840, 2202684)`, so the production `WalkToAndStartScene` path
+and native are enabled.
+
+### Player-facing menu and Papyrus consumers
+
+Original NAF's MCM is configuration only: it exposes settings and the
+`NAFMenuHotkey` keybind. `keybinds.json` invokes global Papyrus native
+`NAF.ToggleMenu`; that native opens the separate Scaleform `NAFMenu`. The HUD
+is an overlay/status API and is not the scene-selection UI. `StartScene`,
+`StopScene`, `GetSceneFromActor`, and `IsSceneRunning` are public Papyrus API
+entry points for NAF/third-party scripts; the shipped normal player workflow
+uses the C++ `NAFMenu` handlers, including `WalkToAndStartScene` for new scenes
+and direct stop for active scenes.
+
+The production `NAFMenu` is registered and `ToggleMenu` is restored. Its main
+page is deliberately bounded to **New Scene**, **Active Scenes**, and
+**Settings**. Creator/Studio and Item Explorer entries are removed from the
+reachable menu because their animation-authoring, equipment and morph
+dependencies remain gated. `SceneManager::IsBasicSceneCompatible()` remains
+the final fail-closed check on a selected position, so group/tree positions or
+equipment/morph/action choreography cannot be started through the menu.
+
+Menu activation exposed another three-runtime collapse proactively:
+`ControlMap::GetSingleton()` used 1.10.984 ID `2692014`. Dear/Addictol and the
+exact supplied database establish AE ID `4799307`, RVA `0x31E5B08`.
+`ControlMap::SetTextEntryMode` is independently instruction-matched from old
+ID `1270079` to AE ID `4491359`, RVA `0x166F9A0`; both increment/decrement the
+text-entry nesting byte at offset `0x140`. Existing exact AE entries
+`2268335/2268336` remain the verified push/pop input-context calls.
+
+Papyrus now registers 23 natives: settings (2), menu (1), package/process (2),
+basic scene lifecycle including walk-to-scene (5), and HUD (13). Of these, the
+menu toggle is directly user-facing through the shipped MCM hotkey; the scene
+lifecycle functions are public API (the native menu invokes equivalent C++
+paths); HUD drawing natives are API consumers of the visible overlay; settings
+and package functions are script/API support. The remaining 22 natives stay
+gated because they lead to dynamic idle, scene mutation/advanced queries,
+NANIM/body/IK, managed face, direct transforms, or other dependencies outside
+the bounded basic-scene surface.
+
+### Build and next production scene test
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
+All audits pass: 63 HUD, 16 graph, 3 face/lip, 12 package, 15
+Papyrus/serialization, 8 camera, and 40 expanded scene records/guards. No
+deployment occurred. Output is
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`6C8B50973A6A39976195B50EC9B0563E96AEC80C4DD41AC0B858B4DE1CFC79A6`.
+
+The next test uses the shipped workflow: launch via F4SE, load a save, press
+the MCM-configured **Menu Hotkey**, choose **New Scene**, select two ordinary
+loaded NPCs, and choose the simplest position accepted by the menu. Avoid
+equipment/morph choreography, groups, trees, Studio and Item Explorer. Let the
+scene run briefly, then open **Active Scenes** and stop it. Verify both actors
+resume ordinary AI/packages/collision and retain the logs. Only after that NPC
+pass should the same bounded workflow be attempted with the player; do not save
+while either scene is active.
