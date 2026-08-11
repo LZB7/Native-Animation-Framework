@@ -2318,3 +2318,103 @@ statically safe to rerun under the same HUD-only gates; no additional gameplay
 subsystem was enabled by this audit. Output:
 `f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
 `636E67D740BBEBAAF5B0CB090222A47B0597FB196CABC5A89EC32A6B83445BF3`.
+
+## Post-registration HUD/Scaleform reachable-path audit
+
+### Runtime progress and ID 912291
+
+The next production test confirms the preceding fix: NAF loaded, installed the
+verified queue hook, registered both HUD event sinks, and logged
+`Production NAF HUD registered`. Approximately twelve seconds later, when the
+registered menu was first requested, exact lookup rejected ID `912291`.
+
+ID `912291` belongs to `Scaleform::GFx::Loader::CreateMovie` in
+`GFx_Loader.h`. It is the 1.10.163 ID (old RVA `0x2041120`), not a valid
+1.11.221 record. Dear-Modding and Addictol map the same function as
+`{912291, 2284723}`. Supplied-database ID `2284723` resolves to RVA
+`0x1A7EF60`, and the 1.11.221 PDB names that RVA
+`Scaleform::GFx::Loader::CreateMovie(char*, uint, unsigned __int64)` with the
+same arguments and return role. Evidence grade: **exact database, independent
+Dear/Addictol mapping, and exact PDB symbol/signature**.
+
+The delayed call chain is:
+
+```text
+HUDMenu opens after world load
+ -> HUDManager::ProcessEvent(MenuOpenCloseEvent)
+ -> UIMessageQueue::AddMessage("NAFHUDMenu", kShow)
+ -> engine UI message dispatch invokes registered NAFHUDMenu::Create
+ -> NAFHUDMenu constructor
+ -> BSScaleformManager::LoadMovieEx
+ -> Loader::CreateMovie
+ -> stale OG-only ID 912291
+```
+
+No lookup occurs at registration because `CreateMovie` is a function-local
+lazy relocation. The timing therefore identifies first menu construction/SWF
+load, not static initialization or an unrelated subsystem.
+
+### Why the 47-entry audit missed it
+
+The earlier audit followed NAF through the Bethesda UI and
+`BSScaleformManager` wrappers, but treated `LoadMovieEx` as the end of the
+engine-facing boundary. Its local implementation crosses into the separate
+`RE/Scaleform` header tree and calls `Loader::CreateMovie`; the enumerated audit
+did not inspect that inline wrapper. Thus the path was statically reachable,
+but hidden behind a source-tree/API boundary and a lazy inline relocation.
+
+The reusable tool now checks the deeper Scaleform surface and also verifies
+source-level selector text for known three-runtime hazards. This prevents a
+database inventory from passing merely because the correct AE record is listed
+while the compiled header still selects an OG or 1.10.984 ID.
+
+### Deeper lazy relocation inventory
+
+Sixteen additional exact records were added to the bounded audit:
+
+| lazy interface/group | first production use | exact 1.11.221 mapping/status |
+|---|---|---|
+| `GFx::Loader::CreateMovie` | SWF load | `2284723` / `0x1A7EF60`; PDB verified |
+| `GFx::Movie::Release` | movie-definition/movie reference balancing | `2287230` / `0x1B11B40`; exact |
+| `GFx::Value::ObjectAddRef/ObjectRelease` | managed Scaleform value lifetime | `2286228/2286229`; exact |
+| `GFx::Value::HasMember` | shader-target construction (`height`, `width`, background flag) | `2286078` / `0x1ACDCE0`; exact PDB symbol |
+| `GFx::Value::GetMember` | same shader-target construction | `4494126` / `0x1AC8620`; Dear triple and exact PDB symbol |
+| remaining used/value helpers | menu ActionScript calls and value operations | `GetArraySize 2285791`, `SetMember 2286589`, `Invoke 2286101`, `PushBack 2286424`, `RemoveElements 2286475`, `VisitMembers 2286786`, `GetDisplayInfo 2285873`; all exact |
+| Scaleform global heap | Scaleform-managed lifetime | `2707353` / `0x3DA7500`; exact |
+| SWF code registration | `SetMenuCodeObject` and first-frame function mapping | `RegisterCodeObject 2287415`, `MapCodeMethodToASFunction 2287419`; exact PDB symbols |
+
+The sweep proactively found two additional bad declarations:
+
+- `GFx::Value::HasMember` treated OG ID `788691` as invariant; it now uses
+  old/current IDs `788691/2286078`.
+- `GFx::Value::GetMember` used `2285936` as its second two-runtime ID. Dear's
+  explicit tuple `{1517430, 2285936, 4494126}` establishes that `2285936` is
+  1.10.984-only; the supplied 1.11.221 mapping is `4494126`.
+
+Together with `CreateMovie`, CommonLib commit `1a7da43` corrects three deeper
+Scaleform selectors. The audit now covers 63 exact HUD-stage records and four
+source selector guards. It passes against the supplied 1.11.221 database.
+
+### Deeper ABI/header review
+
+The selected and Dear Scaleform declarations agree on the relevant physical
+virtual order and signatures for `Loader`, `MovieDef`, and `Movie`, including
+`MovieDef::CreateInstance`, `Movie::SetViewScaleMode`, `Advance`,
+`SetBackgroundAlpha`, and `GetHeap`. Sizes agree for `Loader` (`0x20`),
+`MovieDef` (`0x20`), `Movie` (`0x20`), `GFx::Value` (`0x20`), and
+`Value::ObjectInterface` (`0x10`). `GFx::Value` wrappers also agree with Dear's
+signatures, while the PDB independently confirms the three directly relevant
+callable entries above. No new virtual-order, overload, or structure-layout
+defect was found.
+
+### Rebuild and next production test
+
+A CMake reconfigure and full Release x64/v143 clean rebuild compiled CommonLib
+and NAF and linked with zero errors. `COPY_BUILD=OFF`; no deployment occurred.
+Output: `f4se-plugin/build-1.11.221/Release/NAF.dll`. SHA-256:
+`38767BECC1509C4CB220E08ACFB04999603914265566C451F44B40E690AE7A72`.
+
+The same production HUD test is safe to rerun. Expected progression is HUD
+event registration, registered menu creation, successful SWF load and
+`NAF HUD menu loaded`, followed by Pip-Boy/HUD visibility exercise. All
+non-HUD gameplay subsystems remain gated.
