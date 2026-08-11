@@ -3731,3 +3731,82 @@ verify package/AI/collision/animation cleanup. Only after solo HKX playback and
 cleanup succeed should a paired CHAK `_F.hkx`/`_M.hkx` position be tested, and
 only after NPC-only pairing should the player be included. Do not save while a
 scene is active.
+
+## Scene-event Papyrus ABI audit (`69733`)
+
+The next `RBBelly1` run again completed actor control/package/transform setup,
+entered `Active`, and reached the new `SCENE_START` boundary log. Exact lookup
+then failed on ID `69733` before the post-start task or animation assignment
+ran. This confirms a Papyrus event-construction failure; no XML,
+dynamic-idle, graph-time, or Havok playback code was involved in this runtime
+failure.
+
+ID `69733` is the historical 1.10.163 entry at RVA `0x13DDDB0` used by
+`Papyrus::detail::CreateThreadScrapFunction`. It constructs the old
+Microsoft-layout `BSTThreadScrapFunction<bool(BSScrapArray<Variable>&)>`
+closure around NAF's `FunctionArgsBase`. Disassembly shows the 16-byte captured
+`FunctionArgsBase`, old function-manager allocation/vtable setup, and the
+closure body that copies the wrapped `ArrayWrapper<Variable>` into the output
+scrap array. PDB evidence places the associated old lambda/function wrapper in
+the same `0x13DDBB0` region. This is an OG ABI adapter, not an invariant engine
+service and not a 1.10.984-as-AE ID. AE CommonLib intentionally dispatches with
+`std::function`/`BSTThreadScrapFunction` lambdas over a packed
+`BSScrapArray<Variable>`; a one-to-one relocation for `69733` is therefore the
+wrong migration.
+
+`GameUtil::SendPapyrusEventWithCallback` now uses that maintained AE path:
+`PackVariables` creates the argument array, the F4SE external-registration
+enumerator supplies each registered target, and the verified VM handle-based
+`DispatchMethodCall` receives a lambda that copies the packed arguments. The
+same source-level migration was applied to NAF's global and form-method call
+helpers so they cannot re-enter the obsolete `FunctionArgs` adapter. The
+historical ordering is preserved exactly: actor control is applied, status
+becomes `Active`, `SCENE_START` is synchronously enumerated/dispatched, and only
+then is the delayed post-start/graph/playback task scheduled. The event remains
+constructed even when no external scripts are registered, matching the
+historical call ordering rather than being skipped to reach playback.
+
+The audit also found two declaration-order ABI defects in both
+`BSScript::IVirtualMachine` and `BSScript::Internal::VirtualMachine`. Header
+comments named the correct slots, but declarations placed the overloads in the
+wrong physical order:
+
+* `CreateArray(const TypeInfo&, ...)` is physical slot `0x19`, RVA `0x21123A0`;
+  `CreateArray(RawType, ...)` is slot `0x1A`, RVA `0x2112220`.
+* `DispatchMethodCall(Object, ...)` is physical slot `0x2D`, RVA `0x2115600`;
+  `DispatchMethodCall(handle, ...)` is slot `0x2E`, PDB-named at RVA
+  `0x2115480`.
+
+Declaration order is now `0x19/0x1A` and `0x2D/0x2E` in both base and concrete
+VM headers. This prevents the corrected event call from dispatching through
+the object-overload slot with the handle-overload ABI, and prevents
+`SCENE_END_DATA` actor-array packing from calling the raw-type array overload.
+Neighboring physical slots were read directly from the AE VM vtable at RVA
+`0x28F1D70`: `SendEvent` `0x2B -> 0x2114AD0`, `DispatchStaticCall`
+`0x2C -> 0x21150F0`, and `DispatchUnboundMethodCall` `0x2F -> 0x2115630`.
+
+`tools/audit_scene_event_relocations.py` now checks nine exact AE records and
+seven physical VM slots/source guards. The exact records cover the VM vtable,
+`g_GameVM`, string-pool get/release, scrap allocation/deallocation, and the
+already corrected adjacent ArrayWrapper/Stack helpers. The audit found no
+additional stale relocation ID beyond `69733`; it did proactively find and
+correct the two overload-order defects above. `69733` remains only inside the
+unused OG compatibility header and is no longer reachable from NAF's AE event
+or call helpers.
+
+Event-phase logging now distinguishes argument construction, packed arguments
+ready/dispatch invocation, and dispatch return. On success the existing scene
+post-start/graph/playback logs follow immediately. The playback implementation
+and corrected animation XMLs are unchanged by this pass.
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
+The new scene-event audit plus playback, scene, HUD, graph, face, package,
+Papyrus/serialization, camera, and menu audits all pass. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`85F046AD663460F78D9F4F5C5316CE35F1D0BD3C7E2F697A766031DE4CB26C56`.
+
+`SCENE_START` is statically ready for the next production `RBBelly1` run. The
+expected next boundary is `external-event dispatch returned`, followed by
+post-start graph initialization, animation assignment, dynamic-idle request,
+and actual playback. Stop through **Active Scenes** and verify full cleanup;
+do not save while the scene is active.

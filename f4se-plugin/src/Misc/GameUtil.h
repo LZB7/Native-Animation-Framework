@@ -1,5 +1,5 @@
 #pragma once
-#include "RE/Bethesda/FunctionArgs.h"
+#include "RE/Bethesda/BSScriptUtil.h"
 #include <Windows.h>
 #include <ppl.h>
 #include <set>
@@ -277,7 +277,7 @@ public:
 		struct PapyrusEventData
 		{
 			RE::BSScript::IVirtualMachine* vm;
-			RE::BSTThreadScrapFunction<bool(RE::BSScrapArray<RE::BSScript::Variable>&)> scrapFunc;
+			RE::BSScrapArray<RE::BSScript::Variable> argsPacked;
 			RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> callback;
 		};
 
@@ -285,23 +285,30 @@ public:
 		auto const papyrus = F4SE::GetPapyrusInterface();
 		auto* vm = RE::GameVM::GetSingleton()->GetVM().get();
 
-		evntData.scrapFunc = (Papyrus::FunctionArgs{ vm, _args... }).get();
+		logger::info("Papyrus scene event '{}': building arguments", eventName);
+		evntData.argsPacked = RE::BSScript::detail::PackVariables(_args...);
 		evntData.vm = vm;
 		evntData.callback = callback;
+		logger::info("Papyrus scene event '{}': arguments ready; invoking external-event dispatch", eventName);
 
 		papyrus->GetExternalEventRegistrations(eventName, &evntData, [](uint64_t handle, const char* scriptName, const char* callbackName, void* dataPtr) {
 			PapyrusEventData* d = static_cast<PapyrusEventData*>(dataPtr);
-			d->vm->DispatchMethodCall(handle, scriptName, callbackName, d->scrapFunc, d->callback);
+			d->vm->DispatchMethodCall(
+				handle, scriptName, callbackName,
+				[d](RE::BSScrapArray<RE::BSScript::Variable>& a_out) {
+					a_out = d->argsPacked;
+					return true;
+				},
+				d->callback);
 		});
+		logger::info("Papyrus scene event '{}': external-event dispatch returned", eventName);
 	}
 
 	template <class... Args>
 	static void CallGlobalPapyrusFunction(std::string scriptName, std::string funcName, Args... _args)
 	{
 		auto* vm = RE::GameVM::GetSingleton()->GetVM().get();
-		auto scrapFunc = (Papyrus::FunctionArgs{ vm, _args... }).get();
-
-		vm->DispatchStaticCall(scriptName, funcName, scrapFunc, nullptr);
+		vm->DispatchStaticCall(scriptName, funcName, nullptr, _args...);
 	}
 
 	// Calls a Papyrus function on the corresponding form's script.
@@ -312,13 +319,11 @@ public:
 	{
 		auto* vm = RE::GameVM::GetSingleton()->GetVM().get();
 		auto& handlePolicy = vm->GetObjectHandlePolicy();
-		auto scrapFunc = (Papyrus::FunctionArgs{ vm, _args... }).get();
-
 		if (handle == 0) {
 			handle = handlePolicy.GetHandleForObject(RE::BSScript::GetVMTypeID<T>(), form);
 		}
 		
-		vm->DispatchMethodCall(handle, scriptName, funcName, scrapFunc, nullptr);
+		vm->DispatchMethodCall(handle, scriptName, funcName, nullptr, _args...);
 
 		if (persistHandle) {
 			handlePolicy.PersistHandle(handle);
