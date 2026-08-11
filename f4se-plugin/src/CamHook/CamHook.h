@@ -52,11 +52,12 @@ namespace CamHook
 
 	namespace detail
 	{
-		typedef void(UpdateSig)(RE::FreeCameraState*);
+		using UpdateSig = void(RE::FreeCameraState*, RE::BSTSmartPointer<RE::TESCameraState>&);
 
 		REL::Relocation<UpdateSig> OriginalUpdate;
 		DetourXS updateHook;
 		std::atomic<uint16_t> pendingInput = 0;
+		std::atomic_bool loggedProductionUpdate = false;
 
 		bool active = false;
 		RE::NiPointer<RE::NiAVObject> lookAtBase;
@@ -115,9 +116,13 @@ namespace CamHook
 		//RE::NiPoint3 location;
 		//RE::NiMatrix3 rotation;
 
-		void HookedUpdate(RE::FreeCameraState* s)
+		void HookedUpdate(RE::FreeCameraState* s, RE::BSTSmartPointer<RE::TESCameraState>& a_nextState)
 		{
-			OriginalUpdate(s);
+			OriginalUpdate(s, a_nextState);
+			if (!loggedProductionUpdate.exchange(true, std::memory_order_relaxed)) {
+				logger::info("Production FreeCameraState::Update interception observed: state={}, camera={}, nextState={}",
+					fmt::ptr(s), fmt::ptr(s ? s->camera : nullptr), fmt::ptr(a_nextState.get()));
+			}
 			bool doUpdate = false;
 
 			std::unique_lock l{ lock };
@@ -184,15 +189,44 @@ namespace CamHook
 			}
 		}
 
-		void RegisterHook()
+		[[nodiscard]] bool RegisterHook()
 		{
-			REL::Relocation<UpdateSig> UpdateLoc{ REL::ID(541110) };
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
+				logger::critical("Free-camera hook requires Fallout 4 runtime 1.11.221.0");
+				return false;
+			}
 
-			if (!updateHook.Create(reinterpret_cast<LPVOID>(UpdateLoc.address()), &HookedUpdate)) {
-				logger::warn("Failed to create FreeCameraState::Update hook!");
+			REL::Relocation<UpdateSig> UpdateLoc{ REL::RelocationID(541110, 2248280) };
+			constexpr std::array<std::uint8_t, 18> expectedPrologue{
+				0x48, 0x89, 0x7C, 0x24, 0x20, 0x55, 0x48, 0x8D, 0x6C,
+				0x24, 0xA9, 0x48, 0x81, 0xEC, 0x90, 0x00, 0x00, 0x00
+			};
+			std::array<std::uint8_t, expectedPrologue.size()> actual{};
+			MEMORY_BASIC_INFORMATION memoryInfo{};
+			const auto address = UpdateLoc.address();
+			const auto queried = ::VirtualQuery(reinterpret_cast<const void*>(address), &memoryInfo, sizeof(memoryInfo));
+			const auto protection = queried != 0 ? memoryInfo.Protect : 0;
+			const bool executable = queried != 0 &&
+				(protection & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0 &&
+				(protection & (PAGE_GUARD | PAGE_NOACCESS)) == 0;
+			if (executable) {
+				std::memcpy(actual.data(), reinterpret_cast<const void*>(address), actual.size());
+			}
+			if (!executable || actual != expectedPrologue) {
+				logger::critical(
+					"FreeCameraState::Update validation failed: ID 2248280, address=0x{:X}, executable={}, protection=0x{:X}",
+					address, executable, protection);
+				return false;
+			}
+
+			if (!updateHook.Create(reinterpret_cast<LPVOID>(address), &HookedUpdate)) {
+				logger::critical("Failed to create FreeCameraState::Update hook");
+				return false;
 			} else {
 				OriginalUpdate = reinterpret_cast<uintptr_t>(updateHook.GetTrampoline());
 			}
+			logger::info("Installed production FreeCameraState::Update hook at ID 2248280");
+			return true;
 		}
 	}
 
@@ -240,8 +274,8 @@ namespace CamHook
 		return true;
 	})();
 
-	void RegisterHook() {
-		detail::RegisterHook();
+	[[nodiscard]] bool RegisterHook() {
+		return detail::RegisterHook();
 	}
 
 	/*

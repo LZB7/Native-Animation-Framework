@@ -29,8 +29,9 @@ bool g_gameDataReady = false;
 namespace
 {
 	// Restore subsystems coherently. This stage enables the validated HUD,
-	// production graph, face/lip, package/process and bounded Papyrus/
-	// serialization lifecycle. Scene playback, camera and studio remain unavailable.
+	// production graph, face/lip, package/process, bounded Papyrus/
+	// serialization lifecycle and camera infrastructure. Scene playback and
+	// studio remain unavailable.
 	inline constexpr bool kHUDSubsystemEnabled = true;
 	inline constexpr bool kGameplaySubsystemsEnabled = false;
 
@@ -67,7 +68,7 @@ namespace
 			}
 			case F4SE::MessagingInterface::kPostLoad:
 			{
-				logger::debug("Post-load received; LooksMenu integration remains gated in the HUD-only stage");
+				logger::debug("Post-load received; full LooksMenu gameplay integration remains gated");
 				break;
 			}
 			default:
@@ -91,7 +92,9 @@ namespace
 		if (!PackageOverride::EvalHook::RegisterHook()) {
 			return false;
 		}
-		logger::warn("Deferred hooks: free camera update");
+		if (!CamHook::RegisterHook()) {
+			return false;
+		}
 		logger::info("Legacy HUD interior hook is replaced by the maintained HUDModeEvent source");
 		return true;
 	}
@@ -190,8 +193,8 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 	}
 
 	if constexpr (!kGameplaySubsystemsEnabled) {
-		logger::info("HUD, graph, face/lip, package/process and Papyrus/serialization lifecycle initialized; awaiting game data");
-		logger::warn("Scenes, camera, studio, arbitrary playback/actions and full LooksMenu gameplay integration remain gated");
+		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization and camera infrastructure initialized; awaiting game data");
+		logger::warn("Scenes, studio, arbitrary playback/actions and full LooksMenu gameplay integration remain gated");
 		return true;
 	}
 
