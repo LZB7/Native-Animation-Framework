@@ -3137,3 +3137,176 @@ It is safe to rerun the unchanged production lifecycle test: load a save,
 verify the HUD/graph/face/package baseline and 17-native registration, exercise
 one enabled native, create and load a new save, verify HUD restoration and
 passive deferred-record preservation, then exercise revert and retain all logs.
+
+## Production camera restoration
+
+The bounded Papyrus/serialization lifecycle test passed on 1.11.221. F4SE
+registered both interfaces and all 17 enabled natives; HUD, graph/Set3D,
+face/lip and package/process remained stable; save, load and revert callbacks
+completed; version-5 HUD/package records were written; loaded deferred package
+bytes were preserved on later saves; and no record was skipped. Papyrus
+registration and the bounded serialization lifecycle are promoted to the
+known-good production baseline. Individual native behavior remains tied to the
+runtime status of its underlying subsystem rather than being inferred from
+successful registration.
+
+### Historical camera path and hook identity
+
+Legacy Address Library ID `541110` resolves to old RVA `0x12453D0`. The
+1.10.163 PDB names it exactly:
+`FreeCameraState::Update(BSTSmartPointer<TESCameraState>&)`. NAF detours the
+entry, calls the original first, then—under its recursive camera mutex—may:
+
+1. apply studio-supplied local-axis translation to `cameraRoot`;
+2. copy that translation back to `FreeCameraState::translation`;
+3. apply external pitch/yaw or orbit-look rotation to both state and node;
+4. apply scene look-at tracking and HUD Q/E vertical input;
+5. update the camera node immediately to avoid one-update input lag.
+
+`SetActive` owns the HUD input listener and clears retained look-at nodes on
+shutdown. `LookAt` retains the actor/root and configured target node. Scene
+begin enters free camera, sets the look-at target, disables player control and
+later uses the hook for continuous tracking. Scene end disables the camera
+controller, releases retained nodes/input listener, leaves free-camera mode,
+restores third person through `Force3rdPerson`, and restores player controls.
+Studio uses the same hook with externally supplied translation, rotation and
+orbit inputs. First/third-person transitions themselves do not run through the
+free-camera hook.
+
+No maintained F4SE/CommonLib event supplies the post-`FreeCameraState::Update`
+timing, the concrete `FreeCameraState*`, and same-tick camera-root access. The
+maintained `PlayerCamera` methods can enter/leave states but cannot replace this
+continuous post-update modification. The historical detour therefore remains
+necessary.
+
+### 1.11.221 recovery and ABI correction
+
+The 1.11.221 PDB names the semantic equivalent at RVA `0x1022040`; the supplied
+Address Library maps that exact entry to ID `2248280`. Old and new bodies have
+the same settings/input tests, movement update, physical vslots `0x0C/0x0D`,
+camera-root acquisition, transform propagation, node update and reference
+balancing. The new compiler vectorizes several transform copies and adds an
+early active-state check, but the function contract is unchanged.
+
+The original NAF typedef incorrectly modeled the function as
+`void(FreeCameraState*)`. The real virtual signature has always included
+`BSTSmartPointer<TESCameraState>& nextState`; the old implementation happened
+not to consume the incoming RDX value. The production detour and original call
+now preserve both arguments explicitly. This is an ABI correction, not a new
+behavioral assumption.
+
+`TESCamera::Update` is PDB-named at RVA `0x827970` / exact ID `2214740`. It
+loads `currentState`, checks state byte `+0x24`, and invokes physical vslot
+`0x0B` with a stack `nextState` smart pointer. The 1.11.221
+`FreeCameraState` vtable at ID `21725`, RVA `0x25A26F8`, independently resolves
+slot `0x0B` to `0x1022040`. This proves the object type, slot, signature and
+normal camera-update dispatch path.
+
+Both selected and Dear headers omitted a real byte at `TESCameraState +0x24`.
+Disassembly establishes its semantics: `FreeCameraState::Begin` sets it to
+one, `End` clears it, and `Update` returns immediately when false. Selected
+CommonLib now names this `stateActive`; the base remains size `0x28` and
+`FreeCameraState` remains `0x58`. Existing offsets remain verified:
+`camera +0x18`, state ID `+0x20`, translation `+0x28`, rotation `+0x34`, input
+pairs through `+0x50`, direction `+0x54`, and flags `+0x56/+0x57`.
+
+The selected `PlayerCamera::GetSingleton` also contained another two-runtime
+collapse: ID `2688801` is 1.10.984-only. The 1.11.221 PDB names
+`g_PlayerCamera` at RVA `0x30DBDD8`, exactly mapped by the supplied database to
+ID `4796065`; CommonLib now uses `1171980 -> 4796065`. `Force3rdPerson` remains
+the previously disassembly-verified `162201 -> 2248348` at RVA `0x1026A40`.
+Its internal `SetState` target remains `2214742` at `0x827AC0`.
+`ToggleFreeCameraMode` is exact ID `2248368`, RVA `0x1027590`.
+
+The installed hook is exact-runtime gated, resolves
+`RelocationID(541110, 2248280)`, and requires the verified 18-byte 1.11.221
+prologue at an executable page before DetourXS may patch it. Failure blocks
+plugin load; there is no fuzzy scan, alternate target, raw RVA or partial
+camera enablement. The callback logs its first natural production invocation.
+
+### Camera ABI and relocation audit
+
+`tools/audit_camera_relocations.py` checks eight exact supplied-database
+ID/RVA pairs, the corrected source selectors, and the clean executable's
+physical FreeCameraState vslot `0x0B`. Selected and Dear declarations agree on
+the BSInputEventUser slots `0x00-0x08`, followed by `Begin 0x09`, `End 0x0A`,
+`Update 0x0B`, rotation/translation `0x0C/0x0D`, and save/load/revert through
+`0x10`. No other NAF-used camera virtual order or signature defect was found.
+
+The reachable production surface is:
+
+| interface | 1.11.221 evidence | status |
+|---|---|---|
+| `FreeCameraState::Update` | ID `2248280`, PDB RVA `0x1022040`, cross-runtime disassembly, vslot `0x0B` | production hook enabled; runtime test required |
+| `TESCamera::Update` | ID `2214740`, PDB RVA `0x827970` | statically verifies virtual scheduling |
+| `PlayerCamera` singleton | ID `4796065`, PDB global RVA `0x30DBDD8` | corrected exact AE mapping |
+| free-camera toggle | ID `2248368`, RVA `0x1027590` | exact maintained API; full scene behavior runtime-required |
+| force third person | ID `2248348`, RVA `0x1026A40` | disassembly verified; cleanup behavior runtime-required |
+| state transition | ID `2214742`, RVA `0x827AC0` | verified dependency of force-third-person |
+| camera state/vtable | IDs `67299` / `21725`; sizes `0x28` / `0x58` | physical order and active byte statically verified |
+
+No eager relocation was introduced. All camera relocations remain lazy except
+the deliberately load-time hook entry, which is fully validated. The camera,
+Papyrus, HUD, graph, face and package audits pass together: 8 camera, 15
+Papyrus/serialization, 63 HUD, 16 graph, 3 face and 12 package checks.
+
+Camera state has no independent version-5 NAF record. It is transient behavior
+derived from an active scene/studio session. Deferred `SCNE`/studio records
+remain passive and therefore cannot enter free camera during load. No
+serialization schema or restoration behavior changed.
+
+No Papyrus native becomes newly registerable from camera alone. Camera cleanup
+is only one dependency of the gated scene/playback natives; player AI/input,
+animation actions, ordered work and scene lifecycle must all be active before
+those functions can truthfully succeed. `ToggleMenu` also remains gated by the
+full NAF menu/data subsystem, not by camera availability.
+
+### Build and production camera test
+
+Production camera hook installation is enabled alongside the known-good
+game-loop, HUD, graph/Set3D, face/lip, package/process, Papyrus and serialization
+baseline. A clean Release x64/v143 build completes with zero compiler/linker
+errors and `COPY_BUILD=OFF`; no deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`AB8D2DC8A53849C2415B03AE2F9FA153F32669B3AC488D3CAD5B89B5EDC89626`.
+
+Production test procedure:
+
+1. Launch 1.11.221 through F4SE 0.7.8 and load an ordinary save.
+2. Confirm HUD, graph/Set3D, face/lip, package, Papyrus and serialization logs.
+3. Confirm installation at camera ID `2248280`.
+4. Switch first/third person and move normally to regression-test unaffected
+   player-camera states.
+5. Enter vanilla free camera with console `tfc`, move/rotate briefly, then run
+   `tfc` again to leave it. This naturally exercises the production detour
+   while NAF look-at/external-input controls remain inactive.
+6. Require the first-interception log, normal camera behavior and no crash or
+   Address Library failure. Do not start a NAF scene yet.
+7. Create/load a save if desired to recheck the lifecycle baseline, exit
+   normally, and retain NAF/F4SE/Papyrus logs and any crash report.
+
+Passing this test validates hook installation and vanilla free-camera
+pass-through. NAF-controlled look-at, external studio input, free-camera
+entry/exit and cleanup remain scene/studio-runtime-required.
+
+### Remaining scene/studio dependency graph
+
+| remaining area | direct prerequisites | current blockers / evidence |
+|---|---|---|
+| scene initialization | data/forms initialization, actor eligibility, `InitializeActorInstant`, package takeover, AI/input transition, free-camera entry | `InitializeActorInstant` has strong PDB/ID candidate `2236393`; production data/form initialization and full transition symmetry still gated |
+| animation playback | graph infrastructure, smart/dynamic idle, special idle, transition/idle-loading/action dispatch | graph and `SetupSpecialIdle` are verified; `IsActiveGraphInTransition` candidate `2214305` needs final semantic promotion; `IsIdleLoading` and `RunActionOnActor` remain unresolved |
+| ordered actions | serialized task types, equipment/inventory, morph callbacks, arbitrary callbacks, game-loop ordering | delay bookkeeping only is runtime validated; engine-facing equipment/morph/arbitrary execution remains gated |
+| actor control/cleanup | package manager, `SetAIControlled`, disable/reenable input, collision, transform/player-3D, third-person/camera cleanup | package and camera mappings are restored; compound player-control behavior is statically mapped but full symmetric scene runtime behavior is untested |
+| LooksMenu body morphs | exact LooksMenu 1.7.0.3 checksum, body-morph singleton/function, ordered worker-thread use and cleanup | DLL offsets are disassembly verified; production scene ownership/thread/lifetime remains untested |
+| active serialization restore | full scene/task/equipment/body/face/HUD-scene managers plus form/handle remapping | records remain byte-preserved; stale AE form-map path and subsystem fixup ordering must be resolved before active restore |
+| studio | scene actor ownership, camera external input/orbit, UI, IK, transforms, collision, animation editing and previously unresolved studio globals | camera portion is ready, but studio is tightly coupled to nearly every remaining scene mutation path |
+| gated Papyrus surface | corresponding scene/playback/body/face/menu systems | 28 natives remain absent until each complete dependency chain is enabled |
+
+Studio should not be restored as the next isolated subsystem. Its useful paths
+depend on scene actor ownership, ordered mutations, playback, IK/transforms,
+collision, LooksMenu and the newly restored camera. The lower-risk next stage
+is a coherent scene-execution prerequisite pass: finish the named animation
+functions, enable data/form initialization, actor-control symmetry and bounded
+ordered actions, then restore the basic scene lifecycle. Studio can follow on
+that production foundation rather than duplicating or prematurely activating
+the same unresolved paths.
