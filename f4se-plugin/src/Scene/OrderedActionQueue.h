@@ -35,35 +35,6 @@ namespace Scene
 		inline static uint16_t delayCounter = 0;
 		inline static safe_mutex lock;
 
-		struct BookkeepingDiagnosticResult
-		{
-			std::uint16_t previousDelay;
-			std::uint16_t currentDelay;
-			std::size_t queuedActions;
-		};
-
-		// Exact diagnostic subset of Update(): advance only the local, lock-protected
-		// delay counter. Queued functions are deliberately never invoked here.
-		static BookkeepingDiagnosticResult UpdateBookkeepingDiagnostic()
-		{
-			std::unique_lock l{ lock };
-			const auto previousDelay = delayCounter;
-			if (delayCounter > 0) {
-				delayCounter--;
-			}
-			return { previousDelay, delayCounter, equipQueue.size() };
-		}
-
-		static bool InitializeBookkeepingDiagnostic(std::uint16_t a_ticks)
-		{
-			std::unique_lock l{ lock };
-			if (!equipQueue.empty() || delayCounter != 0 || a_ticks == 0) {
-				return false;
-			}
-			delayCounter = a_ticks;
-			return true;
-		}
-
 		static void Update() {
 			std::unique_lock l{ lock };
 			if (delayCounter > 0) {
