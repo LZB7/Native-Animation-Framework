@@ -58,6 +58,40 @@ EXPECTED = {
     "SendHUDMessage::ClearHUDMessages": (2222460, 0xA376D0),
     "NonRendersafeAI containing function": (2228937, 0xC36260),
     "ProcessQueues": (2229181, 0xC44DC0),
+    "GFx::Loader::CreateMovie": (2284723, 0x1A7EF60),
+    "GFx::Movie::Release": (2287230, 0x1B11B40),
+    "GFx::Value::ObjectAddRef": (2286228, 0x1AD66B0),
+    "GFx::Value::ObjectRelease": (2286229, 0x1AD66F0),
+    "GFx::Value::HasMember": (2286078, 0x1ACDCE0),
+    "GFx::Value::GetArraySize": (2285791, 0x1AC45A0),
+    "GFx::Value::GetMember": (4494126, 0x1AC8620),
+    "GFx::Value::SetMember": (2286589, 0x1AE6A40),
+    "GFx::Value::Invoke": (2286101, 0x1ACFDE0),
+    "GFx::Value::PushBack": (2286424, 0x1ADD3A0),
+    "GFx::Value::RemoveElements": (2286475, 0x1AE09B0),
+    "GFx::Value::VisitMembers": (2286786, 0x1AF07E0),
+    "GFx::Value::GetDisplayInfo": (2285873, 0x1AC6970),
+    "Scaleform::Memory global heap": (2707353, 0x3DA7500),
+    "SWFToCodeFunctionHandler::RegisterCodeObject": (2287415, 0x1B1A160),
+    "SWFToCodeFunctionHandler::MapCodeMethodToASFunction": (2287419, 0x1B1A460),
+}
+
+
+# The original audit verified only an enumerated database list. These guards
+# also verify the source-level selector at the lazy Scaleform boundary, so an
+# OG-only ID or 1.10.984 second member cannot pass merely because the correct AE
+# record also happens to be listed above.
+SOURCE_GUARDS = {
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Scaleform/GFx/GFx_Loader.h": (
+        "REL::RelocationID(912291, 2284723)",
+    ),
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Scaleform/GFx/GFx_Player.h": (
+        "REL::RelocationID(788691, 2286078)",
+        "REL::RelocationID(1517430, 4494126)",
+    ),
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/MemoryManager.h": (
+        "REL::RelocationID(343176, 4471522)",
+    ),
 }
 
 
@@ -72,6 +106,7 @@ def read_database(path: Path) -> dict[int, int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("database", type=Path)
+    parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
     database = read_database(args.database)
     failures = []
@@ -86,7 +121,22 @@ def main() -> int:
             print(f"FAIL {owner}: ID {reloc_id}, expected 0x{expected:X}, got {actual_text}")
         return 1
 
-    print(f"PASS: {len(EXPECTED)} HUD-stage relocation IDs matched exact expected RVAs")
+    source_failures = []
+    for relative_path, required_text in SOURCE_GUARDS.items():
+        path = args.source_root / relative_path
+        text = path.read_text(errors="replace")
+        for required in required_text:
+            if required not in text:
+                source_failures.append(f"{relative_path}: missing {required}")
+    if source_failures:
+        for failure in source_failures:
+            print(f"FAIL source selector: {failure}")
+        return 1
+
+    print(
+        f"PASS: {len(EXPECTED)} HUD-stage relocation IDs matched exact expected RVAs; "
+        f"{sum(map(len, SOURCE_GUARDS.values()))} source selectors matched"
+    )
     return 0
 
 
