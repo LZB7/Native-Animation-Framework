@@ -7,12 +7,14 @@ namespace BodyAnimation
 	class GraphHook
 	{
 	public:
-		typedef bool(GraphUpdate)(RE::IAnimationGraphManagerHolder* a_graphHolder, float* a_deltaTime);
+		typedef bool(GraphUpdate)(RE::IAnimationGraphManagerHolder* a_graphHolder, RE::BSAnimationUpdateData& a_updateData);
 		typedef void(Set3d)(RE::TESObjectREFR* a_ref, RE::NiAVObject* a_object, bool a_queue);
 		inline static DetourXS UpdateDetour;
 		inline static DetourXS Set3dDetour;
 		inline static REL::Relocation<GraphUpdate> OriginalUpdate;
 		inline static REL::Relocation<Set3d> OriginalSet3d;
+		inline static std::atomic<bool> loggedFirstGraphUpdate{ false };
+		inline static std::atomic<bool> loggedFirstSet3D{ false };
 
 		struct AnimationInfo
 		{
@@ -245,29 +247,38 @@ namespace BodyAnimation
 			}
 		}
 
-		static void HookedGraphUpdate(RE::IAnimationGraphManagerHolder* a_graphHolder, float* a_deltaTime)
+		static bool HookedGraphUpdate(RE::IAnimationGraphManagerHolder* a_graphHolder, RE::BSAnimationUpdateData& a_updateData)
 		{
-			OriginalUpdate(a_graphHolder, a_deltaTime);
+			const bool result = OriginalUpdate(a_graphHolder, a_updateData);
+			float deltaTime = 0.0F;
+			std::memcpy(&deltaTime, std::addressof(a_updateData), sizeof(deltaTime));
+			if (!loggedFirstGraphUpdate.exchange(true, std::memory_order_relaxed)) {
+				logger::info("Production animation graph update observed: holder={}, delta={}", fmt::ptr(a_graphHolder), deltaTime);
+			}
 			std::shared_lock l1{ stateLock };
 
 			auto iter = state->graphs.find(a_graphHolder);
 			if (iter == state->graphs.end() || !a_graphHolder->ShouldUpdateAnimation())
-				return;
+				return result;
 
 			auto& g = iter->second;
 			std::unique_lock l2{ g.updateLock };
 
-			g.Update(*a_deltaTime);
+			g.Update(deltaTime);
 
 			if (g.flags.all(NodeAnimationGraph::kTemporary, NodeAnimationGraph::kNoActiveIKChains) && g.state == NodeAnimationGraph::kIdle) {
 				l1.unlock();
 				l2.unlock();
 				DeleteGraphInternal(a_graphHolder);
 			}
+			return result;
 		}
 
 		static void HookedSet3D(RE::TESObjectREFR* a_ref, RE::NiAVObject* a_object, bool a_queue) {
 			OriginalSet3d(a_ref, a_object, a_queue);
+			if (!loggedFirstSet3D.exchange(true, std::memory_order_relaxed)) {
+				logger::info("Production TESObjectREFR::Set3D observed: reference={}, object={}, queued={}", fmt::ptr(a_ref), fmt::ptr(a_object), a_queue);
+			}
 			std::shared_lock l1{ stateLock };
 			std::shared_lock l2{ regsFor3dLock };
 
@@ -290,25 +301,46 @@ namespace BodyAnimation
 			regsFor3d.clear();
 		}
 
-		static void RegisterHook()
+		static bool RegisterHook()
 		{
-			//IAnimationGraphManagerHolder::UpdateAnimationGraphManager(BSAnimationUpdateData)
-			REL::Relocation<GraphUpdate> hookLoc1{ REL::ID(1492656) };
-
-			if (UpdateDetour.Create(reinterpret_cast<LPVOID>(hookLoc1.address()), &HookedGraphUpdate)) {
-				OriginalUpdate = reinterpret_cast<uintptr_t>(UpdateDetour.GetTrampoline());
-			} else {
-				logger::warn("Failed to create IAnimationGraphManagerHolder::UpdateAnimationGraphManager hook!");
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
+				logger::critical("Animation graph hooks require Fallout 4 runtime 1.11.221.0");
+				return false;
 			}
+
+			//IAnimationGraphManagerHolder::UpdateAnimationGraphManager(BSAnimationUpdateData)
+			REL::Relocation<GraphUpdate> hookLoc1{ REL::RelocationID(1492656, 2214536) };
+			constexpr std::array<std::uint8_t, 16> updatePrologue{
+				0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74,
+				0x24, 0x18, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x40
+			};
 
 			//TESObjectREFR::Set3D
-			REL::Relocation<Set3d> hookLoc2{ REL::ID(1216262) };
+			REL::Relocation<Set3d> hookLoc2{ REL::RelocationID(1216262, 2201055) };
+			constexpr std::array<std::uint8_t, 16> set3DPrologue{
+				0x44, 0x88, 0x44, 0x24, 0x18, 0x48, 0x89, 0x54,
+				0x24, 0x10, 0x48, 0x89, 0x4C, 0x24, 0x08, 0x55
+			};
 
-			if (Set3dDetour.Create(reinterpret_cast<LPVOID>(hookLoc2.address()), &HookedSet3D)) {
-				OriginalSet3d = reinterpret_cast<uintptr_t>(Set3dDetour.GetTrampoline());
-			} else {
-				logger::warn("Failed to create TESObjectREFR::Set3D hook!");
+			if (std::memcmp(reinterpret_cast<const void*>(hookLoc1.address()), updatePrologue.data(), updatePrologue.size()) != 0 ||
+				std::memcmp(reinterpret_cast<const void*>(hookLoc2.address()), set3DPrologue.data(), set3DPrologue.size()) != 0) {
+				logger::critical("Animation graph hook validation failed; refusing to patch the runtime");
+				return false;
 			}
+
+			if (!UpdateDetour.Create(reinterpret_cast<LPVOID>(hookLoc1.address()), &HookedGraphUpdate)) {
+				logger::critical("Failed to create IAnimationGraphManagerHolder::UpdateAnimationGraphManager hook");
+				return false;
+			}
+			OriginalUpdate = reinterpret_cast<uintptr_t>(UpdateDetour.GetTrampoline());
+
+			if (!Set3dDetour.Create(reinterpret_cast<LPVOID>(hookLoc2.address()), &HookedSet3D)) {
+				logger::critical("Failed to create TESObjectREFR::Set3D hook");
+				return false;
+			}
+			OriginalSet3d = reinterpret_cast<uintptr_t>(Set3dDetour.GetTrampoline());
+			logger::info("Installed production animation graph hooks at IDs 2214536 and 2201055");
+			return true;
 		}
 
 	private:

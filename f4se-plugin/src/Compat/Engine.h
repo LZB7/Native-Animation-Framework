@@ -197,7 +197,7 @@ namespace EngineCompat
 	inline void GetAnimationGraphProjectName(RE::IAnimationGraphManagerHolder* a_holder, RE::BSFixedString& a_name)
 	{
 		using func_t = void(RE::IAnimationGraphManagerHolder*, RE::BSFixedString&);
-		static REL::Relocation<func_t> func{ REL::RelocationID(190119, 2230292) };
+		static REL::Relocation<func_t> func{ REL::RelocationID(190119, 2214534) };
 		func(a_holder, a_name);
 	}
 
