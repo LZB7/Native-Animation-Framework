@@ -2896,3 +2896,159 @@ It is safe to rerun the same production package test. If a prior plugin has in
 fact patched either entry in the live process, the enhanced validator will
 identify the exact target, bytes, branch shape/destination, and refuse to
 install rather than blindly overwrite it.
+
+## Papyrus and serialization lifecycle restoration
+
+The corrected production package test passed. Both package hooks installed at
+IDs `2229805` and `2231539`, both were reached naturally on a live actor/process,
+the `TESPackageEvent` sink registered after game-data-ready, and HUD, graph,
+Set3D and face/lip remained stable. Package/process interception and natural
+pass-through are promoted to the known-good production baseline.
+
+### Historical and current lifecycle
+
+Historical NAF initialized in this order during `F4SEPlugin_Load`: F4SE/CommonLib,
+all hooks, F4SE messaging, serialization unique ID/callbacks, Papyrus registration,
+then filesystem/XML `Data::Global::Init`. The F4SE game-data-ready message later
+registered menu/event sinks, linked game forms through `InitGameData`, set
+`g_gameDataReady`, and broadcast NAF's internal game-data event. Save/load
+callbacks stopped the timer thread, locked all framework states, serialized or
+reconstructed nine records, and restarted the timer. Revert reset all nine
+subsystems.
+
+The 1.11.221 lifecycle preserves the externally observable F4SE ordering while
+respecting subsystem gates:
+
+1. Exact-runtime and hook validation/install.
+2. F4SE messaging registration.
+3. F4SE serialization interface acquisition, historical unique ID and three callbacks.
+4. F4SE Papyrus interface acquisition and VM registration callback.
+5. Return from plugin load with scene/data/studio/camera initialization still gated.
+6. On game-data-ready, register the already-validated HUD and package event sinks.
+
+F4SE 0.7.8 exposes Papyrus interface version 2 and serialization interface
+version 1. NAF uses their public function tables directly. The verified callback
+types are `bool F4SEAPI(IVirtualMachine*)` for native registration and
+`void F4SEAPI(const SerializationInterface*)` for save/load/revert. Unique-ID,
+record iteration/read/write, form/handle resolution and callback registration
+therefore require no Fallout4.exe relocation or historical adapter.
+
+### Native availability
+
+Registration is intentionally production-real but bounded. Missing registrations
+fail at the Papyrus VM boundary rather than calling a stub which reports success.
+
+| classification | registered functions | reason |
+|---|---|---|
+| A: enabled production state | `SetDisableRescaler`, `GetDisableRescaler`, `SetPackageOverride`, `ClearPackageOverride` | local settings and validated package manager; package setter now rejects null actor/package |
+| A: enabled HUD | `DrawRectangle`, `DrawText`, `DrawLine`, `SetElementPosition`, `TranslateElementTo`, `StopElementTranslation`, `RemoveElement`, `GetElementWidth`, `GetElementHeight`, `MoveElementToFront`, `MoveElementToBack`, `SetElementMask`, `AttachElementTo` | production HUD is runtime validated |
+| C: scene lifecycle | `StartScene`, `WalkToAndStartScene`, `StopScene`, all scene query/property/speed/validation functions | would initialize or execute still-gated scenes, packages, actions and animation playback |
+| C: playback/actor control | `PlayDynamicIdle`, `PlayNANIM`, `StopNANIM`, both IK functions, `ReEnablePlayerInput`, `SynchronizeAnimations` | arbitrary playback/actions or unresolved lifecycle dependencies |
+| C: managed face | eye override and face play/stop functions | vanilla pass-through is validated; NAF-managed face timelines are not |
+| C: other | `ToggleMenu`, actor-usable keyword functions, `GetLocalTransform` | full NAF menu/data forms or arbitrary-reference virtual access is not yet validated |
+
+Seventeen natives are registered; twenty-eight remain deliberately absent.
+No native is registered with a temporary successful no-op. Full Papyrus surface
+registration is therefore not yet claimed.
+
+### Papyrus ABI and relocation audit
+
+`IVirtualMachine` remains size `0x10`; selected and Dear CommonLib agree on the
+physical ordering through `BindNativeMethod` at slot `0x1B` and
+`SetCallableFromTasklets` at slots `0x1C/0x1D`. The templated binder constructs
+the maintained `NativeFunction`, transfers it to the VM, and marks the registered
+functions tasklet-callable exactly as historical NAF did. No direct VM fields
+are read. The earlier defaulted `IStackCallbackFunctor` destructor correction
+remains intact; the scene event proxy which derives from it is not instantiated
+in this stage. No Papyrus declaration-order, ownership, or refcount defect was
+found in the enabled surface.
+
+The F4SE registration path itself contains no Address Library lookup. Enabled
+native calls reuse the already audited HUD and package relocations. A prospective
+active package-record load exposed selected CommonLib's two-ID
+`TESForm::GetAllForms` IDs `2689178/2689189` as 1.10.984-only: neither exists in
+the supplied 1.11.221 database. Dear identifies separate AE candidates, but
+their namespace was not imported. Package records are therefore preserved
+pending focused recovery instead of making these stale globals reachable.
+No new engine relocation was guessed or added.
+
+`tools/audit_papyrus_serialization.py` verifies all 17 allowed and 28 gated
+bindings, the five F4SE lifecycle registrations, callback ABI declarations,
+and historical-v5/deferred-record guards. It passes together with the exact
+12-record package, 63-record HUD, 16-record graph and 3-record face audits.
+
+### Serialization schema and compatibility
+
+The historical serialization unique ID remains the exact multicharacter value
+`'NAF'`. The historical record set is unchanged:
+
+| record | version | state |
+|---|---:|---|
+| `TASK` | 5 | deferred byte-for-byte |
+| `SCNE` | 5 | deferred byte-for-byte |
+| `EQPT` | 5 | deferred byte-for-byte |
+| `UID` | 5 | deferred byte-for-byte |
+| `FACE` | 5 | deferred byte-for-byte |
+| `HUD` | 5 | actively deserialized and serialized |
+| `PACK` | 5 | written in historical format for a fresh record; loaded records deferred byte-for-byte |
+| `SHUD` | 5 | deferred byte-for-byte |
+| `BODY` | 5 | deferred byte-for-byte |
+
+Each active record retains the historical outer four-byte payload-size prefix
+followed by the unchanged cereal binary archive, including existing integer and
+enum widths. Loading validates the F4SE record length, the inner size prefix,
+and cereal parse before replacing active HUD state. Malformed active records
+are retained as deferred payloads rather than partially applied. Unknown record
+types and versions are also preserved exactly.
+
+Gated records are held with their original type, version and payload and written
+back unchanged on the next save. They are not deserialized, so scene constructors,
+managed graph/face fixups, timer tasks, equipment actions, studio state and
+package restoration cannot execute. If a loaded co-save already contains a
+deferred `PACK` record, it wins over current-session package state and is copied
+unchanged; the log explicitly warns that the two are not yet merged. On a save
+without a prior package record, current package state is emitted with the exact
+historical version-5 schema, but a subsequent load keeps it pending until form
+lookup and restoration are fully audited.
+
+Revert resets only enabled HUD/package state and clears deferred payloads. It
+does not instantiate/reset gated scene, timer, managed animation or studio
+systems. HUD/package and broad internal game-data registration remain idempotent
+and separated, preventing double registration.
+
+Historical version-5 saves remain structurally readable: HUD is restored and
+all other records survive a load/save cycle without schema conversion. New
+saves remain readable by historical NAF because active records use its original
+IDs, versions, prefix and cereal layout, and omitted empty gated records were
+already legal. Behavioral restoration of deferred records is intentionally not
+claimed yet.
+
+### Build and production runtime plan
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`; no
+deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`. SHA-256:
+`BF053780A40AFA1CE01D002F6D2F237700155DBE1D7FACB333E2BF8F924F8274`.
+
+The production lifecycle test is:
+
+1. Launch Fallout 4 1.11.221 through F4SE 0.7.8 and load an ordinary save.
+2. Confirm the game-loop, HUD, graph/Set3D, face/lip and package baseline.
+3. Confirm serialization interface/callback registration and the 17-native
+   Papyrus registration log.
+4. Exercise a safe existing settings, package-override, or HUD script call;
+   do not invoke a gated scene/playback native.
+5. Create a new manual save and confirm save entry/completion plus active and
+   deferred record counts.
+6. Load that new save and confirm load entry/completion, HUD restoration and
+   deferred-record preservation without subsystem initialization.
+7. If practical, return to the main menu or load another save and confirm
+   revert entry/completion.
+8. Exit normally and retain NAF, F4SE and Papyrus logs plus any crash report.
+
+Camera, studio, full scenes, arbitrary ordered actions/playback and full
+LooksMenu morph behavior remain gated. Full scene-execution prerequisites are
+the recommended next stage: they are needed before deferred `SCNE`, `TASK`,
+`EQPT`, `UID`, `BODY`, `FACE` and `SHUD` records or the remaining scene-facing
+Papyrus natives can be safely activated. Camera should remain a separate later
+stage unless scene prerequisite analysis proves it mandatory.
