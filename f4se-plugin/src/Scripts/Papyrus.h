@@ -12,9 +12,11 @@ namespace Papyrus
 	{
 		PAPYRUS_BIND(SetDisableRescaler);
 		PAPYRUS_BIND(GetDisableRescaler);
+		PAPYRUS_BIND(ToggleMenu);
 		PAPYRUS_BIND(SetPackageOverride);
 		PAPYRUS_BIND(ClearPackageOverride);
 		PAPYRUS_BIND(StartScene);
+		PAPYRUS_BIND(WalkToAndStartScene);
 		PAPYRUS_BIND(StopScene);
 		PAPYRUS_BIND(GetSceneFromActor);
 		PAPYRUS_BIND(IsSceneRunning);
@@ -34,8 +36,8 @@ namespace Papyrus
 		PAPYRUS_BIND(AttachElementTo);
 
 		Papyrus::EventProxy::GetSingleton();
-		logger::info("Registered 21 production Papyrus natives: settings (2), package/process (2), basic scene lifecycle (4), HUD (13)");
-		logger::warn("Walk-to-scene, scene mutation/query extensions, dynamic-idle, body/IK, managed face, player-input, menu-toggle and transform natives remain deliberately unregistered");
+		logger::info("Registered 23 production Papyrus natives: settings (2), menu (1), package/process (2), basic scene lifecycle (5), HUD (13)");
+		logger::warn("Scene mutation/query extensions, dynamic-idle, body/IK, managed face, player-input and transform natives remain deliberately unregistered");
 		return true;
 	}
 }

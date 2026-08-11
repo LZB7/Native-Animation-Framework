@@ -59,6 +59,7 @@ namespace
 					ui->RegisterSink(static_cast<RE::BSTEventSink<RE::MenuOpenCloseEvent>*>(Menu::HUDManager::GetSingleton()));
 					ui->RegisterSink(Tasks::TimerThread::GetSingleton());
 					Menu::RegisterHUD(ui);
+					Menu::RegisterProductionSceneMenu(ui);
 					PackageOverride::PkgEventListener::GetSingleton()->RegisterWithEngine();
 					Scene::EventProxy::GetSingleton();
 
