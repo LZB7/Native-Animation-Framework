@@ -16,7 +16,7 @@ namespace Tasks
 		REL::Relocation<ProcessQueues> OriginalProcessQueues;
 		// The engine callback itself is verified. Scene, ordered-action and studio
 		// workloads remain disabled while subsystems are restored independently.
-		inline constexpr bool kGameplayUpdateWorkEnabled = false;
+		inline constexpr bool kGameplayUpdateWorkEnabled = true;
 
 		std::mutex alignActorsLock;
 		std::vector<ActorAlignInfo> alignActors;
@@ -100,7 +100,7 @@ namespace Tasks
 			}
 
 			OriginalProcessQueues = trampoline.write_call<5>(callSite, &HookedGameLoop);
-			logger::info("Installed game-loop ProcessQueues hook at Address Library ID {} + 0x1E; scene/ordered/studio update work remains gated",
+			logger::info("Installed game-loop ProcessQueues hook at Address Library ID {} + 0x1E; basic scene and bounded ordered-delay work enabled",
 				REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2228937 : 338354);
 			return true;
 		}

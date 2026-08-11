@@ -190,6 +190,13 @@ namespace Serialization
 						Menu::HUDManager::state = std::move(loadedState);
 					}
 				}
+				if (version >= 5 && type == 'PACK') {
+					auto loadedState = std::make_unique<PackageOverride::PersistentState>();
+					loaded = LoadPayload("package override", payload, *loadedState);
+					if (loaded) {
+						PackageOverride::state = std::move(loadedState);
+					}
+				}
 
 				if (loaded) {
 					++activeLoaded;

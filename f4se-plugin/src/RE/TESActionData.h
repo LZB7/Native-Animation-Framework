@@ -16,7 +16,9 @@ namespace RE
 			stl::emplace_vtable(this);
 			priority = a_priority;
 			ref = RE::NiPointer<RE::TESObjectREFR>(a_refr);
+			targetRef.reset();
 			action = a_action;
+			ActionData.ui = 0;
 		}
 
 		virtual ~TESActionData(){};
@@ -33,7 +35,8 @@ namespace RE
 		int64_t unk02 = 0;
 		int64_t unk03 = 0;
 		int32_t unk04 = 0;
-		int32_t unk05 = 0;
-		uint8_t padding[32];
+		std::uint32_t pad54 = 0;
+		std::uint32_t unk05 = 0;
 	};
+	static_assert(sizeof(TESActionData) == 0x60);
 }

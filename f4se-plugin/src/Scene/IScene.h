@@ -109,7 +109,8 @@ namespace Scene
 		kNullPosition = 6,
 		kAlreadyStarted = 7,
 		kNoAvailablePositions = 8,
-		kSpecifiedPositionNotAvailable = 9
+		kSpecifiedPositionNotAvailable = 9,
+		kUnsupportedSceneFeature = 10
 	};
 
 	struct StartResult
@@ -136,6 +137,8 @@ namespace Scene
 				return Strings::ScnErr_NoAvailablePositions;
 			case kSpecifiedPositionNotAvailable:
 				return Strings::ScnErr_SpecifiedPositionNotAvailable;
+			case kUnsupportedSceneFeature:
+				return "The selected position requires scene features that are not enabled in this development build.";
 			default:
 				return "";
 			}

@@ -33,7 +33,7 @@ namespace
 	// serialization lifecycle and camera infrastructure. Scene playback and
 	// studio remain unavailable.
 	inline constexpr bool kHUDSubsystemEnabled = true;
-	inline constexpr bool kGameplaySubsystemsEnabled = false;
+	inline constexpr bool kGameplaySubsystemsEnabled = true;
 
 	void MessageHandler(F4SE::MessagingInterface::Message* a_msg)
 	{
@@ -44,7 +44,7 @@ namespace
 			case F4SE::MessagingInterface::kGameDataReady:
 			{
 				if (static_cast<bool>(a_msg->data)) {
-					logger::info("Game data finished loading; initializing the production NAF HUD subsystem");
+					logger::info("Game data finished loading; initializing NAF data, HUD and basic scene lifecycle");
 
 					auto ui = RE::UI::GetSingleton();
 					if (!ui) {
@@ -57,11 +57,18 @@ namespace
 						break;
 					}
 					ui->RegisterSink(static_cast<RE::BSTEventSink<RE::MenuOpenCloseEvent>*>(Menu::HUDManager::GetSingleton()));
+					ui->RegisterSink(Tasks::TimerThread::GetSingleton());
 					Menu::RegisterHUD(ui);
 					PackageOverride::PkgEventListener::GetSingleton()->RegisterWithEngine();
+					Scene::EventProxy::GetSingleton();
+
+					Utility::StartPerformanceCounter();
+					Data::Global::InitGameData();
+					logger::info("Linked NAF game-data references in {:.3f}s", Utility::GetPerformanceCounter());
 
 					g_gameDataReady = true;
-					logger::info("Production NAF HUD and package event handling registered; all unrelated gameplay subsystems remain gated");
+					Data::Events::Send(Data::Events::GAME_DATA_READY);
+					logger::info("Production NAF HUD, package events and bounded basic-scene lifecycle are ready");
 				}
 
 				break;
@@ -193,8 +200,8 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 	}
 
 	if constexpr (!kGameplaySubsystemsEnabled) {
-		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization and camera infrastructure initialized; awaiting game data");
-		logger::warn("Scenes, studio, arbitrary playback/actions and full LooksMenu gameplay integration remain gated");
+		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization, camera and basic scene infrastructure initialized; awaiting game data");
+		logger::warn("Studio, walk-to-scene, equipment/morph choreography, arbitrary ordered callbacks and advanced scene APIs remain gated");
 		return true;
 	}
 

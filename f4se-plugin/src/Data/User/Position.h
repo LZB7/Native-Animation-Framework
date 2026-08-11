@@ -93,6 +93,16 @@ namespace Data
 			
 		}
 
+		[[nodiscard]] bool IsBasicSceneCompatible() const
+		{
+			if (posType != kAnimation || !startEquipSet.empty() || !stopEquipSet.empty() ||
+				!startMorphSet.empty() || !stopMorphSet.empty()) {
+				return false;
+			}
+			const auto animation = GetBaseAnimation();
+			return animation && animation->IsBasicSceneCompatible();
+		}
+
 		static bool Parse(XMLUtil::Mapper& m, Position& out)
 		{
 			out.ParseID(m);

@@ -302,6 +302,7 @@ namespace Scene
 			});
 
 			status = SceneState::Active;
+			logger::info("Basic production scene {} entered active state with {} actor(s) at position '{}'", uid, actors.size(), controlSystem->QSystemID());
 			Data::Events::Send(Data::Events::SCENE_START, uid);
 			tasks.Start<DelegateFunctor<PostStartDelegate>>(50, uid);
 			return true;
@@ -358,6 +359,7 @@ namespace Scene
 			}, false);
 
 			status = SceneState::PendingDeletion;
+			logger::info("Basic production scene {} completed actor/package/input/collision cleanup", uid);
 			Data::Events::Send(Data::Events::SCENE_END, Data::Events::SceneData{ uid, GetActorsInOrder(actors) });
 			tasks.Start<DelegateFunctor<PostStopDelegate>>(50, uid);
 			return true;

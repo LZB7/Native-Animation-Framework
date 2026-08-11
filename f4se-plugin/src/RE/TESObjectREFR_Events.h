@@ -40,7 +40,7 @@ namespace RE
 		void RegisterForActorLocationChange(BSTEventSink<TESActorLocationChangeEvent>* a_sink)
 		{
 			using func_t = decltype(&RegisterForActorLocationChange);
-			REL::Relocation<func_t> func{ REL::ID(78267) };
+			REL::Relocation<func_t> func{ REL::RelocationID(78267, 2201562) };
 			return func(a_sink);
 		}
 	}

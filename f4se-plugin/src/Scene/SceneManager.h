@@ -422,6 +422,11 @@ namespace Scene
 			if (!settings.startPosition) {
 				return { kNullPosition };
 			}
+			if (!settings.startPosition->IsBasicSceneCompatible()) {
+				logger::warn("Scene start rejected: position '{}' requires gated equipment, morph, action, group/tree or position-level set behavior",
+					settings.startPosition->id);
+				return { kUnsupportedSceneFeature };
+			}
 
 			auto actors = settings.QActors();
 			auto locationRef = settings.locationRefr.get();

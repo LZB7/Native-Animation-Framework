@@ -141,7 +141,13 @@ namespace BodyAnimation
 			switch (_type) {
 			case kForm:
 			case kHKX:
-				return RE::BGSAnimationSystemUtils::IsIdleLoading(a, _id);
+			{
+				// AE removed the old per-idle loading-queue query.  The replacement
+				// animation-file manager exposes readiness through the active graph:
+				// graph time is unavailable/negative until the requested clip is usable.
+				GameUtil::GraphTime graphTime;
+				return !GetGraphTime(a, graphTime) || graphTime.current < 0.0f;
+			}
 			case kNAF:
 				return BodyAnimation::GraphHook::IsAnimationLoading(a, _data, _id);
 			default:

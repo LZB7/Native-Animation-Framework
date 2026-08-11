@@ -38,10 +38,8 @@ SOURCE_GUARDS = {
         "REL::RelocationID(571037, 2314780)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESForms.h": (
-        # These remain known 1.10.984-only declarations.  The passive-record
-        # guards below ensure they are not reached by the bounded load path.
-        "REL::RelocationID(422985, 2689178)",
-        "REL::RelocationID(691815, 2689189)",
+		"REL::RelocationID(422985, 4796465)",
+		"REL::RelocationID(691815, 4796476)",
     ),
 }
 
@@ -64,6 +62,10 @@ SAFE_NATIVES = {
     "MoveElementToBack",
     "SetElementMask",
     "AttachElementTo",
+	"StartScene",
+	"StopScene",
+	"GetSceneFromActor",
+	"IsSceneRunning",
 }
 
 GATED_NATIVES = {
@@ -71,17 +73,13 @@ GATED_NATIVES = {
     "IsActorUsable",
     "SetActorUsable",
     "PlayDynamicIdle",
-    "StartScene",
     "WalkToAndStartScene",
-    "StopScene",
     "SetScenePosition",
     "GetSceneActors",
     "GetSceneHKXs",
     "GetSceneTags",
     "SetSceneSpeed",
     "GetSceneSpeed",
-    "GetSceneFromActor",
-    "IsSceneRunning",
     "GetSceneProperty",
     "ValidateSceneParams",
     "ReEnablePlayerInput",
@@ -153,6 +151,7 @@ def main() -> int:
         "deferredRecords.push_back({ type, version, std::move(payload) })",
         "ReadRecordPayload(a_intfc, length, payload)",
         "if (version >= 5 && type == 'HUD')",
+		"if (version >= 5 && type == 'PACK')",
     ):
         if selector not in serialization:
             failures.append(f"missing serialization compatibility guard: {selector}")
@@ -171,7 +170,7 @@ def main() -> int:
     print(
         f"PASS: {len(EXPECTED)} Papyrus/serialization relocation IDs matched exact RVAs; "
         f"{len(SAFE_NATIVES)} safe natives registered, {len(GATED_NATIVES)} natives gated; "
-        "F4SE callback ABI and historical v5/passive-record guards matched"
+        "F4SE callback ABI, historical v5 schema and active package-record guards matched"
     )
     return 0
 

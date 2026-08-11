@@ -4,13 +4,6 @@ namespace RE
 {
 	namespace BGSAnimationSystemUtils
 	{
-		inline bool IsIdleLoading(RE::TESObjectREFR* a_ref, const BSFixedString& a_idl)
-		{
-			using func_t = decltype(&IsIdleLoading);
-			REL::Relocation<func_t> func{ REL::ID(686648) };
-			return func(a_ref, a_idl);
-		}
-
 		inline bool WillEventChangeState(const TESObjectREFR& ref, const BSFixedString& evn)
 		{
 			using func_t = decltype(&WillEventChangeState);
@@ -42,14 +35,21 @@ namespace RE
 
 		inline BGSAction* GetDefaultObjectForActionInitializeToBaseState() {
 			using func_t = decltype(&GetDefaultObjectForActionInitializeToBaseState);
-			REL::Relocation<func_t> func{ REL::ID(639576) };
+			REL::Relocation<func_t> func{ REL::RelocationID(639576, 2214309) };
 			return func();
 		}
 
 		inline bool RunActionOnActor(Actor* a_actor, TESActionData& a_action, bool a_unk = false) {
-			using func_t = decltype(&RunActionOnActor);
-			REL::Relocation<func_t> func{ REL::ID(22408) };
-			return func(a_actor, a_action, a_unk);
+			if (!a_actor || a_unk) {
+				return false;
+			}
+
+			// 1.11.221 removed the historical BGSAnimationSystemUtils wrapper.
+			// Its production callers construct TESActionData for the actor/action
+			// and invoke the PDB-named TESActionData::DoIt entry directly.
+			using func_t = bool(TESActionData*);
+			REL::Relocation<func_t> func{ REL::RelocationID(390914, 2234273) };
+			return func(std::addressof(a_action));
 		}
 	};
 }
