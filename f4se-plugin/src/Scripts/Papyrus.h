@@ -10,39 +10,10 @@ namespace Papyrus
 {
 	bool RegisterFunctions(RE::BSScript::IVirtualMachine* a_VM)
 	{
-		PAPYRUS_BIND(ToggleMenu);
 		PAPYRUS_BIND(SetDisableRescaler);
-		PAPYRUS_BIND(GetDisableRescaler);		
-		PAPYRUS_BIND(IsActorUsable);
-		PAPYRUS_BIND(SetActorUsable);
+		PAPYRUS_BIND(GetDisableRescaler);
 		PAPYRUS_BIND(SetPackageOverride);
 		PAPYRUS_BIND(ClearPackageOverride);
-		PAPYRUS_BIND(PlayDynamicIdle);
-
-		PAPYRUS_BIND(StartScene);
-		PAPYRUS_BIND(WalkToAndStartScene);
-		PAPYRUS_BIND(StopScene);
-		PAPYRUS_BIND(SetScenePosition);
-		PAPYRUS_BIND(GetSceneActors);
-		PAPYRUS_BIND(GetSceneHKXs);
-		PAPYRUS_BIND(GetSceneTags);
-		PAPYRUS_BIND(SetSceneSpeed);
-		PAPYRUS_BIND(GetSceneSpeed);
-		PAPYRUS_BIND(GetSceneFromActor);
-		PAPYRUS_BIND(IsSceneRunning);
-		PAPYRUS_BIND(GetSceneProperty);
-		PAPYRUS_BIND(ValidateSceneParams);
-		PAPYRUS_BIND(ReEnablePlayerInput);
-
-		PAPYRUS_BIND(PlayNANIM);
-		PAPYRUS_BIND(StopNANIM);
-		PAPYRUS_BIND(SetIKChainTarget);
-		PAPYRUS_BIND(SetIKChainEnabled);
-
-		PAPYRUS_BIND(SetEyeCoordOverride);
-		PAPYRUS_BIND(ClearEyeCoordOverride);
-		PAPYRUS_BIND(PlayFaceAnimation);
-		PAPYRUS_BIND(StopFaceAnimation);
 
 		PAPYRUS_BIND(DrawRectangle);
 		PAPYRUS_BIND(DrawText);
@@ -58,9 +29,8 @@ namespace Papyrus
 		PAPYRUS_BIND(SetElementMask);
 		PAPYRUS_BIND(AttachElementTo);
 
-		PAPYRUS_BIND(GetLocalTransform);
-		PAPYRUS_BIND(SynchronizeAnimations);
-
+		logger::info("Registered 17 production Papyrus natives: settings (2), package/process (2), HUD (13)");
+		logger::warn("Papyrus scene, dynamic-idle, body/IK, managed face, player-input, menu-toggle and transform natives remain deliberately unregistered");
 		return true;
 	}
 }

@@ -176,6 +176,9 @@ namespace Papyrus::NAF
 
 	bool SetPackageOverride(std::monostate, RE::Actor* a_actor, RE::TESPackage* a_pkg)
 	{
+		if (!a_actor || !a_pkg) {
+			return false;
+		}
 		return PackageOverride::Set(a_actor->GetActorHandle(), a_pkg);
 	}
 

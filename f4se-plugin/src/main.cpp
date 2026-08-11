@@ -29,8 +29,8 @@ bool g_gameDataReady = false;
 namespace
 {
 	// Restore subsystems coherently. This stage enables the validated HUD,
-	// production graph, face/lip and package/process hooks. Scene playback,
-	// camera, studio, Papyrus and serialization remain unavailable.
+	// production graph, face/lip, package/process and bounded Papyrus/
+	// serialization lifecycle. Scene playback, camera and studio remain unavailable.
 	inline constexpr bool kHUDSubsystemEnabled = true;
 	inline constexpr bool kGameplaySubsystemsEnabled = false;
 
@@ -169,12 +169,6 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		logger::info("Registered with F4SE messaging interface.");
 	}
 
-	if constexpr (!kGameplaySubsystemsEnabled) {
-		logger::info("HUD, animation-graph and face/lip infrastructure initialized; awaiting game data before HUD registration");
-		logger::warn("Serialization, Papyrus, scenes, package, camera, studio and LooksMenu gameplay integration remain gated");
-		return true;
-	}
-
 	const auto serialization = F4SE::GetSerializationInterface();
 	if (!serialization) {
 		logger::critical("Failed to get F4SE serialization interface, marking as incompatible.");
@@ -190,8 +184,15 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 	const auto papyrus = F4SE::GetPapyrusInterface();
 	if (!papyrus || !papyrus->Register(Papyrus::RegisterFunctions)) {
 		logger::critical("Failed to register Papyrus functions!");
+		return false;
 	} else {
-		logger::info("Registered Papyrus functions.");
+		logger::info("Registered the production Papyrus callback with F4SE 0.7.8.");
+	}
+
+	if constexpr (!kGameplaySubsystemsEnabled) {
+		logger::info("HUD, graph, face/lip, package/process and Papyrus/serialization lifecycle initialized; awaiting game data");
+		logger::warn("Scenes, camera, studio, arbitrary playback/actions and full LooksMenu gameplay integration remain gated");
+		return true;
 	}
 
 	Data::Global::Init();
