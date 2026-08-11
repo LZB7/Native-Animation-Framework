@@ -169,10 +169,7 @@ namespace Menu::NAF
 					return {
 						{ "Scene Status: Active", std::nullopt },
 						{ std::format("Sync Status: {}", GetSyncStateString()), std::nullopt },
-						{ "Speed (%): ", MENU_BINDING(ManageScenesHandler::AdjustSceneSpeed), true, 1, 500, static_cast<int>(cachedSpeed) },
 						{ std::format("Current Animation: {}", cachedAnimId), std::nullopt },
-						{ "Change Position...", MENU_BINDING(ManageScenesHandler::ChangePosition) },
-						{ "Actor Inventories...", MENU_BINDING_WARG(ManageScenesHandler::GotoInventoriesMenu, selectionId) },
 						{ "Stop Scene", MENU_BINDING(ManageScenesHandler::StopScene) }						
 					};
 				}

@@ -3564,3 +3564,71 @@ scene run briefly, then open **Active Scenes** and stop it. Verify both actors
 resume ordinary AI/packages/collision and retain the logs. Only after that NPC
 pass should the same bounded workflow be attempted with the player; do not save
 while either scene is active.
+
+## Production menu-entry regression audit (`1429302`)
+
+The first hotkey test reached the registered Papyrus native but failed closed
+on Address Library ID `1429302`. Its owner is selected CommonLib's
+`BSScript::Stack::GetPageForFrame()` (`BSScript/Stack.h`), which incorrectly
+treated the 1.10.163 ID as runtime-invariant. The precise path is MCM keybind
+`NAFMenuHotkey` -> Papyrus global `NAF.ToggleMenu()` -> F4SE native-function
+dispatch -> `BSScriptUtil` argument unpacking -> `Stack::GetPageForFrame()`.
+The failure therefore precedes the `UIMessageQueue::AddMessage("NAFMenu",
+kShow)` request and menu construction. The preceding audit covered native
+registration and the UI body but not this lazy VM-stack helper, explaining the
+miss.
+
+Dear CommonLib identifies `1429302 / 2314680`; the supplied AE database maps
+ID `2314680` exactly to RVA `0x20F32F0`. Instruction-level comparison confirms
+the same `Stack*`, `StackFrame*` ABI and unsigned page-index return: both walk
+the stack memory-page array, compare the frame address against each page's
+payload bounds, and return the containing page index/count. The selected
+declaration now uses `RelocationID(1429302, 2314680)`. Its adjacent argument
+helper already used exact AE ID `2314681`, RVA `0x20F3360`.
+
+The complete hotkey/open/navigation sweep proactively found one further
+three-runtime collapse. `PlayerControls::GetSingleton()` is reached when
+`NAFMenu::ProcessMessage(kShow)` blocks player input. Its old pair selected
+1.10.984 ID `2692013`; Dear/Addictol, the exact supplied record, and PDB symbol
+`g_PlayerControls` establish AE ID `4799306`, RVA `0x31E5B00`, with unchanged
+`PlayerControls**` storage. This was corrected before another launch. Earlier
+ControlMap corrections remain intact (`4799307` singleton and `4491359`
+text-entry mode), as does disassembly-verified `SetLinkedRef` ID `2202684`, RVA
+`0x5645B0`.
+
+`tools/audit_menu_relocations.py` now independently pins 24 exact AE records
+covering Papyrus stack argument access, UI/menu registration, message posting,
+ControlMap input contexts/text entry, PlayerControls, Scaleform loading and HUD
+filters, menu sounds/HUD modes, form enumeration/display names, and
+`SetLinkedRef`. It also rejects recurrence of the four known stale selectors
+and verifies the bounded menu source gates.
+
+The menu ABI review found no new declaration defect. Selected and Dear
+CommonLib agree on `IMenu` size `0x70`, `GameMenuBase` size `0xE0`,
+`ControlMap` size `0x148`, and `PlayerControls` size `0x260`; the NAF-used
+`IMenu`/`GameMenuBase` virtual declaration order and signatures match. The
+already runtime-validated HUD exercises the shared GameMenuBase/Scaleform
+construction and message interfaces. This remains static/corroborating
+evidence for the newly opened NAFMenu, not a claim that its full navigation has
+already run.
+
+The reachable production UI was narrowed further. Active Scenes now exposes
+status/current animation and **Stop Scene** only; speed mutation, position
+changes, and inventory navigation remain compiled but have no reachable menu
+binding. Hover highlighting is disabled because the optional historical
+effect-shader entry remains OG-only; actor/location selection itself is not
+blocked by the absence of that visual aid. Creator, Studio, Item Explorer,
+equipment/morph actions, groups, and trees remain gated.
+
+Release x64/v143 builds and links with zero errors, `COPY_BUILD=OFF`, and no
+deployment. All baseline audits plus the new 24-entry production-menu audit
+pass. Output: `f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`BDB8527422503C46D3D1FD674506CAFC990532750371AA6D1691CE2FAF4CD45A`.
+
+The next runtime procedure remains production-level: load a save, press the
+MCM Menu Hotkey, verify NAFMenu opens, select **New Scene**, choose two ordinary
+loaded NPCs and a simple accepted position, let it run briefly, then use
+**Active Scenes -> Stop Scene**. Verify AI, packages, collision and animation
+state restore. Avoid Studio/Creator/Item Explorer, equipment, morphs,
+groups/trees, and saving during an active scene. Test a player-involved scene
+only after the NPC-only lifecycle succeeds.
