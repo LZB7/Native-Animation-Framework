@@ -32,6 +32,9 @@ namespace RE
 		Expression modExp;
 		Expression baseExp;
 		FaceEmotionalIdles::InstanceData instanceData;
+		std::byte unk2D8[0x10];
 	};
-	static_assert(sizeof(BSFaceGenAnimationData) == 0x2D8);
+	static_assert(offsetof(BSFaceGenAnimationData, finalExp) == 0x18);
+	static_assert(offsetof(BSFaceGenAnimationData, instanceData) == 0x2A0);
+	static_assert(sizeof(BSFaceGenAnimationData) == 0x2E8);
 }

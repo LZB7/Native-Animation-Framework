@@ -28,9 +28,9 @@ bool g_gameDataReady = false;
 #include "API/API.h"
 namespace
 {
-	// Restore subsystems coherently. This stage enables the validated HUD and
-	// production graph hooks; scene playback, face, package, camera, studio,
-	// Papyrus and serialization remain unavailable.
+	// Restore subsystems coherently. This stage enables the validated HUD,
+	// production graph hooks, and production face/lip hooks. Scene playback,
+	// package, camera, studio, Papyrus and serialization remain unavailable.
 	inline constexpr bool kHUDSubsystemEnabled = true;
 	inline constexpr bool kGameplaySubsystemsEnabled = false;
 
@@ -84,7 +84,10 @@ namespace
 		if (!BodyAnimation::GraphHook::RegisterHook()) {
 			return false;
 		}
-		logger::warn("Deferred hooks: face update/lip, package evaluation/check, free camera update");
+		if (!FaceAnimation::FaceUpdateHook::RegisterHook(trampoline)) {
+			return false;
+		}
+		logger::warn("Deferred hooks: package evaluation/check, free camera update");
 		logger::info("Legacy HUD interior hook is replaced by the maintained HUDModeEvent source");
 		return true;
 	}
@@ -163,8 +166,8 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 	}
 
 	if constexpr (!kGameplaySubsystemsEnabled) {
-		logger::info("HUD and animation-graph infrastructure initialized; awaiting game data before HUD registration");
-		logger::warn("Serialization, Papyrus, scenes, face, package, camera, studio and LooksMenu gameplay integration remain gated");
+		logger::info("HUD, animation-graph and face/lip infrastructure initialized; awaiting game data before HUD registration");
+		logger::warn("Serialization, Papyrus, scenes, package, camera, studio and LooksMenu gameplay integration remain gated");
 		return true;
 	}
 

@@ -74,7 +74,7 @@ namespace FaceAnimation
 			}
 		};
 
-		typedef bool(Update)(RE::BSFaceGenAnimationData*, float, bool, float);
+		typedef bool(Update)(RE::BSFaceGenAnimationData*, float, bool);
 		typedef bool(UpdateLip)(RE::BSFaceGenAnimationData*, float);
 
 		static REL::Relocation<Update> OriginalUpdate;
@@ -85,6 +85,8 @@ namespace FaceAnimation
 		static std::mutex loadingAnimsLock;
 		static std::unordered_map<SerializableActorHandle, RE::NiPointer<RE::BSGeometry>> eyeGeoCache;
 		static std::shared_mutex geoCacheLock;
+		inline static std::atomic<bool> loggedFirstUpdate{ false };
+		inline static std::atomic<bool> loggedFirstLipUpdate{ false };
 
 		RE::BSGeometry* GetCachedEyeGeometry(SerializableActorHandle hndl)
 		{
@@ -130,6 +132,9 @@ namespace FaceAnimation
 		}
 
 		bool HookedUpdateLip(RE::BSFaceGenAnimationData* data, float ptimeDelta) {
+			if (!loggedFirstLipUpdate.exchange(true, std::memory_order_relaxed)) {
+				logger::info("Production facial lip-morph update observed: data={}, delta={}", fmt::ptr(data), ptimeDelta);
+			}
 			std::shared_lock l{ stateLock };
 
 			if (auto h = IsDataManaged(data); h) {
@@ -141,9 +146,12 @@ namespace FaceAnimation
 			return OriginalUpdateLip(data, ptimeDelta);
 		}
 
-		bool HookedUpdate(RE::BSFaceGenAnimationData* data, float timeDelta, bool unk01, float pGameTime)
+		bool HookedUpdate(RE::BSFaceGenAnimationData* data, float timeDelta, bool force)
 		{
-			bool result = OriginalUpdate(data, timeDelta, unk01, pGameTime);
+			bool result = OriginalUpdate(data, timeDelta, force);
+			if (!loggedFirstUpdate.exchange(true, std::memory_order_relaxed)) {
+				logger::info("Production facial animation update observed: data={}, delta={}, force={}", fmt::ptr(data), timeDelta, force);
+			}
 			std::shared_lock l{ stateLock };
 
 			if (auto h = IsDataManaged(data); h) {
@@ -298,18 +306,42 @@ namespace FaceAnimation
 			eyeGeoCache.clear();
 		}
 
-		void RegisterHook(F4SE::Trampoline& trampoline)
+		bool RegisterHook(F4SE::Trampoline& trampoline)
 		{
-			//BSFaceGenNiNode::UpdateMorphing + 0xBA
-			//Call to BSFaceGenAnimationData::Update
-			REL::Relocation<Update> faceGenUpdateCallLoc{ REL::ID(317245), 0xBA };
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
+				logger::critical("Face/lip hooks require Fallout 4 runtime 1.11.221.0");
+				return false;
+			}
 
-			//BSFaceGenAnimationData::Update + 0x158
-			//Call to BSFaceGenAnimationData::UpdateMorphsFromLip
-			REL::Relocation<UpdateLip> updateLipMorphsCallLoc{ REL::ID(3139), 0x158 };
+			// BSFaceGenNiNode::UpdateMorphing + 0xBD: direct call to
+			// BSFaceGenAnimationData::Update(float, bool).
+			REL::Relocation<Update> faceGenUpdateCallLoc{ REL::RelocationID(317245, 2209487), 0xBD };
+			REL::Relocation<Update> faceGenUpdateTarget{ REL::RelocationID(3139, 2209139) };
+
+			// BSFaceGenAnimationData::Update + 0x14B: direct call to
+			// BSFaceGenAnimationData::UpdateMorphsFromLip(float).
+			REL::Relocation<UpdateLip> updateLipMorphsCallLoc{ REL::RelocationID(3139, 2209139), 0x14B };
+			REL::Relocation<UpdateLip> updateLipMorphsTarget{ REL::RelocationID(1550953, 2209124) };
+
+			auto validatesDirectCall = [](std::uintptr_t a_site, std::uintptr_t a_target) {
+				if (*reinterpret_cast<const std::uint8_t*>(a_site) != 0xE8) {
+					return false;
+				}
+				std::int32_t displacement = 0;
+				std::memcpy(&displacement, reinterpret_cast<const void*>(a_site + 1), sizeof(displacement));
+				return a_site + 5 + displacement == a_target;
+			};
+
+			if (!validatesDirectCall(faceGenUpdateCallLoc.address(), faceGenUpdateTarget.address()) ||
+				!validatesDirectCall(updateLipMorphsCallLoc.address(), updateLipMorphsTarget.address())) {
+				logger::critical("Face/lip hook validation failed; refusing to patch the runtime");
+				return false;
+			}
 
 			OriginalUpdate = trampoline.write_call<5>(faceGenUpdateCallLoc.address(), &HookedUpdate);
 			OriginalUpdateLip = trampoline.write_call<5>(updateLipMorphsCallLoc.address(), &HookedUpdateLip);
+			logger::info("Installed production face/lip hooks at IDs 2209487 + 0xBD and 2209139 + 0x14B");
+			return true;
 		}
 	}
 }
