@@ -2713,3 +2713,118 @@ morph behavior, and arbitrary scene playback remain gated. Package/process
 hooks are the recommended next subsystem because managed actor lifecycle and
 eventual scene execution depend on correct package/process observation before
 camera or studio behavior.
+
+## Package/process subsystem restoration
+
+The production face/lip test passed: the game-loop and graph hooks and HUD
+remained stable, both face hooks installed, natural vanilla lip-morph and face
+updates reached their callbacks, and no Address Library or visible behavior
+regression occurred. HUD, graph, and unmanaged vanilla face/lip pass-through
+are therefore the current runtime-validated baseline.
+
+### Dependency and behavior map
+
+NAF's package override path has two complementary interceptors. The
+`Actor::EvaluatePackage(bool,bool)` detour suppresses reset-AI evaluations for
+actors present in the protected package map, while allowing command or
+non-reset evaluation and all unprotected actors through. The second detour is
+the historical ID `609985`, now identified exactly by the old PDB and
+disassembly as `AIProcess::CheckforNewPackage(Actor*,bool)`. It returns false
+for protected actors and otherwise invokes the original. This is behavior
+substitution, not merely observation; no maintained package event can replace
+the suppression semantics.
+
+The production state transition remains:
+
+1. Resolve the `ActorHandle` and require a live actor/current process.
+2. Call `AIProcess::ClearCurrentPackage`.
+3. Call `AIProcess::ClearCurrentDataForProcess`.
+4. Install the created package through verified virtual slot `Actor::PutCreatedPackage`.
+5. Request `Actor::EvaluatePackage(false,false)`.
+6. Observe `TESPackageEvent::End`, consume the optional completion functor,
+   and restore/clear through the same protected map during later scene cleanup.
+
+Special-idle setup and playback reuse the previously verified
+`AIProcess::SetupSpecialIdle` mapping and maintained `PlayIdle` adaptation.
+`IsIdleLoading` and `RunActionOnActor` are not reachable from package hook
+installation, ordinary evaluation, or the override manager itself; they remain
+unresolved and gated with scene playback.
+
+### Hook and interface recovery
+
+| interface | 1.10.163 | 1.11.221 | evidence/status |
+|---|---:|---:|---|
+| `Actor::EvaluatePackage(bool,bool)` | ID `1395257` | ID `2229805`, RVA `0xC69240` | PDB plus old/new disassembly verified; production detour |
+| `AIProcess::CheckforNewPackage(Actor*,bool)` | ID `609985`, RVA `0xE28F80` | ID `2231539`, RVA `0xCEFAD0` | PDB plus argument/data-flow and control-flow correspondence; production detour |
+| `AIProcess::ClearCurrentPackage` | ID `241540` | ID `2231582`, RVA `0xCF1340` | previously disassembly verified |
+| `AIProcess::ClearCurrentDataForProcess` | ID `577581` | ID `2232435`, RVA `0xD394F0` | previously disassembly verified |
+| `AIProcess::SetupSpecialIdle` | ID `1446774` | ID `2231704`, RVA `0xCFAD40` | previously disassembly verified |
+| `Actor::GetActorHandle` | ID `1145222`, RVA `0xD89690` | ID `2229894`, RVA `0xC73410` | PDB and handle-manager data flow verified |
+| register `TESPackageEvent` sink | ID `1448133` | ID `2201672`, RVA `0x52D7B0` | wrapper body/callee semantics verified |
+| unregister `TESPackageEvent` sink | ID `1182113` | ID `2201673`, RVA `0x52D7E0` | adjacent symmetric wrapper verified |
+
+The historical `609985` body consumes `RCX=AIProcess*`, `RDX=Actor*`, and
+`R8B=bool`, checks actor state at `+0x440`, excludes the player singleton, and
+selects process-level package helpers before returning a Boolean. The AE body
+at `0xCEFAD0` preserves those semantic signals. Both package detours now
+require runtime 1.11.221 and validate their independently recorded entry
+prologues before either patch is installed. Any mismatch fails plugin load.
+
+### ABI and synchronization audit
+
+The package restoration exposed one stale CommonLib declaration:
+`Actor::GetActorHandle` still used the OG-only ID `1145222`. It now selects
+the exact supplied-database AE ID `2229894`. IDs `313362/2231230` were
+explicitly rejected: PDB and disassembly identify those as
+`Actor::GetMountHandle`, not the actor's own handle.
+
+The current `Actor` vtable is exact ID `1455516`, RVA `0x25602C0`; physical
+slot `0xFA` points to PDB-named `Actor::PutCreatedPackage` at RVA `0xC81870`.
+Selected and Dear declarations agree on this order and on
+`Actor::currentProcess` at `0x300`. `TESPackageEvent` retains the corroborated
+`0x10` layout (`NiPointer` at `0`, form ID at `8`, event type at `0xC`). No
+package declaration-order or structure-layout defect was found.
+
+The package-end listener previously moved and cleared `doneCallback` under a
+shared lock. That is a source-level synchronization defect, not an engine ABI
+change; it now takes the existing package-map mutex exclusively. Registration
+is idempotent and performed directly on F4SE game-data-ready. NAF's broad
+internal game-data event is intentionally not emitted yet because doing so
+would transitively initialize still-gated scenes and menu listeners.
+
+### Reachable relocation audit and build
+
+`tools/audit_package_relocations.py` verifies 12 exact supplied-database
+records: both detours, actor-handle access, three package/process operations,
+package-event registration/unregistration, the three handle-manager entries,
+and the Actor vtable. It also guards the five source selectors that must choose
+the recovered AE mappings. No eager package global, OG-only invariant, or
+1.10.984-as-AE selection remains on the enabled path. The package audit passes,
+as do the existing 63-record HUD, 16-record graph, and 3-record face audits.
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`; no
+deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`. SHA-256:
+`82DF18451C76B4871C3B7119BCE85E4310704F6A13FBFBA72E3E2E40A2753C13`.
+The pinned ik timestamp generator still emits its known build-directory-only
+warning; neither historical dependency tree is modified.
+
+### Production runtime test plan
+
+1. Launch Fallout 4 1.11.221 through F4SE 0.7.8 and load an ordinary save.
+2. Confirm the game-loop, HUD, graph/Set3D, and face/lip baseline remains functional.
+3. Confirm installation logs for package IDs `2229805` and `2231539` and
+   package event-sink registration after game data becomes ready.
+4. Remain near active NPCs, move locally, and wait briefly so ordinary package
+   evaluation and reevaluation occur naturally.
+5. Confirm the bounded first-observation logs for both package functions; do
+   not start a NAF scene or invoke gated Papyrus/studio actions.
+6. Exit normally and retain NAF/F4SE logs and any Addictol crash report.
+
+This exercises real production interception and pass-through while the
+override map is empty. Actual override/restoration behavior will gain a
+production consumer when the public lifecycle layer is restored. Camera,
+studio, Papyrus, serialization, full scenes/playback, and full LooksMenu morph
+behavior remain gated. Papyrus/serialization is the recommended next coherent
+stage because it provides the intended public and persistence lifecycle for
+the now-restored package manager before camera/studio/full-scene activation.
