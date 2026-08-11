@@ -3310,3 +3310,162 @@ functions, enable data/form initialization, actor-control symmetry and bounded
 ordered actions, then restore the basic scene lifecycle. Studio can follow on
 that production foundation rather than duplicating or prematurely activating
 the same unresolved paths.
+
+## Basic production scene-execution prerequisite pass
+
+The production camera test passed on runtime 1.11.221: the hook installed at
+ID `2248280`, fired naturally, and did not regress HUD, graph, face/lip,
+package/process, Papyrus or serialization. Camera integration is promoted to
+the known-good production baseline. The work below begins the first coherent
+scene pass; it is not evidence that scene behavior has passed runtime testing.
+
+### Scene lifecycle dependency graph
+
+| lifecycle stage | production work | classification before this pass | disposition |
+|---|---|---|---|
+| request/validation | resolve position, validate actors/cell/worldspace/alive/child/in-scene state | A: eligibility reads runtime validated; data linking gated | data parsing runs at plugin load and `InitGameData` runs at game-data-ready |
+| attach/begin | scene keyword, stop interaction/combat/alarm, restrained/favor state, package override, transforms, headtracking, player third-person | package/camera A; compound actor mutation B | enabled for bounded basic positions; exact relocation audit required |
+| post-start | `InitializeActorInstant`, player free camera/AI/input, graph foot-IK variable, control-system begin, rescale task | graph/camera/package A; initializer B | initializer promoted from PDB + exact ID; production scene runtime required |
+| playback setup | apply actor slot, stop/reset old graph, play form/dynamic/NAF idle, face data, enter transition wait | graph/face A; action/idle-loading C | AE action dispatch and loading model adapted as described below |
+| update/advance | transition/load wait, graph-time synchronization, animation loop, actor transform/collision/player-3D | game-loop serialization A; engine mutations B | production `UpdateScenes` enabled; scene runtime required |
+| ordered work | position/equipment/morph delays and callbacks | delay A; equipment/morph/arbitrary B/C | delay actions enabled; equipment, morph and arbitrary callbacks explicitly fail closed |
+| stop/cleanup | collision, face, player AI/input, NPC state/keywords/package, scale, graph reset, camera exit, detach | individual APIs A/B; whole symmetry B | complete historical order retained; production scene runtime required |
+| persistence | HUD/package plus scene/task/body/equipment/UID records | HUD/package A; active scene restore C | package v5 records active; scene-related records remain byte-preserved/deferred |
+| studio/advanced | group/tree control, continuous studio alignment, equipment choreography, body morphs, arbitrary callbacks | D | still gated |
+
+Here A means already runtime-validated on the tested path, B means restored or
+statically verified but not yet exercised as part of a scene, C means required
+work that was unresolved before this pass, and D means optional/advanced for
+the selected first scene.
+
+### Animation action and loading architecture
+
+Historical `BGSAnimationSystemUtils::RunActionOnActor` is ID `22408`, old RVA
+`0xF92190`. Its overload builds graph/file state before dispatch. That public
+wrapper no longer exists in the 1.11.221 PDB. The AE engine instead has
+production callers that:
+
+1. obtain `ActionInitializeToBaseState` from PDB-named RVA `0x806750`, exact
+   supplied-database ID `2214309`;
+2. construct `TESActionData` for priority `kTry`, the actor and action;
+3. call PDB-named `TESActionData::DoIt()` at RVA `0xDBFEC0`, exact ID
+   `2234273`.
+
+The vtable at ID `780200`, RVA `0x245F6E8`, independently places `CreateCopy`
+at physical slot `0x04` and `DoIt` at slot `0x05`. The local declaration is
+now size `0x60`, with the AE field initialization observed in legitimate
+callers: null target, zero action data, two fixed strings, fields at
+`+0x38/+0x40/+0x48/+0x50/+0x58`. NAF's reset action uses this AE production
+composition. This is a source-level semantic replacement backed by PDB,
+vtable and caller disassembly, not a guessed successor to old ID `22408`.
+
+`InitializeActorInstant` is exact ID `2236393`, PDB RVA `0xE13E40`;
+`IsActiveGraphInTransition` is exact ID `2214305`, PDB RVA `0x806370`.
+Both retain their previously established argument consumption and are promoted
+to disassembly/PDB-verified scene dependencies.
+
+The historical `IsIdleLoading` at old RVA `0xF924D0` queried the old
+`AnimationFileManagerSingleton` loading-idle collection by requested idle name
+and graph manager. AE removed that collection and public query. Its PDB exposes
+the redesigned manager's dynamic-clip binding/check operations instead. There
+is no one-to-one callable replacement. For form/HKX playback NAF now observes
+the maintained active graph: absent or negative graph time remains loading,
+and the separately verified graph-transition query must also clear before
+synchronization. NAF `.nanim` continues to use its own graph-hook loading
+state. This replacement avoids an invented relocation but remains explicitly
+**runtime-test-required**; the first scene must demonstrate that it neither
+advances early nor stalls.
+
+### Form maps, events, transforms and package restoration
+
+The selected CommonLib form maps contained 1.10.984 IDs. Dear's three-runtime
+mapping, exact supplied-database records and executable xrefs converge on:
+
+| interface | old / stale | verified 1.11.221 |
+|---|---|---|
+| all forms | `422985 / 2689178` | `4796465`, RVA `0x30E0E48` |
+| all-forms lock | `691815 / 2689189` | `4796476`, RVA `0x30E0E98` |
+| editor-ID forms | `642758 / 2689179` | `4796466`, RVA `0x30E0E50` |
+| editor-ID lock | `910917 / 2689190` | `4796477`, RVA `0x30E0EA0` |
+
+The globals remain function-local/lazy. Version-5 `PACK` records now use the
+unchanged historical cereal schema and F4SE `ResolveFormID`, then the corrected
+form map, to restore active package overrides. Unresolved/deleted actors or
+forms continue to fail safely through the historical `PersistentState::load`
+filter. Loaded package bytes are no longer kept passive once successfully
+decoded; scene/task/body/equipment/UID records remain deferred unchanged.
+
+Newly reachable transform/event declarations also contained OG/NG assumptions.
+PDB and exact database records establish `SetAngleOnReference` ID `2201134`,
+RVA `0x5137A0`; `SetScale` ID `2200893`, RVA `0x4FF5A0`; actor-location event
+registration ID `2201562`, RVA `0x52B800`; and the `TESHitEvent` source ID
+`2201886`, RVA `0x533C80`. The existing `TESHitEvent` size remains `0x110` and
+agrees with Dear; no new direct `HitData` dependency was introduced.
+
+### Bounded scene surface and feature gates
+
+Only positions with the simple animation control system are accepted. A
+position is rejected before mutation if it is a group/tree or declares
+position-level equipment/morph sets, or if any animation slot declares morph,
+equipment or action choreography. Managed face data and ordinary actor offsets
+remain permitted because their production paths are already restored. The
+ordered queue executes its historical delay ticks, but equipment, morph and
+arbitrary callback insertion logs and rejects while their gates are false.
+
+Four Papyrus natives are newly registered: `StartScene`, `StopScene`,
+`GetSceneFromActor`, and `IsSceneRunning`. `WalkToAndStartScene` remains gated
+because it reaches the still-unresolved `SetLinkedRef` AE relocation. Position
+mutation, group/tree, speed/property extensions, direct dynamic-idle, body/IK,
+managed face and transform natives remain absent. The production scene event
+proxy and actor death/hit/location sinks initialize at game-data-ready, and the
+timer thread receives menu pause events. This brings the active total to 21
+natives while retaining 24 dependency-gated natives.
+
+The player-control sequence is unchanged: begin forces third person, stops
+movement, then post-start enters free camera, sets AI control and installs the
+named `NAF_Scene` input layer. End first restores collision and face state,
+then clears AI control and removes the input layer; post-stop resets animation,
+disables NAF camera control, leaves free camera and detaches. NPC cleanup
+reverses favor/restraint/combat-ignore/keywords, clears the reserved package
+and reevaluates AI. Delayed post-start work is cancelled by `End`, preserving
+early-stop symmetry. Save/load restoration of an active scene remains deferred,
+so the first test must not save while a scene is active.
+
+### Reachable audit, build and first production test
+
+`tools/audit_scene_relocations.py` pins 34 exact 1.11.221 records across actor
+control, input, transforms, animation initialization/action dispatch, form
+maps, events and package operations. It additionally verifies physical
+`TESActionData::DoIt` slot `0x05`, its prologue, source selectors and absence
+of the retired idle/action/form-map IDs. All baseline audits pass together:
+63 HUD, 16 graph, 3 face/lip, 12 package, 15 Papyrus/serialization, 8 camera
+and 34 scene checks. Release x64/v143 builds and links with zero errors;
+`COPY_BUILD=OFF`; no deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`A75340C8E359F1EC1BAB75166E4D3ACC03D57580D84016481CCC097544FC7777`.
+
+First-scene runtime procedure:
+
+1. Launch through F4SE 0.7.8, load an ordinary save, and verify all known-good
+   subsystem registration logs.
+2. Use the production `StartScene` native with two ordinary loaded, living
+   actors and explicitly name a simple animation position that has no
+   equipment sets, morphs, actions, animation group or position tree. Set
+   `ignoreCombat=true`; do not include the player on the first attempt.
+3. Require the active-scene log, reserved-package behavior, real animation
+   start, transition into synchronized graph time, and several seconds of
+   normal advancement.
+4. Call production `StopScene` with the returned ID. Require the cleanup log;
+   verify both actors resume packages, collision and normal graph/face state.
+5. Repeat once with the player only after the NPC-only pass. Verify third/free
+   camera entry, AI/input takeover, normal stop, camera exit and full player
+   control restoration.
+6. Do not save/load during either active scene, do not use studio, group/tree,
+   equipment/morph choreography or walk-to-scene, and retain NAF/F4SE/Papyrus
+   logs plus any crash report.
+
+Passing the NPC scene promotes basic start/advance/NPC cleanup. The player
+repeat is separately required to promote player AI/input/camera symmetry.
+Advanced LooksMenu morphs, equipment actions, arbitrary callbacks, studio,
+walk-to-scene, group/tree control, broader Papyrus APIs and active scene
+serialization remain gated.
