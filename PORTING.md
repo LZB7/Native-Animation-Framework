@@ -2542,3 +2542,174 @@ Production graph infrastructure and its two verified hooks are enabled. Full
 scene playback, face/lip, package hooks, camera, studio behavior, Papyrus, and
 serialization remain gated. Animation action/idle paths and the custom Havok
 playback surface remain unresolved or runtime-test-required.
+
+## Production face/lip subsystem restoration
+
+### Known-good baseline
+
+The production graph test passed on Fallout 4 1.11.221/F4SE 0.7.8. Both graph
+hooks installed at IDs `2214536` and `2201055`; natural Set3D and graph-update
+traffic reached the callbacks; no crash or Address Library failure occurred;
+and the production HUD continued to initialize and render normally. HUD plus
+the game-loop and graph infrastructure are therefore the current known-good
+production baseline.
+
+### Historical face/lip dependency map
+
+The original face path is:
+
+```text
+BSFaceGenNiNode::UpdateMorphing(NiUpdateData&)
+ -> BSFaceGenAnimationData::Update(float delta, bool force)
+    -> blinking/emotional-idle/lip state processing
+    -> BSFaceGenAnimationData::UpdateMorphsFromLip(float delta)
+ -> NAF post-processes only data registered in managedDatas
+    -> custom expression timelines write finalExp[54]
+    -> optional eye texture-coordinate/emissive updates
+    -> optional graph-time synchronization
+```
+
+The outer hook calls the engine update first, then applies NAF-managed facial
+timelines and eye overrides while holding NAF's state lock and the engine face
+instance-data spin lock. The inner hook passes vanilla lip updates through for
+unmanaged data, but returns success without calling the engine lip routine for
+managed data. This prevents vanilla lip morphs from overwriting NAF's managed
+expression output. These suppress-and-postprocess semantics are not exposed by
+a maintained CommonLib, F4SE, Addictol, or LooksMenu event/API, so neither hook
+can be replaced by a public event source.
+
+LooksMenu body morphing is not involved in this path. The only visual mutation
+outside the face-expression arrays is direct eye shader material state used by
+NAF eye animation. Full LooksMenu scene/body-morph behavior remains gated.
+
+### Hook recovery
+
+#### Face update hook
+
+Historical ID `317245` is RVA `0x686040`, PDB-named
+`BSFaceGenNiNode::UpdateMorphing(NiUpdateData&)`. At historical `+0xBA`, the
+five-byte direct call has:
+
+- `RCX = [RDI+0x170]`, the node's `BSFaceGenAnimationData*`;
+- `XMM1`, the update delta selected by the containing function;
+- `R8B = 1`, the force/update flag;
+- return `AL` saved into `R15B`;
+- continuation at `+0xBF`.
+
+The call target is old ID `3139`, RVA `0x6689D0`, PDB-named
+`BSFaceGenAnimationData::Update(float,bool)`. The original NAF declaration had
+an extra fourth floating argument; it was unused by the engine under the x64
+ABI but was not the true signature.
+
+The exact 1.11.221 containing function is ID `2209487`, RVA `0x6E8BF0`, with
+the same PDB name and matching control/data flow. The equivalent direct call is
+at **`+0xBD`**, not the historical offset. It passes the same object and values
+to ID `2209139`, RVA `0x6D1310`, and consumes returned `AL`. The production
+hook uses the corrected three-argument signature and continues at `+0xC2`.
+
+#### Lip-morph hook
+
+Inside historical `BSFaceGenAnimationData::Update`, the old `+0x158` direct
+call passes `RCX = RDI` (the face data) and `XMM1 = XMM7` (delta) to old ID
+`1550953`, RVA `0x667E50`, `UpdateMorphsFromLip(float)`. Returned `AL` is saved
+in `ESI`, with continuation at `+0x15D`.
+
+In 1.11.221 the same semantic call is at **ID `2209139 + 0x14B`**. It passes
+`RCX = RDI` and `XMM1 = XMM9`, calls ID `2209124` at RVA `0x6D0560`, stores
+returned `AL` in `EBP`, and continues at `+0x150`. Although the reduced AE PDB
+does not publish the callee name, old/new disassembly agrees on lip-resource
+handle validation at `+0x2C0`, the three morph arrays at `0x18/0xF0/0x1C8`,
+54-morph processing, face-state fields, and boolean return behavior. This is
+**disassembly-verified** as the current `UpdateMorphsFromLip` implementation.
+
+Both installation sites are validated as `E8 rel32` calls whose decoded target
+must equal the separately exact-resolved callee. Validation is fail-closed and
+does not scan for another location. The hooks retain the original call-site
+shape because it limits interception to the same two engine paths as historical
+NAF; detouring the entire callee would broaden behavior to unrelated callers.
+
+### Face ABI and layout audit
+
+The old local `BSFaceGenAnimationData` declaration ended at `0x2D8`. Both
+1.10.163 and 1.11.221 update/lip implementations access state through `0x2E0`,
+and PANDA independently reports total size `0x2E8`. NAF's used prefix is
+confirmed:
+
+- `finalExp` at `0x18`;
+- second and third 54-float arrays at `0xF0` and `0x1C8`;
+- `FaceEmotionalIdles::InstanceData` at `0x2A0`;
+- its spin lock at `0x2B4`.
+
+The local declaration now retains this verified prefix and an opaque `0x10`
+tail, with size `0x2E8`. NAF does not allocate, construct, destroy, or virtually
+invoke this engine object.
+
+For managed eye animation, selected and Dear declarations agree on
+`NiAVObject::GetObjectByName` at physical slot `0x2E`. The PDB names its target
+RVA `0x16C8330`; occurrences in derived vtables are consistently at byte
+offset `0x170`. The 1.11.221 `BSGeometry` vtable is exact ID `1436492`, RVA
+`0x267E0C8`; slot `0x08` points to RVA `0x16D5640`, whose implementation is
+`mov rax, rcx; ret`, independently confirming `BSGeometry::IsGeometry()`.
+Selected and Dear Actor/process layouts also agree on `Actor::currentProcess`
+at `0x300`, `AIProcess::middleHigh` at `0x08`, and
+`MiddleHighProcessData::faceAnimationData` at `0x3C8`.
+
+No face-path declaration-order defect was found. The corrected object size and
+the historical extra-argument hook typedef were the two face ABI defects.
+Custom eye/material writes and managed face playback remain runtime-test-
+required even though the hooks and vanilla pass-through path are ready.
+
+### Reachable relocation audit
+
+`tools/audit_face_relocations.py` requires the following exact supplied-
+database records and verifies the four source selectors containing both IDs and
+both independently recovered interior offsets:
+
+| interface | exact 1.11.221 ID | RVA |
+|---|---:|---:|
+| `BSFaceGenNiNode::UpdateMorphing` | `2209487` | `0x6E8BF0` |
+| `BSFaceGenAnimationData::Update` | `2209139` | `0x6D1310` |
+| `BSFaceGenAnimationData::UpdateMorphsFromLip` | `2209124` | `0x6D0560` |
+
+The normal unmanaged callback performs no additional relocation lookup. The
+managed path reuses already-audited graph/string-pool and `Get3D` surfaces;
+its remaining actor/process, node, geometry, shader and expression operations
+are verified field/virtual access rather than hidden two-ID wrappers. No eager
+face relocation was introduced. The face audit, 16-record graph audit, and
+63-record HUD audit all pass with exact lookup enabled.
+
+A clean Release x64/v143 build completed with zero compiler/linker errors.
+`COPY_BUILD=OFF`; no deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`. SHA-256:
+`149E4CCB880C38616280DE1043E3016CA2B50C635F5E9EA7108015F60A6850AD`.
+
+### Production enablement and runtime plan
+
+Production initialization now installs both face/lip call-site hooks after the
+known-good game-loop and graph hooks. Installation fails closed on an
+unexpected runtime, missing exact ID, non-call opcode, or wrong decoded call
+target. One-time logs identify the first natural face update and first natural
+lip-morph update without creating a synthetic call or managed animation.
+
+The production runtime test is:
+
+1. Launch Fallout 4 1.11.221 through F4SE 0.7.8 and load an ordinary save.
+2. Confirm the known-good HUD and graph installation/operation logs remain.
+3. Confirm face hooks install at `2209487 + 0xBD` and `2209139 + 0x14B`.
+4. Move, idle, and draw/holster normally to retain graph coverage.
+5. Trigger ordinary vanilla NPC dialogue with visible facial/lip animation.
+6. Confirm the one-time face and lip callback logs and observe normal
+   expression/lip behavior.
+7. Do not start a NAF scene or open gated NAF studio/scene interfaces.
+8. Exit normally and preserve NAF/F4SE logs and any Addictol crash report.
+
+This test validates installation and vanilla pass-through on the real
+production subsystem. NAF-managed custom facial timelines will require a later
+production consumer when scene/Papyrus integration is restored; they have not
+been declared runtime-validated merely because vanilla dialogue passes.
+
+Scenes, package hooks, camera, studio, Papyrus, serialization, full LooksMenu
+morph behavior, and arbitrary scene playback remain gated. Package/process
+hooks are the recommended next subsystem because managed actor lifecycle and
+eventual scene execution depend on correct package/process observation before
+camera or studio behavior.
