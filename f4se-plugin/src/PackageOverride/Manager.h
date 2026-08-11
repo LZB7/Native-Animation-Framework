@@ -68,7 +68,9 @@ namespace PackageOverride
 			if (a_event.type == RE::TESPackageEvent::End && a_event.refr != nullptr) {
 				std::unique_ptr<PackageEndFunctor> queuedCallback = nullptr;
 				{
-					std::shared_lock l{ lock };
+					// The package-end path consumes and clears doneCallback, so this
+					// must exclude concurrent Set/Clear and other package events.
+					std::unique_lock l{ lock };
 
 					for (auto& info : state->packages) {
 						if (auto a = info.first.get().get(); a && a->formID == a_event.refr->formID
@@ -88,13 +90,24 @@ namespace PackageOverride
 		}
 
 		void OnGameDataReady(Data::Events::event_type, Data::Events::EventData&) {
-			RE::TESObjectREFR_Events::RegisterForPackage(this);
+			RegisterWithEngine();
+		}
+
+	public:
+		void RegisterWithEngine()
+		{
+			if (!engineRegistered.exchange(true, std::memory_order_acq_rel)) {
+				RE::TESObjectREFR_Events::RegisterForPackage(this);
+				logger::info("Registered the production TESPackageEvent sink");
+			}
 		}
 	protected:
 		friend class Singleton;
 		PkgEventListener() {
 			RegisterListener(Data::Events::GAME_DATA_READY, &PkgEventListener::OnGameDataReady);
 		}
+
+		std::atomic_bool engineRegistered{ false };
 	};
 
 	bool IsEvalAllowed(RE::Actor* a_actor)

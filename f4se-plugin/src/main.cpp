@@ -29,8 +29,8 @@ bool g_gameDataReady = false;
 namespace
 {
 	// Restore subsystems coherently. This stage enables the validated HUD,
-	// production graph hooks, and production face/lip hooks. Scene playback,
-	// package, camera, studio, Papyrus and serialization remain unavailable.
+	// production graph, face/lip and package/process hooks. Scene playback,
+	// camera, studio, Papyrus and serialization remain unavailable.
 	inline constexpr bool kHUDSubsystemEnabled = true;
 	inline constexpr bool kGameplaySubsystemsEnabled = false;
 
@@ -57,9 +57,10 @@ namespace
 					}
 					ui->RegisterSink(static_cast<RE::BSTEventSink<RE::MenuOpenCloseEvent>*>(Menu::HUDManager::GetSingleton()));
 					Menu::RegisterHUD(ui);
+					PackageOverride::PkgEventListener::GetSingleton()->RegisterWithEngine();
 
 					g_gameDataReady = true;
-					logger::info("Production NAF HUD registered; all unrelated gameplay subsystems remain gated");
+					logger::info("Production NAF HUD and package event handling registered; all unrelated gameplay subsystems remain gated");
 				}
 
 				break;
@@ -87,7 +88,10 @@ namespace
 		if (!FaceAnimation::FaceUpdateHook::RegisterHook(trampoline)) {
 			return false;
 		}
-		logger::warn("Deferred hooks: package evaluation/check, free camera update");
+		if (!PackageOverride::EvalHook::RegisterHook()) {
+			return false;
+		}
+		logger::warn("Deferred hooks: free camera update");
 		logger::info("Legacy HUD interior hook is replaced by the maintained HUDModeEvent source");
 		return true;
 	}

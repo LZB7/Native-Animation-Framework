@@ -27,13 +27,13 @@ namespace RE
 	{
 		void RegisterForPackage(BSTEventSink<TESPackageEvent>* a_sink) {
 			using func_t = decltype(&RegisterForPackage);
-			REL::Relocation<func_t> func{ REL::ID(1448133) };
+			REL::Relocation<func_t> func{ REL::RelocationID(1448133, 2201672) };
 			return func(a_sink);
 		}
 
 		void UnregisterForPackage(BSTEventSink<TESPackageEvent>* a_sink) {
 			using func_t = decltype(&UnregisterForPackage);
-			REL::Relocation<func_t> func{ REL::ID(1182113) };
+			REL::Relocation<func_t> func{ REL::RelocationID(1182113, 2201673) };
 			return func(a_sink);
 		}
 
