@@ -2418,3 +2418,127 @@ The same production HUD test is safe to rerun. Expected progression is HUD
 event registration, registered menu creation, successful SWF load and
 `NAF HUD menu loaded`, followed by Pip-Boy/HUD visibility exercise. All
 non-HUD gameplay subsystems remain gated.
+
+## Production HUD runtime validation and graph-infrastructure restoration
+
+### HUD runtime result
+
+The production HUD build passed its subsystem runtime test on Fallout 4
+1.11.221/F4SE 0.7.8. NAF loaded, the verified `NonRendersafeAI` hook remained
+active, production menu registration completed, and `NAFHUDMenu` loaded and
+rendered correctly in game. The exercised HUD/Scaleform path produced no
+Address Library failure. This promotes HUD registration, SWF loading/rendering,
+and the exercised visibility behavior to **runtime validated**. It does not
+promote unrelated UI paths or any still-gated gameplay subsystem.
+
+### Production graph dependency map
+
+The minimum real graph path is:
+
+```text
+engine IAnimationGraphManagerHolder update
+ -> NAF update detour
+ -> original engine update
+ -> update an already-registered NAF NodeAnimationGraph, if present
+
+engine TESObjectREFR::Set3D
+ -> NAF Set3D detour
+ -> original engine Set3D
+ -> refresh nodes for already-registered NAF graphs, if present
+```
+
+Graph-manager/project lookup, graph-variable setters, event-source retrieval,
+and model demand are dependencies of real NAF graph construction. Engine graph
+event sinks remain owned by the graph-manager lifecycle. NAF's manual animation
+event dispatch and actor initialization/transition helpers are reached by scene
+or playback behavior and remain gated at this stage. No synthetic graph or
+actor was created merely to exercise the hooks.
+
+### Recovered production graph hooks
+
+| historical target | 1.11.221 target | purpose and evidence | disposition |
+|---|---|---|---|
+| ID `1492656`, RVA `0x81CF50` | ID `2214536`, RVA `0x818970` | PDB names both entries `IAnimationGraphManagerHolder::UpdateAnimationGraphManager(BSAnimationUpdateData&)`; old/new disassembly agrees on the update-data flag, holder virtuals, manager update, and intrusive release | disassembly verified; production detour enabled |
+| ID `1216262`, RVA `0x404B30` | ID `2201055`, RVA `0x50C5B0` | PDB names both entries `TESObjectREFR::Set3D(NiAVObject*, bool)`; old/new bodies agree on argument and reference-state handling | disassembly verified; production detour enabled |
+
+Both targets are exact Address Library lookups on 1.11.221 and are guarded by
+small fixed-entry byte checks before DetourXS patches them. The update entry is
+checked for `48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 20 40`; Set3D is
+checked for `44 88 44 24 18 48 89 54 24 10 48 89 4C 24 08 55`. Validation is
+local and fail-closed; there is no pattern scan or alternate-address search.
+
+The historical float overload constructs `BSAnimationUpdateData` with delta
+time as its first field before calling the hooked overload. The hook now uses
+the exact `BSAnimationUpdateData&` signature and preserves the engine `bool`
+return value. The former NAF callback returned `void`; that was a real detour
+ABI defect even though its pointer-sized arguments happened to line up.
+
+One-time production logs confirm first natural graph-update and Set3D traffic
+without adding a synthetic diagnostic path.
+
+### Graph interfaces and ABI audit
+
+The following current mappings were established or corrected:
+
+| interface | historical | 1.11.221 | grade |
+|---|---:|---:|---|
+| `GetAnimationGraphProjectName` | `190119` / `0x81CE00` | `2214534` / `0x818730` | PDB plus old/new argument/data-flow comparison |
+| `InitializeActorInstant` | `672857` / `0xF925F0` | `2236393` / `0xE13E40` | exact PDB name/signature and Dear corroboration |
+| `IsActiveGraphInTransition` | `839650` / `0x802A30` | `2214305` / `0x806370` | exact PDB name/signature and Dear corroboration |
+| `SetGraphVariableFloat` | `27400` | `2214545` / `0x818DE0` | exact current mapping |
+| `SetGraphVariableInt` | `732926` | `2214544` / `0x818DC0` | exact current mapping |
+| `RevertAnimationGraphManager` | `41382` | `2214541` / `0x818D10` | exact current mapping |
+
+The prior project-name candidate `2230292` resolves to RVA `0xC9CB90` in an
+unrelated Actor function region and was removed. `SetGraphVariableBool`
+(`2214543`) and `GetEventSourcePointersFromGraph` (`2249847`) were already
+correct. `BSModelDB::Demand` remains on verified IDs `2275153/2275154`.
+
+The selected and Dear graph declarations agree on the physical
+`IAnimationGraphManagerHolder` order. Disassembly independently confirms the
+manager getter at slot `0x04` (byte `0x20`), `ShouldUpdate` at `0x0E`
+(`0x70`), `PreUpdate` at `0x16` (`0xB0`), and `PostUpdate` at `0x17`
+(`0xB8`). The interface size is `0x8`.
+
+Relevant selected/Dear layout agreement was also confirmed for
+`BSAnimationGraphEvent` (`0x18`), `BSAnimationGraphVariableCache` (`0x40`),
+and `BSAnimationGraphManager` (`0xE0`), including its graph array, event queue,
+variable cache, locks, active-graph index, and generation depth. No new
+CommonLib graph declaration-order, signature, inheritance, or size defect was
+found. Havok graph/character/root-generator wrappers remain unpromoted until
+actual NAF playback exercises them.
+
+`IsIdleLoading` and `RunActionOnActor` have named historical implementations,
+but no sufficiently verified 1.11.221 counterpart was established. Their
+playback call sites remain gated.
+
+### Reachable relocation audit and build
+
+`tools/audit_graph_relocations.py` checks 16 exact 1.11.221 graph-surface
+records and nine source selector guards. It covers both hook entries, project
+name, initialization/transition, graph setters/revert, event-source access,
+model demand, resource helpers, and the verified player singleton. It passes
+against the supplied database. The 63-record HUD audit also still passes.
+
+A clean Release x64/v143 build completed with zero compiler/linker errors and
+`COPY_BUILD=OFF`; no deployment occurred. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`. SHA-256:
+`D4DD444111215172B715D81DC10B972CDFAE192A6532BF896DB78C7003C97D17`.
+
+### Production graph runtime test plan
+
+1. Launch Fallout 4 1.11.221 through F4SE 0.7.8 and load an ordinary save.
+2. Confirm logs report installation of graph-update ID `2214536` and Set3D ID
+   `2201055`, followed by the one-time natural graph-update observation.
+3. Move, idle, draw/holster a weapon, and change normal actor animation state.
+   A normal 3D rebuild/cell transition may be used to exercise Set3D without
+   invoking a NAF scene.
+4. Confirm the existing production HUD still loads/renders and exercise its
+   previously tested Pip-Boy/HUD visibility behavior.
+5. Do not start a NAF scene. Exit normally and collect `NAF.log`, F4SE logs,
+   and any crash report.
+
+Production graph infrastructure and its two verified hooks are enabled. Full
+scene playback, face/lip, package hooks, camera, studio behavior, Papyrus, and
+serialization remain gated. Animation action/idle paths and the custom Havok
+playback surface remain unresolved or runtime-test-required.
