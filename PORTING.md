@@ -2068,3 +2068,126 @@ would be involved.
 
 Until such an isolated target exists, crossing the mutation boundary would
 either modify prohibited player state or falsely claim rollback completeness.
+
+## Micro-diagnostic retirement and production HUD restoration
+
+The one-field/one-operation diagnostic phase ended after test seven. Test seven
+passed and promoted the player singleton, corrected `Get3D` ABI, bounded player
+eligibility reads, recovered `NonRendersafeAI` hook, observed serialized worker
+scheduling, and local delay bookkeeping as recorded above. Those engine and ABI
+fixes remain in place.
+
+Test-only callback sampling, in-flight counters, QPC/thread sampling, seeded
+`delayCounter`, synthetic eligibility, player/vtable logging, and one-shot
+`Get3D` behavior have now been removed. The verified game-loop patch and its
+instruction/target sanity guard remain installed, but its scene, ordered-action,
+and studio workloads are explicitly gated by `kGameplayUpdateWorkEnabled`.
+This preserves the verified update infrastructure without allowing the HUD
+stage to enter unrelated gameplay systems.
+
+### HUD dependency graph and initialization boundary
+
+The production HUD-only lifecycle is:
+
+1. exact runtime/F4SE metadata and exact-ID Address Library initialization;
+2. guarded `FreeUpAllMarkers` RVA validation;
+3. verified `NonRendersafeAI::ProcessQueues` hook installation, with NAF gameplay
+   update work disabled;
+4. F4SE messaging registration;
+5. on `kGameDataReady(true)`, obtain `UI`, register the NAF HUD manager for
+   `MenuOpenCloseEvent` and `HUDModeEvent`, and register only `NAFHUDMenu`;
+6. when the engine opens `HUDMenu`, enqueue `NAFHUDMenu` through
+   `UIMessageQueue`; load `Interface/NAFHUDMenu.swf` through
+   `BSScaleformManager::LoadMovieEx`; update translations through the real
+   menu's `AdvanceMovie` callback.
+
+Serialization, Papyrus, `Data::Global` game-form linking, NAF main/studio menus,
+scenes, graph/animation hooks, face/Lip, package hooks, camera, LooksMenu/morph,
+studio alignment, and arbitrary ordered gameplay actions remain gated. The HUD
+overlay's own persistent state currently exists only for the process lifetime
+because serialization is deliberately not restored in this stage.
+
+### Historical HUD hook and maintained-event replacement
+
+Legacy ID `1385889` resolves in 1.10.163 to RVA `0x1279160`, PDB-named
+`HUDMenu::OnHUDMessage_SetMode(HUDData&)`. At `+0xA5` the function moves the
+`HUDMenu*` held in `RSI` into `RCX`; the five-byte direct call beginning at
+`+0xA8` invokes old ID `1224312`, RVA `0x1279770`, PDB-named
+`HUDMenu::OnHUDModeChanged(void)`. NAF replaced that call, scanned
+`HUDMenu::hudModes` for `"Pipboy"`, set the NAF HUD alpha to zero or one, and
+then invoked the original function. The hook therefore observed HUD-mode state;
+it did not alter the engine's mode transition.
+
+The binary interior patch is retired rather than translated. Maintained
+CommonLib models `HUDModeEvent` as a pointer to the current
+`BSTArray<HUDModeType>`, which supplies precisely the state consumed by the old
+hook. Dear-Modding's three-runtime mapping identifies AE event-source storage;
+the supplied 1.11.221 database independently resolves exact ID `4801988` to RVA
+`0x3269880`. The 1.11.221 PDB also names the event source, its sink registration
+function, and multiple HUD data-model consumers. NAF now subscribes to that
+source and performs the same `Pipboy` membership/alpha transition. This is a
+maintained-event semantic replacement; there is intentionally no NG interior
+offset or trampoline for the old hook.
+
+Evidence grade: historical hook is disassembly/PDB verified; the replacement
+event layout and source are maintained-CommonLib plus PDB and exact-address
+verified. The observable alpha behavior remains runtime-test-required.
+
+### Exact 1.11.221 HUD relocation audit
+
+The audit exposed several selected CommonLib two-ID declarations whose second
+ID described 1.10.984, not 1.11.221. Exact lookup correctly showed them missing.
+The reachable HUD surface now uses the following exact records:
+
+| interface | old ID | exact 1.11.221 ID / RVA | evidence |
+|---|---:|---:|---|
+| `BSTGlobalEvent` singleton | `1424022` | `4796078` / `0x30DBE40` | Dear three-runtime mapping; exact DB |
+| `HUDModeEvent` source storage | `683142` | `4801988` / `0x3269880` | Dear mapping, PDB event symbols, exact DB |
+| `ApplyColorUpdateEvent` source | `421543` | `2707340` / `0x3DA7440` | Dear mapping; exact DB |
+| `UI` singleton | `548587` | `4796314` / `0x30DD8B0` | Dear mapping; exact DB |
+| `UI::RegisterMenu` | `1519575` | `2284766` / `0x1A82210` | Dear mapping; exact DB |
+| `UIMessageQueue` singleton | `82123` | `4796377` / `0x30DDAA0` | PDB `g_UIMessageQueue`; exact DB |
+| `UIMessageQueue::AddMessage` | `1182019` | `2284929` / `0x1A89170` | PDB function name; exact DB |
+| `BSScaleformManager` singleton | `106578` | `4796889` / `0x30EAD10` | PDB `g_BSScaleformManager`; exact DB |
+| `BSScaleformManager::LoadMovie` | `1526234` | `2287422` / `0x1B1AD10` | PDB function name; exact DB |
+| `GetMovieFilename` | `1191277` | `2287428` / `0x1B1B500` | Dear mapping; exact DB |
+| `InitMovieViewport` | `206895` | `4494254` / `0x1B1B670` | Dear AE mapping; exact DB |
+| file-uncache setting | `454316` | `2667999` / `0x2F50298` | Dear mapping; exact DB |
+| `BSSystemFileStreamer::UncacheAll` | `40925` | `2268797` / `0x1680F80` | Dear mapping; exact DB |
+| `BSGFxShaderFXTarget::CreateAndSetFiltersToHUD` | `876001` | `2287027` / `0x1B04040` | existing maintained mapping; exact DB |
+| `SendHUDMessage::ShowHUDMessage` | `1163005` | `2222440` / `0xA36F60` | previously recovered; exact DB |
+| HUD message clear wrapper | `973227` | `2222460` / `0xA376D0` | disassembly verified earlier; exact DB |
+
+The recovered clear implementation continues through ID `2222507`; enqueue
+siblings remain `2222482/2222510`. Clearing is not reached by HUD-only startup,
+because its existing NAF callers are in the gated ordered-action workload.
+Exact-ID lookup remains fail-closed, with no nearest-record fallback and no new
+raw-RVA exception.
+
+### Build and HUD subsystem test plan
+
+Release x64/v143 builds and links with `COPY_BUILD=OFF`. Output:
+`f4se-plugin/build-1.11.221/Release/NAF.dll`. SHA-256:
+`A7537C99100933A1B3A2EB339219125FC5F6817E5E179AB00409EDFB99A38454`.
+
+No file was deployed. The source tree contains `ck/project_files/NAF.esp` but
+does not contain `Interface/NAFHUDMenu.swf`; runtime testing must retain the
+original NAF interface assets, including that SWF, alongside this DLL.
+
+HUD subsystem runtime test:
+
+1. deploy only the newly built `NAF.dll` over a complete NAF installation that
+   already supplies `NAF.esp` and `Interface/NAFHUDMenu.swf`;
+2. launch Fallout 4 1.11.221 through F4SE 0.7.8 and reach the main menu;
+3. load an ordinary save and confirm the log records HUD event/menu registration
+   and `NAF HUD menu loaded`;
+4. exercise normal HUD visibility without starting a NAF scene: open and close
+   the Pip-Boy, and open/close ordinary menus that hide/show `HUDMenu`;
+5. confirm the overlay follows `HUDMenu`, hides during Pip-Boy mode, restores
+   afterward, and the game exits normally;
+6. preserve `NAF.log`, F4SE log, and any Addictol Crash Logger report.
+
+This is a production HUD-path test, not a release-readiness claim. HUD mode
+event delivery, Scaleform asset loading, overlay hide/show, alpha restoration,
+and shutdown cleanup remain runtime-test-required. All unrelated subsystem
+hooks and gameplay initialization remain disabled.
