@@ -74,6 +74,7 @@ namespace Scene
 	void ProcessPostStartFunctor(uint64_t sceneId)
 	{
 		SceneManager::VisitScene(sceneId, [](IScene* scn) {
+			logger::info("Scene {} post-start: initializing actor graphs and player controls", scn->uid);
 			scn->ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap&) {
 				RE::BGSAnimationSystemUtils::InitializeActorInstant(*currentActor, false);
 
@@ -88,6 +89,7 @@ namespace Scene
 			});
 
 			scn->ApplyEquipmentSet(scn->startEquipSet);
+			logger::info("Scene {} post-start: graph initialization complete; beginning control system '{}'", scn->uid, scn->controlSystem->QSystemID());
 			scn->controlSystem->OnBegin(scn, "");
 			scn->tasks.StartWithRepeats<DelegateFunctor<ScaleDelegate>>(50, 30, scn->uid);
 		});
@@ -264,6 +266,7 @@ namespace Scene
 			angle.y = 0;
 			SetAnimMult(100);
 
+			logger::info("Scene {} start: applying actor control/package/transform state", uid);
 			ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap& props) {
 				EngineCompat::StopInteractingQuick(currentActor);
 
@@ -303,6 +306,7 @@ namespace Scene
 
 			status = SceneState::Active;
 			logger::info("Basic production scene {} entered active state with {} actor(s) at position '{}'", uid, actors.size(), controlSystem->QSystemID());
+			logger::info("Scene {} start: dispatching production scene-start event", uid);
 			Data::Events::Send(Data::Events::SCENE_START, uid);
 			tasks.Start<DelegateFunctor<PostStartDelegate>>(50, uid);
 			return true;
@@ -490,6 +494,7 @@ namespace Scene
 
 		virtual void PlayAnimations() override {
 			cachedIdlesMap.clear();
+			logger::info("Scene {} playback: resolving animation assignments for {} actor(s)", uid, actors.size());
 			ForEachActor([&](RE::Actor* a, ActorPropertyMap& props) {
 				auto hndl = a->GetActorHandle();
 				FaceAnimation::FaceUpdateHook::StopAnimation(hndl);
@@ -515,6 +520,7 @@ namespace Scene
 				}
 			});
 
+			logger::info("Scene {} playback: {} animation assignment(s) ready; entering setup", uid, cachedIdlesMap.size());
 			SetSyncState(SettingUp);
 		}
 
@@ -630,6 +636,7 @@ namespace Scene
 					}
 
 					if (allReady) {
+						logger::info("Scene {} playback: graphs ready; requesting {} animation(s)", uid, cachedIdlesMap.size());
 						for (auto& idl : cachedIdlesMap) {
 							auto a = idl.first.get().get();
 							idl.second.idle.Play(a);

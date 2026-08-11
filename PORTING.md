@@ -3632,3 +3632,102 @@ loaded NPCs and a simple accepted position, let it run briefly, then use
 state restore. Avoid Studio/Creator/Item Explorer, equipment, morphs,
 groups/trees, and saving during an active scene. Test a player-involved scene
 only after the NPC-only lifecycle succeeds.
+
+## First active-scene playback relocation audit (`445184`)
+
+The corrected CHAK and Dancecyclopedia animation XMLs now load and link in the
+game. The first production scene reached `Active` at the one-actor position
+`RBBelly1`, then failed closed on Address Library ID `445184`. No further XML
+changes were made. `RBBelly1` resolves exactly to animation `RBBelly1` and its
+single actor file
+`radbeetle\Dances\loop\Belly_Dancing_Variation_One.hkx`; the one-actor count is
+therefore expected.
+
+ID `445184` belongs to selected CommonLib's
+`BSScript::ArrayWrapper<Variable>::ReplaceArray`, not to the idle loader or
+Havok playback itself. The exact call path is scene `Begin()` -> status becomes
+`Active` -> `SCENE_START` -> `Scripts/Papyrus/EventProxy.h` ->
+`GameUtil::SendPapyrusEvent()` -> `Papyrus::FunctionArgs` -> `ArrayWrapper`
+construction -> `ReplaceArray`. The declaration incorrectly treated its
+1.10.163 ID as runtime-invariant. Dear CommonLib supplies the candidate pair
+`445184 / 2250435`; the supplied AE database resolves `2250435` to RVA
+`0x10B6100`. Old/new disassembly independently verifies the same three
+arguments, VM virtual call at physical offset `0xC8`, 16-byte `Variable`
+element traversal, replacement ownership, and failure paths. The selected
+CommonLib declaration now uses `RelocationID(445184, 2250435)`.
+
+The expanded playback sweep found four additional stale invariant IDs before
+they could fail at runtime. PDB names plus instruction-level old/new comparison
+establish:
+
+| Interface | 1.10.163 ID | 1.11.221 ID | AE RVA | Evidence |
+|---|---:|---:|---:|---|
+| `hkbContext(hkbCharacter*, ...)` | `1381136` | `2258328` | `0x13A9B10` | PDB + matching construction/refcount flow |
+| `hkbContext::~hkbContext()` | `144578` | `2258329` | `0x13A9B90` | PDB + matching destruction adjacency/body |
+| `hkbBehaviorGraph::setActiveGeneratorLocalTime` | `992878` | `2260451` | `0x147C170` | PDB + matching clone/internal-call/control flow |
+| `hkbBehaviorGraph::getNodeClone` | `326555` | `2260454` | `0x147C5A0` | PDB + matching member access/tail-call/fallback |
+
+These calls are reached after dynamic-idle playback while NAF polls readiness,
+synchronizes actor graph times, and subsequently tracks animation time. Their
+headers now select the exact AE IDs. The similarly named legacy helpers in
+`RE/BSAnimationGraphManager.h` that serve the optional custom NANIM graph
+traversal are outside the bounded HKX/Dancecyclopedia path and remain
+unpromoted rather than being changed by name association.
+
+`tools/audit_playback_relocations.py` pins 11 exact AE records/source guards:
+the Papyrus array wrapper, actor initialization, graph-transition query,
+reset-action lookup, `TESActionData::DoIt`, special-idle setup, graph-variable
+setter, and the four Havok entries above. Together with the 40-entry scene
+audit it covers the currently reachable basic solo start/play/stop surface.
+Five stale mappings were corrected in this pass (`445184` plus four Havok
+IDs); no additional bad exact selector was found.
+
+### Dynamic-idle and animation-interface status
+
+For `RBBelly1`, XML `actor@file` becomes `Data::Animation::Slot::idle[0]` with
+`dynamicIdle=true`, then scene property `kDynIdle`, `SmartIdle::kHKX`, and
+`Scene::DynamicIdle::Play`. That helper updates the locked NAF dynamic-idle
+form with the HKX path/event/behavior graph and calls maintained
+`AIProcess::PlayIdle`, which is the verified `SetupSpecialIdle` pair
+`1446774 / 2231704` (AE RVA `0xCFAD40`). No custom NANIM loader or optional
+`BShkbUtils::GraphTraverser` is used by this solo HKX path.
+
+The four previously deferred animation interfaces now have these grades:
+
+* `InitializeActorInstant`: disassembly/PDB verified ID `2236393`, RVA
+  `0xE13E40`; reached by production post-start actor initialization.
+* `IsActiveGraphInTransition`: disassembly/PDB verified ID `2214305`, RVA
+  `0x806370`; reached during `SettingUp` and `WaitingForLoad`.
+* `RunActionOnActor`: the AE wrapper was removed; the verified semantic
+  replacement is `TESActionData::DoIt`, ID `2234273`, RVA `0xDBFEC0`, physical
+  slot `0x05`. It preserves the constructed actor/action data path and is used
+  for graph reset/stop, but remains scene-runtime-test-required.
+* `IsIdleLoading`: no trustworthy one-to-one AE entry has been established.
+  The bounded replacement polls the active graph clone/sync information and
+  treats unavailable or negative graph time as not ready. Its component
+  functions are now disassembly verified, but equivalence of the readiness
+  policy is still runtime-test-required; it is not presented as the old
+  function's relocation.
+
+No new declaration-order defect was found in this bounded pass. The custom
+`BSAnimationGraphManager`/Havok member offsets previously audited by graph
+observation are now exercised more deeply by readiness/time synchronization;
+their runtime behavior, including the readiness substitute and sync-info
+layout, remains the principal playback uncertainty. The source adds lightweight
+phase logs around actor control, scene-event dispatch, graph initialization,
+assignment resolution, graph readiness, and dynamic-idle request so the next
+production failure can be localized without synthetic diagnostics.
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
+Playback, scene, HUD, graph, face, package, Papyrus/serialization, camera, and
+menu audits all pass. Output is
+`f4se-plugin/build-1.11.221/Release/NAF.dll`; SHA-256:
+`4D6A6B173E408995BED3EEE60E518D1B2F8F0AEFA1E04BF677A55484D5F89B61`.
+
+The next production test repeats the verified UI flow with the solo
+Dancecyclopedia `RBBelly1` position. Confirm the new phase logs, actual
+animation start, brief advancement, then stop through **Active Scenes** and
+verify package/AI/collision/animation cleanup. Only after solo HKX playback and
+cleanup succeed should a paired CHAK `_F.hkx`/`_M.hkx` position be tested, and
+only after NPC-only pairing should the player be included. Do not save while a
+scene is active.

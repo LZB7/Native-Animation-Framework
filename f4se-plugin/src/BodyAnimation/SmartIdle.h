@@ -63,6 +63,7 @@ namespace BodyAnimation
 					animEvent = r->startEvent;
 					graph = r->graph;
 				}
+				logger::info("Scene playback: requesting dynamic idle '{}' for actor {}", _data, fmt::ptr(targetActor));
 				Scene::DynamicIdle::Play(targetActor, _data, animEvent, graph);
 				return true;
 			case kNAF:

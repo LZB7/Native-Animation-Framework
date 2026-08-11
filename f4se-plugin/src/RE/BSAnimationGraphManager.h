@@ -107,13 +107,15 @@ namespace RE
 		void Ctor(hkbCharacter* a_char, void* a_physIntfc = nullptr, void* a_attchMngr = nullptr)
 		{
 			using func_t = decltype(&hkbContext::Ctor);
-			REL::Relocation<func_t> func{ REL::ID(1381136) };
+			// PDB/disassembly verified hkbContext(hkbCharacter*, ...).
+			REL::Relocation<func_t> func{ REL::RelocationID(1381136, 2258328) };
 			return func(this, a_char, a_physIntfc, a_attchMngr);
 		}
 
 		void Dtor() {
 			using func_t = decltype(&hkbContext::Dtor);
-			REL::Relocation<func_t> func{ REL::ID(144578) };
+			// PDB/disassembly verified hkbContext::~hkbContext().
+			REL::Relocation<func_t> func{ REL::RelocationID(144578, 2258329) };
 			return func(this);
 		}
 	};
