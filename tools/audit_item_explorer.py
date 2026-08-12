@@ -32,8 +32,7 @@ GUARDS = {
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/ItemExplorerHandler.h": (
         "GetFormArray<RE::TESObjectARMO>", "GetPlayable", "GetFormRace", "if (!filename.empty())",
-        '"[Unnamed Armor]"', "Item Explorer opened", "source enumeration complete", "list populated",
-        "form selected", "ordered equip action", "ordered remove action", "Item Explorer closed",
+        '"[Unnamed Armor]"', "SelectPlugin", "SelectForm", "DoSelect", "DoUnSelect",
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
         "GetInventoryObjectCount", "AddInventoryItem", "RE::BGSObjectInstance(obj, instData)",

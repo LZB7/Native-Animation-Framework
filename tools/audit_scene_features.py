@@ -28,9 +28,9 @@ SOURCE_GUARDS = {
         "REL::RelocationID(333415, 2200939)",
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
-        "kEquipmentActionsEnabled = true",
-        "kMorphActionsEnabled = true",
-        "kArbitraryCallbacksEnabled = true",
+        "static void UnEquip",
+        "static void ApplyMorphs",
+        "static void InsertCustom",
         "ActorEquipManager::GetSingleton()->EquipObject",
         "ActorEquipManager::GetSingleton()->UnequipObject",
     ),

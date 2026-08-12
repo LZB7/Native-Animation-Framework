@@ -52,7 +52,7 @@ SOURCE_GUARDS = {
         "REL::RelocationID(192840, 2202684)",
     ),
     "f4se-plugin/src/Menu/HighlightedObjectsContainer.h": (
-        "kHighlightingEnabled = true",
+        "EngineCompat::PlayEffectShader",
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/MainMenuHandler.h": (
         '{ "New Scene", BindGoto(kNewScene) }',

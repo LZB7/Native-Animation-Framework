@@ -23,8 +23,8 @@ def main() -> None:
     serialization = (ROOT / "f4se-plugin/src/Serialization/Serialization.h").read_text(encoding="utf-8")
 
     require(porting, "## Full NAF 1.0.14 -> NAF AE parity matrix", "parity ledger")
-    require(queue, "kArbitraryCallbacksEnabled = true", "restored ordered callbacks")
-    require(highlight, "kHighlightingEnabled = true", "restored highlighting")
+    require(queue, "static void InsertCustom", "restored ordered callbacks")
+    require(highlight, "EngineCompat::PlayEffectShader", "restored highlighting")
     require(position, "Rejected cyclic position-tree reference", "nested-tree cycle guard")
     require(serialization, "case 'SHUD':", "eighth active v5 record")
     require(serialization, "case 'BODY':", "active BODY v5 restoration")
@@ -53,6 +53,7 @@ def main() -> None:
         "audit_authoring_io.py",
         "audit_lookat_cam.py",
         "audit_authoring_reference_selection.py",
+        "audit_release_candidate.py",
     }
     missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
     if missing_audits:
@@ -61,7 +62,7 @@ def main() -> None:
     print(
         "PASS: full-parity ledger tracks restored Phase-B surfaces, all 45 Papyrus bindings, "
         "managed-face lifecycle, active BODY/FACE v5 restoration, Phase-D menu accessibility, "
-        "and all nine authoring audits"
+        "all nine authoring audits, and release-candidate invariants"
     )
 
 

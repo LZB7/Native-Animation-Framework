@@ -34,9 +34,6 @@ namespace Scene
 		inline static std::queue<std::function<bool()>> equipQueue;
 		inline static uint16_t delayCounter = 0;
 		inline static safe_mutex lock;
-		inline static constexpr bool kEquipmentActionsEnabled = true;
-		inline static constexpr bool kMorphActionsEnabled = true;
-		inline static constexpr bool kArbitraryCallbacksEnabled = true;
 
 		static void Update() {
 			std::unique_lock l{ lock };
@@ -66,10 +63,6 @@ namespace Scene
 		}
 
 		static void UnEquip(RE::Actor* a, uint8_t slot) {
-			if constexpr (!kEquipmentActionsEnabled) {
-				logger::warn("Rejected an ordered unequip action while equipment choreography remains gated");
-				return;
-			}
 			std::unique_lock l{ lock };
 			if (!a || !a->biped)
 				return;
@@ -78,10 +71,6 @@ namespace Scene
 		}
 
 		static void ReEquip(RE::Actor* a, std::optional<uint8_t> slot = std::nullopt) {
-			if constexpr (!kEquipmentActionsEnabled) {
-				logger::warn("Rejected an ordered re-equip action while equipment choreography remains gated");
-				return;
-			}
 			std::unique_lock l{ lock };
 			if (!a || !a->biped)
 				return;
@@ -97,10 +86,6 @@ namespace Scene
 		}
 
 		static void AddEquipment(RE::Actor* a, RE::TESBoundObject* equipForm) {
-			if constexpr (!kEquipmentActionsEnabled) {
-				logger::warn("Rejected an ordered add-equipment action while equipment choreography remains gated");
-				return;
-			}
 			std::unique_lock l{ lock };
 			if (!a || !a->biped || !equipForm)
 				return;
@@ -110,10 +95,6 @@ namespace Scene
 
 		static void RemoveEquipment(RE::Actor* a, RE::TESBoundObject* equipForm)
 		{
-			if constexpr (!kEquipmentActionsEnabled) {
-				logger::warn("Rejected an ordered remove-equipment action while equipment choreography remains gated");
-				return;
-			}
 			std::unique_lock l{ lock };
 			if (!a || !a->biped || !equipForm)
 				return;
@@ -122,10 +103,6 @@ namespace Scene
 		}
 
 		static void ApplyMorphs(RE::Actor* a, const Data::Morphs& m) {
-			if constexpr (!kMorphActionsEnabled) {
-				logger::warn("Rejected an ordered morph action while full LooksMenu morph integration remains gated");
-				return;
-			}
 			std::unique_lock l{ lock };
 			if (!a)
 				return;

@@ -70,7 +70,9 @@ namespace BodyAnimation
 		}
 
 		void SetDisableOCBP(bool a_disable) {
-			if (F4SE::GetPluginInfo("OCBP plugin").has_value()) {
+			// OCBP is optional. F4SE 0.7.8 does not reliably expose the legacy
+			// logical plugin name used upstream; the loaded module identity is stable.
+			if (GetModuleHandleW(L"ocbp.dll") != nullptr) {
 				auto r = targetHandle.get();
 				for (auto& n : nodeMap) {
 					GameUtil::CallGlobalPapyrusFunction("OCBP_API", "SetBoneToggle", r.get(), a_disable, n);

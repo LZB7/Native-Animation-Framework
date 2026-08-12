@@ -15,7 +15,7 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
-        "kArbitraryCallbacksEnabled = true",
+        "static void InsertCustom",
         "std::queue<std::function<bool()>> equipQueue",
         "equipQueue = std::queue<std::function<bool()>>()",
         "RE::NiPointer<RE::Actor>(a)",
@@ -36,7 +36,6 @@ SOURCE_GUARDS = {
         '"Actor Inventories..."',
     ),
     "f4se-plugin/src/Menu/HighlightedObjectsContainer.h": (
-        "kHighlightingEnabled = true",
         "EngineCompat::PlayEffectShader",
         "EngineCompat::StopEffectShader",
     ),

@@ -11,8 +11,6 @@ namespace PackageOverride::EvalHook
 	REL::Relocation<CheckPackageSig> OriginalCheckPackage;
 	DetourXS evalHook;
 	DetourXS checkHook;
-	std::atomic_bool loggedEvaluatePackage{ false };
-	std::atomic_bool loggedCheckPackage{ false };
 
 	namespace detail
 	{
@@ -85,19 +83,11 @@ namespace PackageOverride::EvalHook
 	}
 	
 	void HookedEvaluatePackage(RE::Actor* a_actor, bool a_isCommand, bool a_resetAI) {
-		if (!loggedEvaluatePackage.exchange(true, std::memory_order_relaxed)) {
-			logger::info("Production Actor::EvaluatePackage interception observed: actor={}, command={}, resetAI={}",
-				fmt::ptr(a_actor), a_isCommand, a_resetAI);
-		}
 		if (!a_resetAI || IsEvalAllowed(a_actor))
 			OriginalEvaluatePackage(a_actor, a_isCommand, a_resetAI);
 	}
 
 	bool HookedCheckPackage(RE::AIProcess* a_process, RE::Actor* a_actor, bool a_unk) {
-		if (!loggedCheckPackage.exchange(true, std::memory_order_relaxed)) {
-			logger::info("Production AIProcess::CheckforNewPackage interception observed: process={}, actor={}, argument={}",
-				fmt::ptr(a_process), fmt::ptr(a_actor), a_unk);
-		}
 		return IsEvalAllowed(a_actor) ? OriginalCheckPackage(a_process, a_actor, a_unk) : false;
 	}
 

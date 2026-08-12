@@ -28,7 +28,7 @@ SOURCE_GUARDS = {
         'RE::UIUtils::PlayMenuSound("UIMenuOK")',
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
-        "kArbitraryCallbacksEnabled = true",
+        "static void InsertCustom",
     ),
 }
 

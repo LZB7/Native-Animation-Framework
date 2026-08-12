@@ -30,9 +30,8 @@ SOURCE_GUARDS = {
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/InventoryMenuHandler.h": (
         "OpenContainerMenu(a, 3, false)",
-        "inventory enumeration, metadata, selection, and actions are engine-owned",
-        "removing temporary ShowWornItems keyword",
-        "OpenContainerMenu event dispatch returned",
+        "EngineCompat::ModifyKeyword(targetActor, Data::Forms::ShowWornItemsKW, false)",
+        "state->restoreSubmenu = kInventories",
         "actor handle no longer resolves; suppressing menu open",
     ),
     "f4se-plugin/src/Compat/Engine.h": (
@@ -46,7 +45,6 @@ SOURCE_GUARDS = {
         '"Actor Inventories..."',
     ),
     "f4se-plugin/src/Menu/HighlightedObjectsContainer.h": (
-        "kHighlightingEnabled = true",
         "EngineCompat::PlayEffectShader",
         "EngineCompat::StopEffectShader",
     ),

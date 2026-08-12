@@ -57,8 +57,6 @@ namespace CamHook
 		REL::Relocation<UpdateSig> OriginalUpdate;
 		DetourXS updateHook;
 		std::atomic<uint16_t> pendingInput = 0;
-		std::atomic_bool loggedProductionUpdate = false;
-		std::atomic_uint32_t lookAtDiagnosticCount = 0;
 
 		bool active = false;
 		RE::NiPointer<RE::NiAVObject> lookAtBase;
@@ -70,10 +68,6 @@ namespace CamHook
 				auto n = lookAtBase->GetObjectByName(Data::Settings::Values.sLookAtCamTarget.get());
 				if (n != nullptr) {
 					lookAtNode = RE::NiPointer<RE::NiAVObject>(n);
-					logger::info("LookAt Cam resolved target node '{}': base={}, node={}, baseWorld=({:.2f}, {:.2f}, {:.2f}), targetWorld=({:.2f}, {:.2f}, {:.2f})",
-						Data::Settings::Values.sLookAtCamTarget.get(), fmt::ptr(lookAtBase.get()), fmt::ptr(lookAtNode.get()),
-						lookAtBase->world.translate.x, lookAtBase->world.translate.y, lookAtBase->world.translate.z,
-						lookAtNode->world.translate.x, lookAtNode->world.translate.y, lookAtNode->world.translate.z);
 					return true;
 				}
 			}
@@ -140,10 +134,6 @@ namespace CamHook
 		void HookedUpdate(RE::FreeCameraState* s, RE::BSTSmartPointer<RE::TESCameraState>& a_nextState)
 		{
 			OriginalUpdate(s, a_nextState);
-			if (!loggedProductionUpdate.exchange(true, std::memory_order_relaxed)) {
-				logger::info("Production FreeCameraState::Update interception observed: state={}, camera={}, nextState={}",
-					fmt::ptr(s), fmt::ptr(s ? s->camera : nullptr), fmt::ptr(a_nextState.get()));
-			}
 			bool updateCameraRoot = false;
 
 			std::unique_lock l{ lock };
@@ -206,51 +196,6 @@ namespace CamHook
 					// world-space target semantically at the actual view camera.
 					auto renderCamera = RE::Main::WorldRootCamera();
 					PointRenderedCameraAt(renderCamera, lookAtNode->world.translate);
-
-					const auto diagnosticCount = ++lookAtDiagnosticCount;
-					if (diagnosticCount <= 3 || diagnosticCount == 10) {
-						const auto direction = lookAtNode->world.translate - s->translation;
-						const auto distance = std::sqrt(
-							(direction.x * direction.x) + (direction.y * direction.y) + (direction.z * direction.z));
-						auto desiredDirection = direction;
-						if (distance > 0.0f) {
-							desiredDirection /= distance;
-						}
-						RE::NiMatrix3 stateRotation;
-						stateRotation.FromEulerAnglesZXY(s->rotation.y, s->rotation.x, 0.0f);
-						const RE::NiPoint3 stateForward{
-							stateRotation.entry[1][0], stateRotation.entry[1][1], stateRotation.entry[1][2]
-						};
-						const auto forwardDot = stateForward.Dot(desiredDirection);
-						RE::NiPoint3 renderForward{};
-						float renderDot = 0.0f;
-						if (renderCamera) {
-							// NiCamera::LookAtWorldPoint stores target-camera direction in
-							// world-rotation row 0; verified from AE ID 2270336.
-							renderForward = {
-								renderCamera->world.rotate.entry[0][0],
-								renderCamera->world.rotate.entry[0][1],
-								renderCamera->world.rotate.entry[0][2]
-							};
-							renderDot = renderForward.Dot(desiredDirection);
-						}
-						logger::info(
-							"LookAt Cam update #{}: stateCamera=({:.2f}, {:.2f}, {:.2f}), cameraRoot={}/parent={}, renderCamera={}/parent={}, renderWorld=({:.2f}, {:.2f}, {:.2f}), actorRoot={}, targetNode={}, target=({:.2f}, {:.2f}, {:.2f}), desired=({:.4f}, {:.4f}, {:.4f}), stateForward=({:.4f}, {:.4f}, {:.4f}), stateDot={:.5f}, renderForward=({:.4f}, {:.4f}, {:.4f}), renderDot={:.5f}, distance={:.2f}, yaw={:.4f}, pitch={:.4f}",
-							diagnosticCount,
-							s->translation.x, s->translation.y, s->translation.z,
-							fmt::ptr(camNode.get()), fmt::ptr(camNode->parent),
-							fmt::ptr(renderCamera), fmt::ptr(renderCamera ? renderCamera->parent : nullptr),
-							renderCamera ? renderCamera->world.translate.x : 0.0f,
-							renderCamera ? renderCamera->world.translate.y : 0.0f,
-							renderCamera ? renderCamera->world.translate.z : 0.0f,
-							fmt::ptr(lookAtBase.get()), fmt::ptr(lookAtNode.get()),
-							lookAtNode->world.translate.x, lookAtNode->world.translate.y, lookAtNode->world.translate.z,
-							desiredDirection.x, desiredDirection.y, desiredDirection.z,
-							stateForward.x, stateForward.y, stateForward.z,
-							forwardDot,
-							renderForward.x, renderForward.y, renderForward.z, renderDot,
-							distance, r.x, r.y);
-					}
 				}
 
 				if (updateCameraRoot) {
@@ -322,7 +267,6 @@ namespace CamHook
 		}
 
 		std::unique_lock l{ detail::lock };
-		detail::lookAtDiagnosticCount = 0;
 		detail::lookAtBase = RE::NiPointer<RE::NiAVObject>(a_lookAtBase);
 		if (detail::UpdateLookAtNode()) {
 			SetActive(true);

@@ -285,11 +285,9 @@ public:
 		auto const papyrus = F4SE::GetPapyrusInterface();
 		auto* vm = RE::GameVM::GetSingleton()->GetVM().get();
 
-		logger::info("Papyrus scene event '{}': building arguments", eventName);
 		evntData.argsPacked = RE::BSScript::detail::PackVariables(_args...);
 		evntData.vm = vm;
 		evntData.callback = callback;
-		logger::info("Papyrus scene event '{}': arguments ready; invoking external-event dispatch", eventName);
 
 		papyrus->GetExternalEventRegistrations(eventName, &evntData, [](uint64_t handle, const char* scriptName, const char* callbackName, void* dataPtr) {
 			PapyrusEventData* d = static_cast<PapyrusEventData*>(dataPtr);
@@ -301,7 +299,6 @@ public:
 				},
 				d->callback);
 		});
-		logger::info("Papyrus scene event '{}': external-event dispatch returned", eventName);
 	}
 
 	template <class... Args>
@@ -382,19 +379,12 @@ public:
 			return false;
 		}
 
-		const auto beforeState = camera->currentState.get();
-		const bool wasActive = beforeState == freeState.get();
+		const bool wasActive = camera->currentState.get() == freeState.get();
 		if (flyCam != wasActive) {
 			camera->ToggleFreeCameraMode(false);
 		}
 
 		const bool isActive = camera->currentState.get() == freeState.get();
-		logger::info("Player free-camera transition: requested={}, beforeState={}, beforeFree={}, afterState={}, active={}",
-			flyCam,
-			static_cast<const void*>(beforeState),
-			wasActive,
-			static_cast<const void*>(camera->currentState.get()),
-			isActive);
 		return isActive == flyCam;
 	}
 

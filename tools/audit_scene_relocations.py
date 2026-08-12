@@ -53,7 +53,7 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/Tasks/GameLoopHook.h": (
-        "kGameplayUpdateWorkEnabled = true",
+        "Scene::SceneManager::UpdateScenes()",
         "REL::RelocationID(338354, 2228937)",
     ),
     "f4se-plugin/src/RE/BGSAnimationSystemUtils.h": (
@@ -61,9 +61,9 @@ SOURCE_GUARDS = {
         "REL::RelocationID(390914, 2234273)",
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
-        "kEquipmentActionsEnabled = true",
-        "kMorphActionsEnabled = true",
-        "kArbitraryCallbacksEnabled = true",
+        "static void UnEquip",
+        "static void ApplyMorphs",
+        "static void InsertCustom",
     ),
     "f4se-plugin/src/Scene/SceneManager.h": ("IsBasicSceneCompatible()",),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESForms.h": (

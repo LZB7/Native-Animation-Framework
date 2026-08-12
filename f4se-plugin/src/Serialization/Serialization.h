@@ -43,7 +43,6 @@ else \
 
 namespace Serialization
 {
-	constexpr auto DISABLE_SERIALIZATION{ false };
 
 	struct DeferredRecord
 	{
@@ -138,10 +137,6 @@ namespace Serialization
 
 	void SaveCallback(const F4SE::SerializationInterface* a_intfc)
 	{
-		if (DISABLE_SERIALIZATION) {
-			return;
-		}
-
 		Utility::StartPerformanceCounter();
 		logger::info("Serialization save callback entered");
 		auto timer = Tasks::TimerThread::GetSingleton();
@@ -200,10 +195,6 @@ namespace Serialization
 
 	void LoadCallback(const F4SE::SerializationInterface* a_intfc)
 	{
-		if (DISABLE_SERIALIZATION) {
-			return;
-		}
-
 		Utility::StartPerformanceCounter();
 		logger::info("Serialization load callback entered");
 		auto timer = Tasks::TimerThread::GetSingleton();

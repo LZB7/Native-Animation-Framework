@@ -25,8 +25,7 @@ GUARDS = {
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/FaceAnimCreatorHandler.h": (
         "SetMorph", "SetEyes", '"Emissive Mult:"', "TogglePreview", "ToggleHavokSync",
         "FaceUpdateHook::StartAnimation", "FaceUpdateHook::StopAnimation",
-        "FaceUpdateHook::VisitAnimation", "Face Creator opened", "preview initialized",
-        "Console::GetPickRef", "Face Creator Set Ref", "pickedHandle.native_handle()",
+        "FaceUpdateHook::VisitAnimation", "Console::GetPickRef", "pickedHandle.get().get()",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/IMenu.h": (
         "REL::RelocationID(170742, 2701395)",

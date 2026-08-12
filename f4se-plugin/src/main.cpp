@@ -28,11 +28,6 @@ bool g_gameDataReady = false;
 #include "API/API.h"
 namespace
 {
-	// Production runtime and authoring systems are restored coherently. This
-	// switch remains only as a fail-closed diagnostic build gate.
-	inline constexpr bool kHUDSubsystemEnabled = true;
-	inline constexpr bool kGameplaySubsystemsEnabled = true;
-
 	void MessageHandler(F4SE::MessagingInterface::Message* a_msg)
 	{
 		if (!a_msg) {
@@ -197,12 +192,6 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		return false;
 	} else {
 		logger::info("Registered the production Papyrus callback with F4SE 0.7.8.");
-	}
-
-	if constexpr (!kGameplaySubsystemsEnabled) {
-		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization, camera and basic scene infrastructure initialized; awaiting game data");
-		logger::warn("Gameplay subsystems are disabled by the diagnostic build gate");
-		return true;
 	}
 
 	Data::Global::Init();

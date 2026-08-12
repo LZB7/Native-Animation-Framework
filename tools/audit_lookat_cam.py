@@ -9,11 +9,9 @@ raise SystemExit(audit("LookAt Cam", {
         "lookAtBase->GetObjectByName", "lookAtNode->world.translate",
         "GetLookAtRotation(s->translation", "OriginalUpdate(s, a_nextState)",
         "s->translation.z += 1.0f", "s->translation.z -= 1.0f",
-        "stateRotation.FromEulerAnglesZXY", "stateForward.Dot(desiredDirection)",
         "REL::RelocationID(0, 2270336)", "Main::WorldRootCamera",
-        "PointRenderedCameraAt", "renderCamera->world.rotate.entry[0][0]",
-        "renderForward.Dot(desiredDirection)", "diagnosticCount <= 3",
-        "renderCamera=", "desired=", "stateForward=", "renderForward=", "renderDot=", "distance="),
+        "PointRenderedCameraAt"),
 }, forbidden=(
     "camNode->local.rotate.FromEulerAnglesZXY(r.x, r.y, 0.0f);",
+    "LookAt Cam update #",
 )))

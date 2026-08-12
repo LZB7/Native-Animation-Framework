@@ -79,8 +79,6 @@ namespace FaceAnimation
 		static std::mutex loadingAnimsLock;
 		static std::unordered_map<SerializableActorHandle, RE::NiPointer<RE::BSGeometry>> eyeGeoCache;
 		static std::shared_mutex geoCacheLock;
-		inline static std::atomic<bool> loggedFirstUpdate{ false };
-		inline static std::atomic<bool> loggedFirstLipUpdate{ false };
 
 		void BindManagedData_NonThreadSafe(SerializableActorHandle a_handle, RE::BSFaceGenAnimationData* a_data)
 		{
@@ -155,9 +153,6 @@ namespace FaceAnimation
 		}
 
 		bool HookedUpdateLip(RE::BSFaceGenAnimationData* data, float ptimeDelta) {
-			if (!loggedFirstLipUpdate.exchange(true, std::memory_order_relaxed)) {
-				logger::info("Production facial lip-morph update observed: data={}, delta={}", fmt::ptr(data), ptimeDelta);
-			}
 			std::shared_lock l{ stateLock };
 
 			if (auto h = IsDataManaged(data); h) {
@@ -172,9 +167,6 @@ namespace FaceAnimation
 		bool HookedUpdate(RE::BSFaceGenAnimationData* data, float timeDelta, bool force)
 		{
 			bool result = OriginalUpdate(data, timeDelta, force);
-			if (!loggedFirstUpdate.exchange(true, std::memory_order_relaxed)) {
-				logger::info("Production facial animation update observed: data={}, delta={}, force={}", fmt::ptr(data), timeDelta, force);
-			}
 			std::shared_lock l{ stateLock };
 
 			if (auto h = IsDataManaged(data); h) {

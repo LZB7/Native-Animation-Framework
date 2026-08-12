@@ -14,8 +14,6 @@ namespace BodyAnimation
 		inline static REL::Relocation<GraphUpdate> OriginalUpdate;
 		inline static REL::Relocation<Set3d> OriginalSet3d;
 		inline static void (*Set3DObserver)(RE::TESObjectREFR*) = nullptr;
-		inline static std::atomic<bool> loggedFirstGraphUpdate{ false };
-		inline static std::atomic<bool> loggedFirstSet3D{ false };
 
 		struct AnimationInfo
 		{
@@ -276,9 +274,6 @@ namespace BodyAnimation
 			const bool result = OriginalUpdate(a_graphHolder, a_updateData);
 			float deltaTime = 0.0F;
 			std::memcpy(&deltaTime, std::addressof(a_updateData), sizeof(deltaTime));
-			if (!loggedFirstGraphUpdate.exchange(true, std::memory_order_relaxed)) {
-				logger::info("Production animation graph update observed: holder={}, delta={}", fmt::ptr(a_graphHolder), deltaTime);
-			}
 			std::shared_lock l1{ stateLock };
 
 			auto iter = state->graphs.find(a_graphHolder);
@@ -302,9 +297,6 @@ namespace BodyAnimation
 			OriginalSet3d(a_ref, a_object, a_queue);
 			if (Set3DObserver) {
 				Set3DObserver(a_ref);
-			}
-			if (!loggedFirstSet3D.exchange(true, std::memory_order_relaxed)) {
-				logger::info("Production TESObjectREFR::Set3D observed: reference={}, object={}, queued={}", fmt::ptr(a_ref), fmt::ptr(a_object), a_queue);
 			}
 			{
 				std::shared_lock l1{ stateLock };

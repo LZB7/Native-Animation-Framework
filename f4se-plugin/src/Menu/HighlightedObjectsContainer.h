@@ -11,7 +11,6 @@ namespace Menu
 	public:
 		// AE uses TESObjectREFR::ApplyEffectShader and ProcessLists shader-effect
 		// enumeration instead of the historical OG-only TESEffectShader wrappers.
-		inline static constexpr bool kHighlightingEnabled = true;
 		RE::TESEffectShader* hoverEffect = nullptr;
 		std::unordered_set<SerializableRefHandle> refs;
 

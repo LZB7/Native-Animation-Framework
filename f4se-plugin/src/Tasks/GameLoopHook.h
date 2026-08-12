@@ -14,9 +14,6 @@ namespace Tasks
 		typedef bool(ProcessQueues)(void*, float, uint32_t);
 
 		REL::Relocation<ProcessQueues> OriginalProcessQueues;
-		// The engine callback and production scene/ordered-action cadence are
-		// runtime verified. Studio uses the same alignment queue when enabled.
-		inline constexpr bool kGameplayUpdateWorkEnabled = true;
 
 		std::mutex alignActorsLock;
 		std::vector<ActorAlignInfo> alignActors;
@@ -59,10 +56,6 @@ namespace Tasks
 
 		bool HookedGameLoop(void* qintfc, float unk01, uint32_t unk02) {
 			bool res = OriginalProcessQueues(qintfc, unk01, unk02);
-			if constexpr (!kGameplayUpdateWorkEnabled) {
-				return res;
-			}
-
 			Scene::SceneManager::UpdateScenes();
 			Scene::OrderedActionQueue::Update();
 
