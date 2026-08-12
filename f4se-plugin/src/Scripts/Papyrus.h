@@ -15,11 +15,23 @@ namespace Papyrus
 		PAPYRUS_BIND(ToggleMenu);
 		PAPYRUS_BIND(SetPackageOverride);
 		PAPYRUS_BIND(ClearPackageOverride);
+		PAPYRUS_BIND(IsActorUsable);
+		PAPYRUS_BIND(SetActorUsable);
+		PAPYRUS_BIND(PlayDynamicIdle);
 		PAPYRUS_BIND(StartScene);
 		PAPYRUS_BIND(WalkToAndStartScene);
 		PAPYRUS_BIND(StopScene);
 		PAPYRUS_BIND(GetSceneFromActor);
 		PAPYRUS_BIND(IsSceneRunning);
+		PAPYRUS_BIND(SetScenePosition);
+		PAPYRUS_BIND(GetSceneActors);
+		PAPYRUS_BIND(GetSceneHKXs);
+		PAPYRUS_BIND(GetSceneTags);
+		PAPYRUS_BIND(SetSceneSpeed);
+		PAPYRUS_BIND(GetSceneSpeed);
+		PAPYRUS_BIND(GetSceneProperty);
+		PAPYRUS_BIND(ValidateSceneParams);
+		PAPYRUS_BIND(ReEnablePlayerInput);
 
 		PAPYRUS_BIND(DrawRectangle);
 		PAPYRUS_BIND(DrawText);
@@ -36,8 +48,8 @@ namespace Papyrus
 		PAPYRUS_BIND(AttachElementTo);
 
 		Papyrus::EventProxy::GetSingleton();
-		logger::info("Registered 23 production Papyrus natives: settings (2), menu (1), package/process (2), basic scene lifecycle (5), HUD (13)");
-		logger::warn("Scene mutation/query extensions, dynamic-idle, body/IK, managed face, player-input and transform natives remain deliberately unregistered");
+		logger::info("Registered 35 production Papyrus natives: settings (2), menu (1), actor/package (4), dynamic idle (1), scene lifecycle/query/mutation (13), player-input recovery (1), HUD (13)");
+		logger::warn("NANIM/body-IK, managed-face, transform/synchronization and Studio/editor natives remain deliberately unregistered");
 		return true;
 	}
 }

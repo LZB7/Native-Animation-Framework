@@ -61,8 +61,8 @@ SOURCE_GUARDS = {
         "REL::RelocationID(390914, 2234273)",
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
-        "kEquipmentActionsEnabled = false",
-        "kMorphActionsEnabled = false",
+        "kEquipmentActionsEnabled = true",
+        "kMorphActionsEnabled = true",
         "kArbitraryCallbacksEnabled = false",
     ),
     "f4se-plugin/src/Scene/SceneManager.h": ("IsBasicSceneCompatible()",),

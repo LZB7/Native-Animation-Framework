@@ -3949,3 +3949,115 @@ Verify free camera translation/look while the actor remains controlled, then
 stop via Active Scenes and verify input, third-person camera, AI/package state,
 collision, HUD, and both Papyrus end events. Historical behavior expects
 third-person restoration even if the player began in first person.
+
+## Common production scene-feature restoration
+
+The player-camera build passed production runtime testing across solo
+`RBBelly1`, `RBCharleston1`, `RBTwerk`, `RBBoogaloo`, and `RBMacarena`, plus
+paired `(CHAK) Hug 01` and `(CHAK) Kissing 01`. The player Kissing scene entered
+movable free camera with mask `0xDE4`, played distinct actor-specific HKXs,
+stopped cleanly, packed a two-element `Actor[]`, dispatched both end events,
+and restored normal camera/control. Solo and paired HKX playback, complete
+scene lifetime/cleanup, player free camera, all three scene events, and one-/
+two-Actor Papyrus arrays are now the known-good production baseline.
+
+### Feature matrix
+
+| Feature | Classification | Disposition |
+| --- | --- | --- |
+| slot/position equipment sets and equipment actions | A/B: common choreography | enabled through the production ordered queue |
+| per-slot morphs and position start/stop morph sets | B: common optional behavior | enabled through guarded LooksMenu integration |
+| delay actions | A | retained; runtime validated |
+| HUD cleanup reached by equipment changes | B | enabled through the validated HUD path |
+| animation request/reset and `AnimObjUnequip` | A | retained; production dispatch has executed in successful scenes |
+| generic `InsertCustom` callbacks | C: unbounded dependencies | still rejected |
+| animation groups, position trees, NANIM/Havok and body IK | C: advanced playback | gated |
+| continuous transforms, Creator, Item Explorer and Studio | C/D: editor/Studio | gated |
+
+Animation compatibility now accepts slot equipment, morph and equipment-action
+metadata. Position compatibility accepts position-level equipment/morph sets
+but still requires the ordinary single-animation control system, so group/tree
+systems remain unreachable. Current Action objects contain only start/stop
+equipment sets; they do not expose arbitrary callbacks.
+
+### Equipment choreography
+
+Original NAF executes unequip, re-equip, add and remove operations under the
+ordered-action mutex from the serialized `NonRendersafeAI` callback. The port
+restores that context. Removed slot forms and NAF-added inventory objects are
+tracked by actor handle. Animation-slot stop sets run before transition/reset;
+position stop sets run during post-stop. Normal and abort teardown share these
+paths. Cleanup remains content-declared: malformed XML lacking matching
+stop/re-equip actions is not given invented rollback behavior.
+
+The reachable audit corrected three stale CommonLib mappings before enabling
+equipment:
+
+| Interface | Supplied-database AE mapping | Evidence |
+| --- | --- | --- |
+| `ActorEquipManager` singleton | ID `4798287`, RVA `0x31E33A8` | Dear three-runtime mapping plus resolved AE global; `2690994` was 1.10.984-only |
+| `TESObjectREFR::GetInventoryObjectCount` | ID `2200939`, RVA `0x502290` | AE PDB name and exact record |
+| `TESObjectREFR::AddInventoryItem` | ID `2200949`, RVA `0x502950` | AE PDB name and exact record |
+
+Existing `ActorEquipManager::EquipObject` ID `2231392` / RVA `0xCE5A90` and
+`UnequipObject` ID `2231395` / RVA `0xCE5F30` agree with Dear's declarations and
+exact supplied records. Historical and Dear signatures agree. `RemoveItem`
+remains the existing virtual call; no raw RVA or guessed slot was introduced.
+
+### LooksMenu/body morphs
+
+`LooksMenu::Init` is restored at the historical F4SE post-load point. The
+verified LooksMenu 1.7.0.3 binary SHA-256 is
+`B562D636D768620760AAD8C166CCFDA22B014F490ABACE0B21E84334B26C56F0`.
+The local virtual declaration order exactly matches the supplied LooksMenu
+source for all NAF-used morph methods. Runtime support now additionally fails
+closed unless the known `ApplyMorphsToShapes` prologue at RVA `0x11400` and
+the object at RVA `0x107E00` pointing to vtable RVA `0xC88B0` both match. No
+fallback scan is performed.
+
+Morph work retains original threading: slot and morph-set data enqueue
+`SetMorph`/`UpdateMorphs` on the serialized `NonRendersafeAI` ordered queue.
+Cleanup is represented by later values or an explicit stop morph set; the port
+does not globally clear morphs owned by other mods. Same-session application
+and declared cleanup remain runtime-test-required. Active-scene save/load stays
+deferred because live equipment/morph queue state is not yet safely restored.
+
+`AnimObjUnequip` remains a manual graph event delivered through
+`BGSAnimationSystemUtils::NotifyGraphSources` on the F4SE task interface before
+new playback. Its dispatch has naturally executed in successful solo/paired
+scenes. Actual animation-object removal is content-dependent and remains
+runtime-test-required.
+
+### Ordered actions and Papyrus
+
+Enabled ordered categories are delays, equipment unequip/re-equip/add/remove,
+morph updates, existing animation reset/request, and validated HUD cleanup.
+Generic callbacks remain compile-time gated.
+
+Papyrus registration increases from 23 to 35 natives. Newly registered:
+`IsActorUsable`, `SetActorUsable`, `PlayDynamicIdle`, `SetScenePosition`,
+`GetSceneActors`, `GetSceneHKXs`, `GetSceneTags`, `SetSceneSpeed`,
+`GetSceneSpeed`, `GetSceneProperty`, `ValidateSceneParams`, and the validated
+emergency cleanup native `ReEnablePlayerInput`. NANIM/IK, managed-face,
+transform/synchronization, and Studio/editor APIs remain unregistered. Each new
+native remains behaviorally runtime-test-required when first exercised.
+
+`tools/audit_scene_features.py` verifies five exact equipment/inventory AE
+records, 15 source guards, and the exact LooksMenu SHA-256. All established
+camera, scene/event, playback, HUD, graph, face, package, menu, and
+Papyrus/serialization audits still pass. Release x64/v143 builds and links with
+zero errors and `COPY_BUILD=OFF`.
+
+Runtime progression: repeat solo/paired baseline scenes, then use real pack
+content declaring start/stop equipment sets, followed by content declaring
+morphs or start/stop morph sets. Verify cleanup after normal stop, then repeat a
+player case and verify camera, package, AI, collision and input restoration.
+The supplied CHAK/Dancecyclopedia conversions declare none of these features,
+so they cannot validate them. Do not save during an active scene.
+
+Remaining advanced systems: animation groups, position trees, NANIM/custom
+Havok traversal, body IK, continuous alignment/transforms, full managed-face
+API, Studio, Creator, Item Explorer, arbitrary callbacks, and active scene
+serialization. Advanced playback/group systems are the recommended next stage
+after the equipment/morph production test; Studio should follow those playback
+and transform dependencies.

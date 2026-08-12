@@ -76,7 +76,8 @@ namespace
 			}
 			case F4SE::MessagingInterface::kPostLoad:
 			{
-				logger::debug("Post-load received; full LooksMenu gameplay integration remains gated");
+				LooksMenu::Init();
+				logger::info("Post-load LooksMenu/body-morph integration initialized (when supported f4ee.dll is present)");
 				break;
 			}
 			default:
@@ -202,7 +203,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 
 	if constexpr (!kGameplaySubsystemsEnabled) {
 		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization, camera and basic scene infrastructure initialized; awaiting game data");
-		logger::warn("Studio, walk-to-scene, equipment/morph choreography, arbitrary ordered callbacks and advanced scene APIs remain gated");
+		logger::warn("Studio, arbitrary ordered callbacks, animation groups/position trees and advanced playback remain gated");
 		return true;
 	}
 

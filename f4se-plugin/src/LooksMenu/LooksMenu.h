@@ -95,14 +95,36 @@ namespace LooksMenu
 
 		void RegisterHook() {
 			uintptr_t baseAddr = reinterpret_cast<uintptr_t>(GetModuleHandleA("f4ee.dll"));
+			if (baseAddr == 0) {
+				logger::warn("LooksMenu reported installed but f4ee.dll is not loaded; body morph support disabled");
+				isInstalled = false;
+				return;
+			}
 
-			if (!applyMorphsHook.Create(reinterpret_cast<LPVOID>(baseAddr + GetVersionOffset(0x10040, 0xFFCC, 0x11400)), &HookedApplyMorphs)) {
+			const auto applyAddress = baseAddr + GetVersionOffset(0x10040, 0xFFCC, 0x11400);
+			const auto interfaceAddress = baseAddr + GetVersionOffset(0xFB440, 0xF4DF0, 0x107E00);
+			if (version == k1_7_0_3) {
+				constexpr std::array<std::uint8_t, 16> expectedApplyPrologue{
+					0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74,
+					0x24, 0x18, 0x48, 0x89, 0x54, 0x24, 0x10, 0x55
+				};
+				const auto interfaceVtable = *reinterpret_cast<const std::uintptr_t*>(interfaceAddress);
+				if (std::memcmp(reinterpret_cast<const void*>(applyAddress), expectedApplyPrologue.data(), expectedApplyPrologue.size()) != 0 ||
+					interfaceVtable != baseAddr + 0xC88B0) {
+					logger::warn("LooksMenu 1.7.0.3 body-morph ABI guard failed; support disabled");
+					isInstalled = false;
+					return;
+				}
+			}
+
+			if (!applyMorphsHook.Create(reinterpret_cast<LPVOID>(applyAddress), &HookedApplyMorphs)) {
 				logger::warn("Failed to create ApplyMorphsToShapes hook!");
+				isInstalled = false;
 			} else {
 				originalApply = reinterpret_cast<ApplyMorphsToShapes*>(applyMorphsHook.GetTrampoline());
 			}
 
-			g_bodyMorphInterface = reinterpret_cast<BodyMorphInterface*>(baseAddr + GetVersionOffset(0xFB440, 0xF4DF0, 0x107E00));
+			g_bodyMorphInterface = reinterpret_cast<BodyMorphInterface*>(interfaceAddress);
 		}
 	}
 

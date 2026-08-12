@@ -34,8 +34,8 @@ namespace Scene
 		inline static std::queue<std::function<bool()>> equipQueue;
 		inline static uint16_t delayCounter = 0;
 		inline static safe_mutex lock;
-		inline static constexpr bool kEquipmentActionsEnabled = false;
-		inline static constexpr bool kMorphActionsEnabled = false;
+		inline static constexpr bool kEquipmentActionsEnabled = true;
+		inline static constexpr bool kMorphActionsEnabled = true;
 		inline static constexpr bool kArbitraryCallbacksEnabled = false;
 
 		static void Update() {

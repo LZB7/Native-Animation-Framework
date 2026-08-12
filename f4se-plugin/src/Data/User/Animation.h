@@ -150,12 +150,10 @@ namespace Data
 
 		[[nodiscard]] bool IsBasicSceneCompatible() const
 		{
-			return std::ranges::all_of(slots, [](const Slot& a_slot) {
-				return !a_slot.morphs.has_value() &&
-					!a_slot.startEquipSet.has_value() &&
-					!a_slot.stopEquipSet.has_value() &&
-					!a_slot.actions.has_value();
-			});
+			// Per-slot morphs, equipment sets and action sets now use the restored
+			// production ordered-action path. Advanced control systems are gated
+			// by Position::IsBasicSceneCompatible instead.
+			return !slots.empty();
 		}
 
 		static bool SetActorInfo(Scene::SceneActorsMap& mapIn, const std::vector<Slot>& slots)
