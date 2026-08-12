@@ -4379,7 +4379,7 @@ families), not a claim that every row has equal implementation size.
 | Local-transform and animation-sync Papyrus helpers | statically restored | corrected Get3D ABI, NiTransform, SmartIdle | registered but dedicated behavior coverage incomplete | validate through original scripts/workflows |
 | Vanilla and scene face/lip pass-through | restored/runtime-validated | two verified face hooks | none on tested dialogue/scene paths | regression baseline |
 | Managed-face runtime state/persistence | restored/content-test-required | face hooks and `FACE` v5 record | external control functions gated | validate timelines, eye state, loop/body sync and cleanup in Phase C |
-| Managed-face Papyrus API (4 natives) | unresolved | managed-face production behavior | `SetEyeCoordOverride`, `ClearEyeCoordOverride`, `PlayFaceAnimation`, `StopFaceAnimation` unregistered | restore and register all four in Phase C |
+| Managed-face Papyrus API (4 natives) | restored/content-test-required | runtime-validated face hooks plus managed state/timeline engine | all four natives registered; visible eye/timeline and FACE-resume coverage pending suitable content/API invocation | production-test eye override, play/stop, and NPC save/load |
 | Package override/evaluation/process integration | restored/runtime-validated | package hooks and v5 `PACK` | none on tested scenes/save cycle | regression baseline |
 | Player AI/input transition symmetry | restored/runtime-validated | input manager, packages, free camera | player-scene persistence coverage pending | staged/player active-save regression |
 | Free-camera and camera restoration | restored/runtime-validated | `FreeCameraState::Update`, input mask | none on tested player scenes | persistence regression after active reload |
@@ -4393,8 +4393,8 @@ families), not a claim that every row has equal implementation size.
 | Face Animation Creator | not yet ported | managed-face timelines and preview | reachable only through hidden Creator | restore keyframe editing, preview, sync and export |
 | Item Explorer | not yet ported | form/object enumeration, highlight, interaction | main-menu entry removed; highlighting disabled | restore entry, browsing, selection and interaction in Phase D |
 | MCM hotkey integration | statically restored | shipped MCM config and ToggleMenu native | not independently regression-tested after menu expansion | test binding, modifiers and opening every restored page |
-| Papyrus production surface (41 registered natives) | restored/runtime-validated | VM registration and underlying restored subsystems | behavior coverage remains dependency-specific | retain registration and validate through owning subsystems |
-| Remaining Papyrus surface (4 natives) | unresolved | managed face | exactly Set/ClearEyeCoordOverride and Play/StopFaceAnimation | restore in Phase C; final target 45/45 registered |
+| Papyrus production surface (45 registered natives) | restored/content-test-required | VM registration and underlying restored subsystems | registration parity complete; behavior coverage remains dependency-specific | retain all bindings and validate through owning subsystems |
+| Remaining Papyrus surface (4 formerly gated natives) | restored/content-test-required | managed face | Set/ClearEyeCoordOverride and Play/StopFaceAnimation are production-enabled | validate managed-face behavior and FACE restoration |
 | External scene events and Actor-array packing | restored/runtime-validated | corrected VM/CreateArray ABI | none for one/two-actor tested events | regress advanced scene state/events |
 | Nine active historical v5 records | restored/runtime-validated | TASK/SCNE/EQPT/UID/FACE/HUD/PACK/SHUD/BODY | NANIM BODY motion coverage pending | maintain exact schema and add content-dependent regressions |
 | Staged/group active-scene persistence | restored/runtime-validated | serialized control system/stage/timers | none on tested CHAK Hugs path | retain as v5 regression baseline |
@@ -4816,3 +4816,132 @@ unequip an item through the vanilla menu, close it, and confirm NAFMenu returns
 to the same scene with correct equipment state. No further Phase-B code gate is
 known; successful runtime confirmation permits transition to Phase C, the full
 managed-face API and runtime state.
+
+## Phase C — complete managed-face API restoration
+
+### Phase-B runtime closure
+
+The production retest exercised the restored Actor Inventories entry end to
+end: actor selection and resolution, verified ContainerMenu dispatch, engine-
+owned enumeration/selection/actions, close notification, NAF submenu restore,
+continued playback, and normal scene teardown all succeeded. Highlighting was
+also visibly correct. These covered Phase-B paths are runtime-validated and are
+no longer tracked as an open subsystem.
+
+### Architecture and ownership
+
+The upstream 1.0.14 architecture is preserved:
+
+```text
+Papyrus or scene animation selection
+  -> stable ActorHandle-keyed FaceData
+     -> optional eye override (user coordinates converted to UV offsets)
+     -> optional asynchronously loaded face timeline
+  -> BSFaceGenAnimationData* reverse index for the current actor 3D
+  -> engine BSFaceGenAnimationData::Update
+     -> NAF timeline post-update under state + engine instance locks
+     -> expression[54], eye UV, and optional emissive timeline writes
+  -> managed lip hook suppresses vanilla lip overwrite
+  -> stop/end/revert removes the appropriate managed state
+```
+
+`PersistentState::managedAnims` is keyed by `SerializableActorHandle`, not raw
+Actor or face-data pointers. `managedDatas` is a transient reverse index from
+the current `BSFaceGenAnimationData*`; it is never serialized. Eye geometry is
+held by `NiPointer<BSGeometry>` only as a per-3D cache. The verified production
+Set3D hook now notifies managed face after the engine call: cached eye geometry
+and the old reverse-index entry are discarded and the current face data is
+reacquired. The same rebuilding occurs during world-ready FACE fixup. A missing
+actor or temporarily missing face data leaves stable handle state intact but
+does not create a null reverse-index key.
+
+### Public semantics and face format
+
+All four upstream signatures match the shipped `NAF.psc` exactly and are
+registered:
+
+- `SetEyeCoordOverride(Actor, Float x, Float y)` stores an absolute user-space
+  coordinate where each axis is documented as `[-1,1]`; upstream conversion is
+  `u = x * -0.25`, `v = y * 0.2`. It persists and overrides eye timeline keys.
+- `ClearEyeCoordOverride(Actor)` removes only the eye override. Repeated or
+  missing-state calls are harmless; a separately playing face animation stays
+  managed.
+- `PlayFaceAnimation(Actor, String id, Bool loop, Bool bodySync)` resolves an
+  XML-defined face animation, loads its binary cache asynchronously, replaces
+  ordinary managed playback, and returns false only for a null actor or unknown
+  ID. Body sync reads the actor graph time; ordinary playback advances by the
+  engine face-update delta.
+- `StopFaceAnimation(Actor)` cancels an outstanding load and removes managed
+  playback while deliberately retaining an independent eye override. Once no
+  managed property remains, vanilla lip/expression behavior resumes.
+
+The source format is the upstream XML `<faceAnim id="..." frames="...">` with
+`<key frame="...">` children containing `<morph id="..." value="..."/>` and/or
+`<eyes x="..." y="..."/>`. Frames use the upstream 30 fps runtime conversion;
+key interpolation uses the stored easing function. XML parsing builds the
+unchanged cereal binary `AnimationData` cache (normalized timeline keys plus
+duration). No separate file extension or NANIM format is involved. No usable
+moving face-animation sample was found in the local content tree, so visible
+timeline playback remains content-test-required rather than gated.
+
+### Threading, lifecycle, and v5 FACE persistence
+
+Papyrus/native writes take the managed-state writer lock. Engine face updates
+take its reader lock, then the verified `instanceData.lock` at offset `0x2B4`;
+individual timeline mutation uses the animation mutex. Async resource loading
+uses `loadingAnimsLock` before publishing under `stateLock`, matching stop and
+serialization lock order. The hooks continue running in their original engine
+face-update contexts; no work was moved onto the serialized AI worker callback.
+
+The historical v5 `FACE` payload is unchanged. It stores the handle-keyed map;
+for each actor it writes `animationId`, optional `EyeVector`, `hasAnim`, and—if
+active—`timeElapsed`, `loop`, and `havokSync`, in that order. Runtime reverse
+indexes, face/geometry pointers, graph-time cache, locks, async loads, and
+Creator preview backup are transient. Load reconstructs timeline data from the
+stable ID, then the existing deferred world-ready fixup resolves actors and
+face data. Revert atomically clears persistent state, pending loads, reverse
+indexes, and geometry cache. Scene-owned playback retains upstream teardown
+calls; independent public eye state is not incorrectly cleared by
+`StopFaceAnimation`.
+
+The AE face layout remains the previously verified size `0x2E8`, with expression
+arrays at `0x18/0xF0/0x1C8`, instance data at `0x2A0`, and spin lock at `0x2B4`.
+Managed APIs touch no additional unknown engine fields. Papyrus packing is
+bounded to the already-audited Actor object, string, float and bool paths; no new
+array, structure-wrapper, or callback-functor ABI is activated.
+
+### Relocation and parity audit
+
+No new stale ID or ABI defect was found. Managed execution reaches only the
+already verified exact AE records: `2209487` (`0x6E8BF0`), `2209139`
+(`0x6D1310`), and `2209124` (`0x6D0560`). `tools/audit_managed_face.py` verifies
+those records plus the physical layout guards, validated hook selectors,
+handle ownership, Set3D rebinding, eye conversion, parser/cache path, FACE v5
+activation/fixup/reset, exact script signatures, and all four registrations.
+The Papyrus audit now requires 45/45 bindings, and the full-parity audit treats
+managed face as restored rather than gated.
+
+Phase-C production test plan:
+
+1. regress an ordinary scene and the known-good face/lip pass-through;
+2. invoke eye override on a loaded NPC, verify hold, clear it, and verify vanilla
+   eye behavior returns;
+3. if a real face-animation definition is available, play, replace/loop, stop,
+   and verify vanilla facial behavior resumes;
+4. save with NPC managed face state active, reload, require FACE world-ready
+   rebinding/resume, then stop/clear normally;
+5. force a legitimate actor 3D rebuild where practical and verify the managed
+   state rebinds without retaining the old face-data or eye-geometry pointer.
+
+The parity ledger now totals 22 restored/runtime-validated, 14 restored/content-
+test-required, 13 statically restored, 0 unresolved, and 8 not yet ported
+(49/57 with production or static implementations). Remaining central gates are
+the upstream authoring/UI workflows: Studio; Creator including Body Creator and
+Face Creator; and Item Explorer. Phase D should begin by mapping their shared
+menu/state dependencies, then restore the main-menu entries and Studio/Creator/
+Item Explorer workflows against the already restored camera, transforms, IK,
+NANIM, managed face, highlighting, graph, scene, and persistence foundations.
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`. Phase-C
+development DLL SHA-256:
+`6BB09D7A225F746AD7AEB53C739FDC5C72D14F5B5EA7F5731DDCB63DB3887AB9`.
