@@ -252,8 +252,16 @@ namespace Scene
 
 		virtual void SoftEnd() override {
 			CheckParentPointer();
-			if (parent != nullptr)
-				parent->SoftEnd();
+			if (parent != nullptr) {
+				// A nested tree is a subsystem of its containing tree. Completing its
+				// leaf satisfies the containing node; only the outermost tree ends the
+				// scene itself.
+				if (dynamic_cast<PositionTreeControlSystem*>(parent) != nullptr) {
+					parent->ReportSystemCompletion();
+				} else {
+					parent->SoftEnd();
+				}
+			}
 		}
 
 		virtual void ApplyMorphSet(const std::string& a_id) override
@@ -299,7 +307,7 @@ namespace Scene
 			if (!p)
 				return false;
 
-			auto sys = GetControlSystem(p, true);
+			auto sys = GetControlSystem(p);
 			if (!sys)
 				return false;
 
@@ -330,8 +338,16 @@ namespace Scene
 
 		virtual void OnBegin(IControllable* scn, std::string_view lastId) override
 		{
+			parent = scn;
 			parentId = scn->QUID();
-			CheckParentPointer();
+			for (auto* ancestor = dynamic_cast<PositionTreeControlSystem*>(scn); ancestor != nullptr;
+				 ancestor = dynamic_cast<PositionTreeControlSystem*>(ancestor->parent)) {
+				if (ancestor->id == id) {
+					logger::error("Position tree '{}' contains a cyclic nested-tree reference; ending the scene safely", id);
+					SoftEnd();
+					return;
+				}
+			}
 
 			if (scn->HasPlayer()) {
 				hudActive = true;
@@ -340,7 +356,7 @@ namespace Scene
 				autoAdvance = true;
 			}
 
-			subSystem = GetControlSystem(Data::GetPosition(currentNode->position), true);
+			subSystem = GetControlSystem(Data::GetPosition(currentNode->position));
 			if (subSystem != nullptr)
 				subSystem->OnBegin(this, lastId);
 
@@ -365,6 +381,9 @@ namespace Scene
 		{
 			parent = scn;
 			parentId = scn->QUID();
+			if (subSystem) {
+				subSystem->OnSerializationLoad(this);
+			}
 			if (hudActive && !autoAdvance) {
 				RegisterListener(Data::Events::HUD_DOWN_KEY_DOWN, &PositionTreeControlSystem::OnHudKey);
 				RegisterListener(Data::Events::HUD_UP_KEY_DOWN, &PositionTreeControlSystem::OnHudKey);

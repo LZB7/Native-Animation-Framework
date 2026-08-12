@@ -136,7 +136,7 @@ SCNSYNC_DELAY_FUNCTOR(PostStop);
 
 namespace Scene
 {
-	static std::unique_ptr<IControlSystem> GetControlSystem(std::shared_ptr<const Data::Position> position, bool excludeTrees = false);
+	static std::unique_ptr<IControlSystem> GetControlSystem(std::shared_ptr<const Data::Position> position);
 }
 
 #include "ControlSystems.h"
@@ -150,8 +150,11 @@ namespace Scene
 	// further tweaking, so I'm leaving it here for future configuration.
 	inline static const float playerSyncOffset = 0.010f;
 
-	static std::unique_ptr<IControlSystem> GetControlSystem(std::shared_ptr<const Data::Position> position, bool excludeTrees)
+	static std::unique_ptr<IControlSystem> GetControlSystem(std::shared_ptr<const Data::Position> position)
 	{
+		if (!position) {
+			return nullptr;
+		}
 		std::unique_ptr<IControlSystem> sys = nullptr;
 		auto sysInfo = position->GetControlSystemInfo();
 		switch (sysInfo->type) {
@@ -159,8 +162,7 @@ namespace Scene
 			sys = std::make_unique<AnimationGroupControlSystem>();
 			break;
 		case Data::ControlSystemType::kPositionTreeSystem:
-			if (!excludeTrees)
-				sys = std::make_unique<PositionTreeControlSystem>();
+			sys = std::make_unique<PositionTreeControlSystem>();
 			break;
 		case Data::ControlSystemType::kAnimationSystem:
 		default:

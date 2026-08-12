@@ -150,9 +150,8 @@ namespace Data
 
 		[[nodiscard]] bool IsBasicSceneCompatible() const
 		{
-			// Per-slot morphs, equipment sets and action sets now use the restored
-			// production ordered-action path. Advanced control systems are gated
-			// by Position::IsBasicSceneCompatible instead.
+			// Per-slot morphs, equipment sets and action sets use the restored
+			// production ordered-action path. Position validates group/tree links.
 			return !slots.empty();
 		}
 

@@ -66,6 +66,11 @@ namespace Data
 		}
 
 		std::shared_ptr<const Animation> GetBaseAnimation() const {
+			std::unordered_set<std::string> visitedTrees;
+			return GetBaseAnimation(visitedTrees);
+		}
+
+		std::shared_ptr<const Animation> GetBaseAnimation(std::unordered_set<std::string>& visitedTrees) const {
 			switch (posType) {
 				case kAnimation:
 				{
@@ -81,11 +86,18 @@ namespace Data
 				}
 				case kPositionTree:
 				{
+					if (!visitedTrees.insert(idForType).second) {
+						logger::error("Position tree cycle encountered while resolving base animation at '{}'", idForType);
+						return nullptr;
+					}
 					if (auto tree = GetPositionTree(idForType); tree != nullptr) {
-						if (auto rootPos = GetPosition(tree->tree->position); rootPos != nullptr && rootPos->posType != kPositionTree) {
-							return rootPos->GetBaseAnimation();
+						if (auto rootPos = GetPosition(tree->tree->position); rootPos != nullptr) {
+							auto result = rootPos->GetBaseAnimation(visitedTrees);
+							visitedTrees.erase(idForType);
+							return result;
 						}
 					}
+					visitedTrees.erase(idForType);
 				}
 				default:
 					return nullptr;
@@ -95,46 +107,53 @@ namespace Data
 
 		[[nodiscard]] bool IsBasicSceneCompatible() const
 		{
-			switch (posType) {
-			case kAnimation:
-				{
-					const auto animation = GetAnimation(idForType);
-					return animation && animation->IsBasicSceneCompatible();
-				}
-			case kAnimationGroup:
-				{
-					const auto group = GetAnimationGroup(idForType);
-					return group && !group->stages.empty() && std::ranges::all_of(group->stages, [](const AnimationGroup::Stage& stage) {
-						const auto animation = GetAnimation(stage.animation);
-						return animation && animation->IsBasicSceneCompatible();
-					});
-				}
-			case kPositionTree:
-				{
-					const auto tree = GetPositionTree(idForType);
-					if (!tree || !tree->tree) {
-						return false;
+			std::unordered_set<std::string> activeTrees;
+			std::function<bool(const Position&)> validate = [&](const Position& position) -> bool {
+				switch (position.posType) {
+				case kAnimation:
+					if (const auto animation = GetAnimation(position.idForType); animation) {
+						return animation->IsBasicSceneCompatible();
 					}
-					std::stack<std::shared_ptr<const PositionTree::Node>> pending;
-					pending.push(tree->tree);
-					while (!pending.empty()) {
-						const auto node = pending.top();
-						pending.pop();
-						const auto position = node ? GetPosition(node->position) : nullptr;
-						// Nested trees are intentionally unsupported by GetControlSystem's
-						// excludeTrees path and are rejected before scene construction.
-						if (!position || position->posType == kPositionTree || !position->IsBasicSceneCompatible()) {
+					return false;
+				case kAnimationGroup:
+					if (const auto group = GetAnimationGroup(position.idForType); group && !group->stages.empty()) {
+						return std::ranges::all_of(group->stages, [](const AnimationGroup::Stage& stage) {
+							const auto animation = GetAnimation(stage.animation);
+							return animation && animation->IsBasicSceneCompatible();
+						});
+					}
+					return false;
+				case kPositionTree:
+					{
+						if (!activeTrees.insert(position.idForType).second) {
+							logger::error("Rejected cyclic position-tree reference at '{}'", position.idForType);
 							return false;
 						}
-						for (const auto& child : node->children) {
-							pending.push(child);
+						const auto tree = GetPositionTree(position.idForType);
+						bool valid = tree && tree->tree;
+						std::stack<std::shared_ptr<const PositionTree::Node>> pending;
+						if (valid) {
+							pending.push(tree->tree);
 						}
+						while (valid && !pending.empty()) {
+							const auto node = pending.top();
+							pending.pop();
+							const auto childPosition = node ? GetPosition(node->position) : nullptr;
+							valid = childPosition && validate(*childPosition);
+							if (node) {
+								for (const auto& child : node->children) {
+									pending.push(child);
+								}
+							}
+						}
+						activeTrees.erase(position.idForType);
+						return valid;
 					}
-					return true;
+				default:
+					return false;
 				}
-			default:
-				return false;
-			}
+			};
+			return validate(*this);
 		}
 
 		static bool Parse(XMLUtil::Mapper& m, Position& out)

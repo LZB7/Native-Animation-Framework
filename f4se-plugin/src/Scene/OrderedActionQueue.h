@@ -36,7 +36,7 @@ namespace Scene
 		inline static safe_mutex lock;
 		inline static constexpr bool kEquipmentActionsEnabled = true;
 		inline static constexpr bool kMorphActionsEnabled = true;
-		inline static constexpr bool kArbitraryCallbacksEnabled = false;
+		inline static constexpr bool kArbitraryCallbacksEnabled = true;
 
 		static void Update() {
 			std::unique_lock l{ lock };
@@ -56,10 +56,6 @@ namespace Scene
 		}
 
 		static void InsertCustom(const std::function<bool()>& func) {
-			if constexpr (!kArbitraryCallbacksEnabled) {
-				logger::warn("Rejected an arbitrary ordered callback while advanced scene actions remain gated");
-				return;
-			}
 			std::unique_lock l{ lock };
 			equipQueue.push(func);
 		}

@@ -14,8 +14,8 @@ namespace Tasks
 		typedef bool(ProcessQueues)(void*, float, uint32_t);
 
 		REL::Relocation<ProcessQueues> OriginalProcessQueues;
-		// The engine callback itself is verified. Scene, ordered-action and studio
-		// workloads remain disabled while subsystems are restored independently.
+		// The engine callback and production scene/ordered-action cadence are
+		// runtime verified. Studio uses the same alignment queue when enabled.
 		inline constexpr bool kGameplayUpdateWorkEnabled = true;
 
 		std::mutex alignActorsLock;

@@ -147,7 +147,7 @@ namespace Scene
 			case kSpecifiedPositionNotAvailable:
 				return Strings::ScnErr_SpecifiedPositionNotAvailable;
 			case kUnsupportedSceneFeature:
-				return "The selected position requires scene features that are not enabled in this development build.";
+				return "The selected position contains an unresolved, invalid, or cyclic animation/group/tree dependency.";
 			default:
 				return "";
 			}

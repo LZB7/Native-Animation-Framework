@@ -28,10 +28,8 @@ bool g_gameDataReady = false;
 #include "API/API.h"
 namespace
 {
-	// Restore subsystems coherently. This stage enables the validated HUD,
-	// production graph, face/lip, package/process, bounded Papyrus/
-	// serialization lifecycle and camera infrastructure. Scene playback and
-	// studio remain unavailable.
+	// Production runtime systems are restored coherently. Studio/Creator/Item
+	// Explorer and the managed-face public surface remain separate parity phases.
 	inline constexpr bool kHUDSubsystemEnabled = true;
 	inline constexpr bool kGameplaySubsystemsEnabled = true;
 
@@ -44,7 +42,7 @@ namespace
 			case F4SE::MessagingInterface::kGameDataReady:
 			{
 				if (static_cast<bool>(a_msg->data)) {
-					logger::info("Game data finished loading; initializing NAF data, HUD and basic scene lifecycle");
+					logger::info("Game data finished loading; initializing NAF data, HUD and production scene lifecycle");
 
 					auto ui = RE::UI::GetSingleton();
 					if (!ui) {
@@ -69,7 +67,7 @@ namespace
 
 					g_gameDataReady = true;
 					Data::Events::Send(Data::Events::GAME_DATA_READY);
-					logger::info("Production NAF HUD, package events and bounded basic-scene lifecycle are ready");
+					logger::info("Production NAF HUD, package events and full runtime scene-control lifecycle are ready");
 				}
 
 				break;
@@ -203,7 +201,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 
 	if constexpr (!kGameplaySubsystemsEnabled) {
 		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization, camera and basic scene infrastructure initialized; awaiting game data");
-		logger::warn("Studio, arbitrary ordered callbacks, animation groups/position trees and advanced playback remain gated");
+		logger::warn("Studio/Creator/Item Explorer and managed-face public APIs remain gated for their dedicated parity phases");
 		return true;
 	}
 
