@@ -133,8 +133,10 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a
 	auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
 
 	auto log = std::make_shared<spdlog::logger>("global log"s, std::move(sink));
-	log->set_level(spdlog::level::trace);
-	log->flush_on(spdlog::level::trace);
+	// Release logs retain actionable initialization/lifecycle information while
+	// suppressing per-update trace/debug diagnostics from hot engine paths.
+	log->set_level(spdlog::level::info);
+	log->flush_on(spdlog::level::warn);
 
 	spdlog::set_default_logger(std::move(log));
 	spdlog::set_pattern("[%m/%d/%Y - %T] [%^%l%$] %v"s);

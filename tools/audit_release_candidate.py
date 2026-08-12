@@ -31,11 +31,25 @@ def main() -> int:
         failures.append("OCBP optional integration is not detected by exact module identity")
     if 'GetPluginInfo("OCBP plugin")' in node_graph:
         failures.append("OCBP retains noisy obsolete F4SE logical-name lookup")
+    if 'if (GetModuleHandleW(L"ocbp.dll") != nullptr)' not in node_graph or 'CallGlobalPapyrusFunction("OCBP_API"' not in node_graph:
+        failures.append("OCBP call is not strictly guarded by optional module presence")
+
+    looks_menu = read("f4se-plugin/src/LooksMenu/LooksMenu.h")
+    for token in ('if (!module)', 'isInstalled && actor && detail::g_bodyMorphInterface', 'expectedHash'):
+        if token not in looks_menu:
+            failures.append(f"LooksMenu soft-dependency guard missing: {token}")
 
     main = read("f4se-plugin/src/main.cpp")
     for token in ("RUNTIME_1_11_221", "ValidateFreeUpAllMarkers", "UsesSigScanning(false)"):
         if token not in main:
             failures.append(f"startup fail-closed guard missing: {token}")
+    if "spdlog::level::trace" in main or "flush_on(spdlog::level::trace)" in main:
+        failures.append("Release logger still enables or flushes trace-level hot-path diagnostics")
+    if "log->set_level(spdlog::level::info)" not in main:
+        failures.append("Release logger is not configured at the support-oriented info level")
+
+    if "MCM" in source:
+        failures.append("native DLL source contains a direct MCM dependency")
 
     papyrus = read("f4se-plugin/src/Scripts/Papyrus.h")
     if papyrus.count("PAPYRUS_BIND(") != 46:  # macro definition plus 45 registrations
@@ -70,6 +84,15 @@ def main() -> int:
             failures.append(f"withdrawn interior FreeUpAllMarkers address remains in {path.relative_to(ROOT)}")
     if raw_rva_literals != [("f4se-plugin\\src\\Compat\\Engine.h", "0x55F490")]:
         failures.append(f"unexpected FreeUpAllMarkers raw-RVA locations: {raw_rva_literals}")
+
+    readme = read("README.md")
+    for token in (
+        "unofficial compatibility/source port", 'cgf "NAF.ToggleMenu"',
+        "Replace only `Data/F4SE/Plugins/NAF.dll`", "LookAt Cam",
+        "Original NAF was created by Snapdragon/Deweh", "GPL-3.0",
+    ):
+        if token not in readme:
+            failures.append(f"public source/distribution documentation missing: {token}")
 
     if failures:
         for failure in failures:

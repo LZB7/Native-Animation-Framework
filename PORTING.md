@@ -5557,4 +5557,74 @@ Final DLL:
 
 SHA-256:
 
-`4F42D3D6F13704064BE5ACCE3266EF76DD89CB9FE021BEE25CAFFF6424B4AC75`
+`677ED6486B7F7D4F70F581F71CE755CF3E47D53F0E2C82F6826241E1637C2E44`
+
+## Final compatibility-port closure
+
+This repository is an **unofficial NAF 1.0.14 compatibility/source port for
+Fallout 4 1.11.221**, not a replacement ownership claim or a complete upstream
+framework repack. Original NAF is by Snapdragon/Deweh. The configured public
+Git remote is the upstream repository
+`https://github.com/Deweh/Native-Animation-Framework.git`; no separate public
+compatibility-port remote is configured in this checkout.
+
+### Optional-dependency failure paths
+
+- **LooksMenu:** `LooksMenu::Init` returns normally when `f4ee.dll` is absent.
+  Hash, ABI, vtable, and interface validation occur only after that exact module
+  is present. Every morph entry point requires `isInstalled`, a valid actor, and
+  a non-null body-morph interface. Therefore scenes and authoring paths without
+  morph declarations remain available; morph requests become safe no-ops when
+  support is unavailable. LooksMenu remains optional and is required only for
+  body morphs.
+- **MCM:** the native DLL contains no MCM lookup, module dependency, or startup
+  check. MCM is only an external configuration frontend for the menu hotkey.
+  Without it, the native remains callable as `cgf "NAF.ToggleMenu"`.
+- **OCBP:** upstream probes OCBP only to call
+  `OCBP_API.SetBoneToggle` for nodes controlled by a body graph. AE performs
+  this call only when the exact optional module `ocbp.dll` is loaded. Absence is
+  silent, leaves unrelated body animation/Creator/Studio operational, and never
+  creates or dereferences an OCBP interface pointer. OCBP is not a requirement.
+
+No other optional third-party native DLL integration was found beyond
+LooksMenu. MCM remains data/Papyrus configuration rather than a native binary
+integration.
+
+### Public troubleshooting logging
+
+Release logging is configured at `info` and flushes immediately at `warn` or
+higher. Trace/debug calls in timer, HUD, face rebind, hook validation, scene
+setup, camera setup, playback preparation, and persistence-detail paths remain
+compiled for developer builds but do not execute file I/O in the public Release
+configuration. Granular scene setup/camera/playback messages were demoted from
+info to debug.
+
+Release-visible logging retains version/runtime initialization, subsystem and
+hook installation, optional dependency status, meaningful scene/serialization
+lifecycle, XML/resource/NANIM failures, Creator filesystem failures, active
+scene restoration results, and actionable validation or registration errors.
+There is no normal per-frame/tick log path in graph, face, camera, IK,
+alignment, LookAt, or game-loop updates.
+
+### Source and binary distribution model
+
+The preferred end-user installation is:
+
+1. install original NAF 1.0.14 from Snapdragon's original Nexus page;
+2. install F4SE 0.7.8 for Fallout 4 1.11.221;
+3. install Address Library for runtime 1.11.221;
+4. replace only `Data/F4SE/Plugins/NAF.dll` with this compatibility DLL.
+
+LooksMenu is optional for body morphs, MCM is optional for hotkey
+configuration, and OCBP is not required. The compatibility binary distribution
+must not repackage the original SWFs, PEX scripts, MCM files, XML/default data,
+or third-party animation conversions. Those assets remain sourced from the
+original NAF installation. The source tree retains the upstream GPL-3.0
+`LICENSE.txt`, `COPYRIGHT.txt` and third-party notices, original-author
+attribution, modification history in Git/this evidence ledger, reproducible
+build instructions, and the source necessary to build the replacement DLL.
+
+Recommended repository title: **Native Animation Framework — Fallout 4
+1.11.221 compatibility port**. Recommended description: **Unofficial GPL-3.0
+source and DLL compatibility port of Snapdragon/Deweh's NAF 1.0.14 for Fallout
+4 1.11.221 and F4SE 0.7.8; requires the original NAF package.**
