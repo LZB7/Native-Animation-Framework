@@ -360,7 +360,7 @@ public:
 		return middleHighProcess->faceAnimationData;
 	}
 
-	static void SetFlyCam(bool flyCam) {
+	static bool SetFlyCam(bool flyCam) {
 		auto& settings = RE::INISettingCollection::GetSingleton()->settings;
 
 		for (auto s : settings) {
@@ -371,10 +371,31 @@ public:
 		}
 
 		const auto camera = RE::PlayerCamera::GetSingleton();
+		if (!camera || !camera->currentState) {
+			logger::error("Player free-camera transition requested without a valid PlayerCamera/current state");
+			return false;
+		}
 
-		if (camera && camera->currentState && (flyCam != (camera->currentState->id.get() == RE::CameraState::kFree))) {
+		auto freeState = camera->GetState(RE::CameraState::kFree);
+		if (!freeState) {
+			logger::error("Player free-camera transition requested without a valid FreeCameraState");
+			return false;
+		}
+
+		const auto beforeState = camera->currentState.get();
+		const bool wasActive = beforeState == freeState.get();
+		if (flyCam != wasActive) {
 			camera->ToggleFreeCameraMode(false);
 		}
+
+		const bool isActive = camera->currentState.get() == freeState.get();
+		logger::info("Player free-camera transition: requested={}, beforeState={}, beforeFree={}, afterState={}, active={}",
+			flyCam,
+			static_cast<const void*>(beforeState),
+			wasActive,
+			static_cast<const void*>(camera->currentState.get()),
+			isActive);
+		return isActive == flyCam;
 	}
 
 	static void DisablePlayerCollision(bool disable) {

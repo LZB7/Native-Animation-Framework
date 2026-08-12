@@ -33,6 +33,20 @@ SOURCE_GUARDS = {
     "f4se-plugin/src/Compat/Engine.h": (
         "REL::RelocationID(162201, 2248348)",
     ),
+    "f4se-plugin/src/Misc/GameUtil.h": (
+        "camera->GetState(RE::CameraState::kFree)",
+        "camera->ToggleFreeCameraMode(false)",
+        "camera->currentState.get() == freeState.get()",
+    ),
+    "f4se-plugin/src/Scene/IScene.h": (
+        "GetInputsToDisableForPlayerFreeCameraScene",
+        "~static_cast<uint32_t>(USER_EVENT_FLAG::kMovement)",
+    ),
+    "f4se-plugin/src/Scene/SceneBase.h": (
+        "GameUtil::SetFlyCam(true)",
+        "GetInputsToDisableForPlayerFreeCameraScene()",
+        "GameUtil::SetFlyCam(false)",
+    ),
 }
 
 

@@ -39,6 +39,15 @@ namespace Scene
 		return disabledInputs.u;
 	}
 
+	// Fallout 4 1.11.221 routes free-camera translation through the movement
+	// user-event category. Keep the historical mask for package/walk control,
+	// but retain movement input while a player scene owns the free camera.
+	uint32_t GetInputsToDisableForPlayerFreeCameraScene()
+	{
+		using RE::UserEvents::USER_EVENT_FLAG;
+		return GetInputsToDisableForScene() & ~static_cast<uint32_t>(USER_EVENT_FLAG::kMovement);
+	}
+
 	class SceneFunctor : public Tasks::TaskFunctor
 	{
 	public:

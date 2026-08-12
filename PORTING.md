@@ -3890,3 +3890,62 @@ errors and `COPY_BUILD=OFF`. The same solo `RBBelly1` start/run/stop sequence is
 ready for a full retest; success requires the retained-actor log, completed
 `SceneEndedData` argument construction and dispatch, stable gameplay, and
 normal post-scene AI/package restoration.
+
+## Player-scene free-camera restoration
+
+The next production run validated two consecutive single-actor scenes
+(`RBBelly1` and `RBTwerk`) through start, dynamic-idle playback, normal stop,
+actor/package/input/collision cleanup, both end events, and later
+serialization. `SceneEndedData` retained one valid Actor, built its `Actor[]`,
+and returned from external-event dispatch. Basic single-actor scene lifetime
+and the corrected Papyrus array path are runtime validated on 1.11.221.
+
+The player camera lock was not an omitted activation block. The 1.0.14 and
+ported scene paths both hide the Pip-Boy, call `Force3rdPerson`, stop player
+movement, choose player 3D as the optional NAF look-at target, call
+`SetFlyCam(true)`, set the player AI controlled, and install the `NAF_Scene`
+input layer. Scene end clears AI/input first; post-stop releases look-at and
+calls `SetFlyCam(false)`. Runtime logging already proved that free-camera
+activation succeeded and the production `FreeCameraState::Update` hook fired
+during a scene.
+
+`SetFlyCam` uses the engine's TFC/free-camera transition, not a console command:
+`PlayerCamera::ToggleFreeCameraMode(false)`, old ID `224913`, AE ID `2248368`,
+RVA `0x1027590`. Disassembly shows that the AE function compares current state
+with camera-state index `3`, pushes and initializes free-camera state on entry,
+and pops the saved state on exit. The relevant state indexes remain first
+person `0`, free `3`, and third person `8`; the table starts at
+`PlayerCamera+0xE0`, with `currentState` at `+0x28`. Because historical NAF
+forces third person before pushing free camera, it restores third person rather
+than preserving a pre-scene first-person mode. The port retains that behavior.
+
+The historical scene mask disables Activate, Fighting, Jumping, MainFour,
+Movement, POVSwitch, Sneaking, and VATS (`0xDE5`). Fallout 4 1.11.221 has a
+distinct TFC input context, but free-camera translation is still categorized
+as Movement. Installing the historical layer after entering TFC therefore
+suppresses camera translation. The port now keeps `0xDE5` for package/walk
+control and uses a player-free-camera-only mask of `0xDE4`, omitting only
+`kMovement`. The animated player remains AI controlled while TFC consumes the
+retained movement input. NPC-only scenes are unchanged. This is a source-level
+AE semantic adaptation and actual free translation remains runtime-test-required.
+
+`GameUtil::SetFlyCam` now validates PlayerCamera/current/free state, compares
+state object identity (matching the verified engine implementation), logs the
+before/after states, and returns transition success. Scene entry logs look-at,
+mask, and activation; post-stop logs restoration. Normal stop, setup failures
+routed through `End`, force-stop, and actor-loss teardown retain the original
+symmetric cleanup ordering. Animation, playback, and Papyrus event code are
+unchanged. The player-input Papyrus natives remain gated because the internal
+fix does not establish their broader external API surface.
+
+The extended camera audit passes eight exact IDs, physical FreeCameraState
+slot `0x0B`, its AE prologue, and 15 source guards. The scene audit passes 40
+exact IDs. HUD, graph, face, package, Papyrus/serialization, menu, playback,
+and scene-event regression audits also pass. Release x64/v143 builds and links
+with zero errors and `COPY_BUILD=OFF`.
+
+Retest first with a solo NPC scene, then `RBBelly1` or `RBTwerk` on the player.
+Verify free camera translation/look while the actor remains controlled, then
+stop via Active Scenes and verify input, third-person camera, AI/package state,
+collision, HUD, and both Papyrus end events. Historical behavior expects
+third-person restoration even if the player began in first person.

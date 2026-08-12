@@ -79,10 +79,17 @@ namespace Scene
 				RE::BGSAnimationSystemUtils::InitializeActorInstant(*currentActor, false);
 
 				if (currentActor == player) {
-					CamHook::LookAt(player->Get3D());
-					GameUtil::SetFlyCam(true);
+					auto camera = RE::PlayerCamera::GetSingleton();
+					const bool lookAtReady = CamHook::LookAt(player->Get3D());
+					logger::info("Scene {} player camera setup: pre-state={}, lookAt={}, inputMask=0x{:X}",
+						scn->uid,
+						camera && camera->currentState ? static_cast<const void*>(camera->currentState.get()) : nullptr,
+						lookAtReady,
+						GetInputsToDisableForPlayerFreeCameraScene());
+					const bool freeCameraActive = GameUtil::SetFlyCam(true);
 					EngineCompat::SetAIControlled(player, true);
-					EngineCompat::DisableInputForPlayer(player, "NAF_Scene", GetInputsToDisableForScene());
+					EngineCompat::DisableInputForPlayer(player, "NAF_Scene", GetInputsToDisableForPlayerFreeCameraScene());
+					logger::info("Scene {} player controls applied: freeCameraActive={}, movement input retained for camera", scn->uid, freeCameraActive);
 				}
 
 				currentActor->SetGraphVariableBool("bHumanoidFootIKDisable", true);
@@ -112,8 +119,10 @@ namespace Scene
 				scn->TransitionToAnimation(nullptr);
 				scn->ApplyEquipmentSet(scn->stopEquipSet);
 				if (hasPlayer) {
+					logger::info("Scene {} restoring player camera after scene cleanup", scn->uid);
 					CamHook::SetActive(false);
-					GameUtil::SetFlyCam(false);
+					const bool cameraRestored = GameUtil::SetFlyCam(false);
+					logger::info("Scene {} player camera restoration complete: success={}", scn->uid, cameraRestored);
 				}
 				scn->detachQueued = true;
 			},
