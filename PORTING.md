@@ -4326,13 +4326,17 @@ gates may exist only while an AE dependency, ABI, relocation, lifecycle, or
 runtime test is unresolved. The final gate count must be zero unless binary and
 source evidence proves that a feature cannot be reproduced on 1.11.221.
 
-The latest production test promotes ordinary active-scene persistence to
+The latest production tests promote ordinary and staged/group NPC active-scene persistence to
 **restored/runtime-validated**. An active two-actor scene wrote all eight v5
 records, reloaded, reacquired both actors, restored its original control system
 and position, restarted playback, reported `1 resumed, 0 cancelled`, then
-stopped normally and dispatched both `SceneEnded` and `SceneEndedData`.
-Historical v5 compatibility remains mandatory. Staged-scene and player-scene
-persistence are restored but retain explicit runtime-coverage items.
+stopped normally and dispatched both `SceneEnded` and `SceneEndedData`. The
+staged CHAK Hugs scene wrote and restored all nine v5 records, reacquired both
+actors, restored the staged controller, resumed the Hug01/Hug02 sequence, and
+stopped normally. Historical v5 compatibility remains mandatory. A
+player-involved active save/load is non-mandatory when the base game refuses to
+save while the real PlayerCharacter is under NAF control; its restoration code
+remains intact and NAF does not bypass that restriction.
 
 The matrix below was produced by comparing `port/1.11.221` directly with the
 clean `master` tree for NAF 1.0.14. Status counts refer to matrix rows (feature
@@ -4351,14 +4355,14 @@ families), not a claim that every row has equal implementation size.
 | Animation groups and staged positions | restored/runtime-validated | group controller, timers, scene transitions | none on tested CHAK stages | add staged save/load coverage |
 | Weighted/non-sequential animation groups | restored/content-test-required | group RNG/selection | available test content is sequential | test real weighted group content |
 | Non-nested position trees | statically restored | tree controller, HUD directions, menu sound | no complete real tree content tested | exercise navigation, auto-advance, mutation and persistence |
-| Nested/recursive position trees | not yet ported | recursive control-system creation | `IsBasicSceneCompatible` explicitly rejects a tree node naming another tree | remove bounded rejection after recursive lifecycle/serialization audit |
+| Nested/recursive position trees | statically restored | recursive control-system creation and v5 controller graph | suitable real nested-tree content unavailable | runtime-test recursive navigation/persistence; cycle guard is fail-closed |
 | Position-tree branching, conditions and transitions | restored/content-test-required | tree definitions and HUD events | real content coverage incomplete | test forced completion, duration, branches and conditions |
 | Scene speed and position mutation | restored/content-test-required | control-system replacement and graph timing | not all menu/Papyrus mutation paths exercised | test live mutation across animation/group/tree controllers |
 | Game-loop task/update cadence | restored/runtime-validated | `NonRendersafeAI` hook | no formal single-frame correspondence; historical cadence preserved | retain serialization/concurrency regression |
 | Timed tasks and frame-delay bookkeeping | restored/runtime-validated | `TASK` v5 state and timer thread | generic callback payloads are not serializable | preserve historical persistent subset |
 | Built-in ordered equipment actions | restored/content-test-required | inventory/equipment APIs | content-dependent choreography coverage | test unequip/add/remove/re-equip and abort rollback |
 | Built-in ordered morph actions | restored/content-test-required | LooksMenu 1.7.0.3 exact binary | real morph-bearing content not yet exercised | test apply/reset and Set3D refresh with real pack |
-| Generic ordered C++ callbacks | unresolved | serialized worker callback and callable lifetime | `kArbitraryCallbacksEnabled=false`; thread/lifetime/failure semantics unaudited | reconstruct upstream producers and restore unrestricted production queue |
+| Generic ordered C++ callbacks | statically restored | serialized NonRendersafeAI worker callback | no upstream producer beyond the public queue helper and no real-content coverage | retain upstream transient `std::function<bool()>` FIFO semantics; test when an original producer/workflow exercises it |
 | Animation-object unequip event behavior | restored/content-test-required | equipment events and actor animation objects | manual `AnimObjUnequip` dispatch still lacks runtime coverage | test object attach/detach content and cleanup |
 | LooksMenu detection/hash/interface initialization | restored/runtime-validated | exact f4ee.dll 1.7.0.3 | morph application content-dependent | retain exact DLL guard and add real morph regression |
 | Graph update and Set3D integration | restored/runtime-validated | IDs 2214536/2201055 | none on tested path | regression baseline for NANIM/IK |
@@ -4380,22 +4384,22 @@ families), not a claim that every row has equal implementation size.
 | Player AI/input transition symmetry | restored/runtime-validated | input manager, packages, free camera | player-scene persistence coverage pending | staged/player active-save regression |
 | Free-camera and camera restoration | restored/runtime-validated | `FreeCameraState::Update`, input mask | none on tested player scenes | persistence regression after active reload |
 | HUD menu, scene HUD and custom HUD elements | restored/runtime-validated | Scaleform, HUD events, v5 HUD/SHUD | every drawing native not individually exercised | test via original script consumers |
-| Hover/effect highlighting | unresolved | effect shader play/finish lifetime | `kHighlightingEnabled=false`; visual cleanup remains runtime-test-required | finish AE effect audit, enable, test every selecting menu |
+| Hover/effect highlighting | restored/content-test-required | AE effect shader play/finish lifetime | visual behavior across every selecting menu not yet tested | IDs 2205201/4796160 audited; test hover/add/remove/remove-all in production menus |
 | Inventory/equipment navigation menu | restored/content-test-required | item enumeration, equipment state | broader inventory combinations not exercised | retain UI entry and test live scene equipment editing |
-| Main NAF menu and active/new-scene pages | restored/runtime-validated | Scaleform/data/scene manager | advanced entries intentionally hidden | keep baseline while restoring all hidden entries |
+| Main NAF menu and active/new-scene pages | restored/content-test-required | Scaleform/data/scene manager | restored speed/position/inventory actions need expanded runtime coverage | regress all Active Scenes mutations and navigation |
 | Studio menu registration and workflow | not yet ported | NANIM, transforms, IK, camera, graph, Creator | `NAFStudioMenu` is not registered by current bounded initialization | Phase D restore full upstream workflow, not a reduced substitute |
 | Creator project/body/face authoring | not yet ported | Studio, NANIM writer, managed face, file I/O | Creator main-menu entry removed | restore project create/load/save/export and previews in Phase D |
 | Body Animation Creator | not yet ported | Studio/NANIM recording and graph editing | reachable only through hidden Creator | restore duration/retime/multi-actor/pose workflows |
 | Face Animation Creator | not yet ported | managed-face timelines and preview | reachable only through hidden Creator | restore keyframe editing, preview, sync and export |
 | Item Explorer | not yet ported | form/object enumeration, highlight, interaction | main-menu entry removed; highlighting disabled | restore entry, browsing, selection and interaction in Phase D |
 | MCM hotkey integration | statically restored | shipped MCM config and ToggleMenu native | not independently regression-tested after menu expansion | test binding, modifiers and opening every restored page |
-| Papyrus production surface (39 registered natives) | restored/runtime-validated | VM registration and underlying restored subsystems | behavior coverage remains dependency-specific | retain registration and validate through owning subsystems |
+| Papyrus production surface (41 registered natives) | restored/runtime-validated | VM registration and underlying restored subsystems | behavior coverage remains dependency-specific | retain registration and validate through owning subsystems |
 | Remaining Papyrus surface (4 natives) | unresolved | managed face | exactly Set/ClearEyeCoordOverride and Play/StopFaceAnimation | restore in Phase C; final target 45/45 registered |
 | External scene events and Actor-array packing | restored/runtime-validated | corrected VM/CreateArray ABI | none for one/two-actor tested events | regress advanced scene state/events |
-| Eight active historical v5 records | restored/runtime-validated | TASK/SCNE/EQPT/UID/FACE/HUD/PACK/SHUD | staged/player coverage pending | maintain exact schema and add required regressions |
-| Staged/group active-scene persistence | statically restored | serialized control system/stage/timers | explicit stage-2 reload test pending | run prescribed CHAK stage-2 save/reload/stop test |
-| Player-involved active-scene persistence | statically restored | input, camera, package and collision fixup | explicit active player save/reload test pending | run player scene persistence test and verify teardown |
-| Advanced scene persistence | unresolved | nested trees, managed face and editor state | all nine v5 records are active; advanced owners still need coverage | validate each original state owner with its subsystem |
+| Nine active historical v5 records | restored/runtime-validated | TASK/SCNE/EQPT/UID/FACE/HUD/PACK/SHUD/BODY | NANIM BODY motion coverage pending | maintain exact schema and add content-dependent regressions |
+| Staged/group active-scene persistence | restored/runtime-validated | serialized control system/stage/timers | none on tested CHAK Hugs path | retain as v5 regression baseline |
+| Player-involved active-scene persistence | statically restored | input, camera, package and collision fixup | base game may prohibit saving during real-player control | retain implementation; test only if a legitimate engine-supported save path exists |
+| Advanced scene persistence | statically restored | nested trees, managed face and editor state | nested-tree/managed-face/authoring content coverage pending | validate each original state owner with its subsystem |
 | Public C++ scene/NANIM API exports | statically restored | NANIM plus validated object lifetime | runtime consumer coverage absent | test every export with original plugin-consumer pattern |
 
 The four C++ helpers `PositionExists`, `GetPositionType`,
@@ -4411,10 +4415,7 @@ Every currently intentional behavior gate has one removal dependency:
 
 | Gate in current AE source | Upstream behavior suppressed | Removal dependency |
 | --- | --- | --- |
-| `OrderedActionQueue::kArbitraryCallbacksEnabled=false` | arbitrary ordered callbacks | callback producer/lifetime/thread audit |
-| `HighlightedObjectsContainer::kHighlightingEnabled=false` | hover shader feedback | AE effect lifetime and cleanup validation |
 | four omitted bindings in `Papyrus::RegisterFunctions` | managed-face public APIs | Phase C runtime restoration |
-| `Position::IsBasicSceneCompatible` nested-tree rejection | recursive position trees | recursive controller/fixup/serialization validation |
 | `RegisterProductionSceneMenu` instead of full `Menu::Register` | Studio menu registration | Phase D dependency completion |
 | removed `Creator` main-menu binding | Creator, Body Creator and Face Creator | Phase D dependency completion |
 | removed `Item Explorer` main-menu binding | Item Explorer | form/effect/UI audit |
@@ -4460,8 +4461,8 @@ content is unavailable; static restoration is never relabeled as unnecessary.
 ### Remaining serialization and runtime coverage
 
 - Ordinary two-actor active-scene persistence is runtime-validated.
-- Staged persistence must save during CHAK stage 2, reload the same stage/group
-  state, continue, and stop cleanly.
+- Staged/group NPC persistence is runtime-validated with CHAK Hugs: all nine v5
+  records restored, the staged controller resumed, and teardown completed.
 - Player-involved active save/load is not mandatory when Fallout 4 refuses to
   save while the real PlayerCharacter is AI-controlled and in free camera. The
   restoration implementation remains intact, but NAF will not bypass the engine
@@ -4470,8 +4471,10 @@ content is unavailable; static restoration is never relabeled as unnecessary.
   base-game-supported save path appears, it may be tested later.
 - `BODY` now actively reads/writes the exact historical v5 descriptor and
   reconstructs transient NANIM state after world readiness.
-- Nested-tree, managed-face, NANIM and authoring state become active only with
-  their restored owners; the v5 schema is not expanded or reordered.
+- Nested-tree state is now active through the recursively serialized controller
+  graph. Managed-face and authoring owners remain gated; NANIM/BODY remains
+  enabled while visible motion coverage awaits suitable content. The v5 schema
+  is not expanded or reordered.
 
 The parity ledger is updated by each restoration phase; artifact hashes are
 recorded in the corresponding implementation section below.
@@ -4480,8 +4483,10 @@ recorded in the corresponding implementation section below.
 
 ### Persistence test correction and promoted baseline
 
-Ordinary NPC and paired NPC active-scene save/load are runtime-validated. NPC
-staged/group persistence still requires the stage-2 CHAK save/reload test.
+Ordinary NPC, paired NPC, and staged/group NPC active-scene save/load are
+runtime-validated. CHAK Hugs restored all nine v5 records, reacquired both
+actors, resumed its staged controller and Hug01/Hug02 sequence, and stopped
+cleanly.
 Player-involved save/load is not a mandatory test if Fallout 4 disallows saving
 while NAF controls the real PlayerCharacter. The implementation remains present
 and fail-safe, but the port will not alter player-scene semantics or bypass the
@@ -4591,3 +4596,170 @@ no suitable moving NANIM sample was found locally beyond BasePose.
 Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
 Development DLL SHA-256:
 `64D9C7E9707E0245816539CF1B928926E62E8A3BFAF23B126FD2D8E3B39D9263`.
+
+## Full runtime action, transform, and recursive-tree restoration
+
+### Upstream-to-AE inventory and callback semantics
+
+A direct diff against clean NAF 1.0.14 found three Phase-B behavior gates, not
+a second hidden action framework: arbitrary `OrderedActionQueue` callbacks,
+hover highlighting, and the Active Scenes speed/position/inventory bindings.
+The remaining scene transform, synchronization, alignment, group transition,
+IK helper, equipment, morph, and position-mutation implementations were already
+the upstream production implementations with narrowly required AE API/math
+adaptations.
+
+The complete upstream ordered FIFO is:
+
+| Action | Representation/ownership | Execution and completion | Persistence/cancellation |
+| --- | --- | --- | --- |
+| frame delay | value-captured lambda | adds callback ticks to `delayCounter`; later updates decrement one tick at a time | transient; cleared on revert/reset |
+| custom callback | copied `std::function<bool()>` | runs inline on the serialized `NonRendersafeAI` worker callback; upstream ignores the bool and pops after one invocation | transient and intentionally not serialized; callable destruction occurs when popped/reset |
+| unequip slot | `NiPointer<Actor>` plus slot | snapshots the equipped base form and unequips once | equipment snapshot persists in `EQPT`; queued callable does not |
+| re-equip slot/all | `NiPointer<Actor>` plus optional slot | restores saved equipment once and prunes empty actor state | `EQPT` persists the rollback state |
+| add equipment | `NiPointer<Actor>` plus form | adds if missing, records ownership, equips, clears player HUD messages | added-form ownership persists in `EQPT` |
+| remove equipment | `NiPointer<Actor>` plus form | unequips and removes only NAF-added inventory | state pruned symmetrically |
+| apply morph set | `NiPointer<Actor>` plus copied `Morphs` | invokes the restored LooksMenu path once | morph definitions are stable data; callable is transient |
+
+`safe_mutex` is a recursive mutex. A callback can enqueue another action without
+deadlocking; because `Update()` preserves the upstream loop, a newly appended
+action may execute in the same callback tick unless a delay is inserted. Scene
+stop does not invent callback serialization. F4SE revert calls `Reset()`, which
+destroys all transient callables, resets the delay, and clears equipment state;
+save/load persists only the historical `EQPT` state. Upstream has no other
+`InsertCustom` producer, so restoring the queue helper is architectural parity,
+not evidence that an arbitrary unknown callback has been runtime-exercised.
+
+The execution context remains exactly historical: after verified engine
+`ProcessQueues`, the serialized worker job runs scene updates, then the ordered
+FIFO, then forced alignment. UI/Papyrus work must still use the task/event paths
+owned by those subsystems; unrestricted callbacks are not reclassified as
+universally thread-safe.
+
+### Transform, synchronization, alignment, and menu parity
+
+Runtime transforms retain upstream behavior: scene origin plus per-actor local
+offset and yaw, repeated world position/angle correction, collision suppression
+after movement, player 3D refresh, scale correction, and the shared
+`ForceAlignActor` queue used later by Studio. The corrected AE math preserves
+parent-space composition (`parent.rotate * child.rotate`, rotated/scaled child
+translation) and world-to-local inversion (transpose parent rotation, subtract
+translation, divide parent scale). Quaternion conversion/Slerp/intermediate
+helpers remain the previously audited compatibility implementation.
+
+Synchronization is complete for the upstream surface: scene setup waits for
+graph transition and idle loading, starts every actor assignment, reads graph
+time, applies the historical 10 ms player offset, moves all actors to the
+minimum valid time, detects loops, drives sequential or weighted group
+transitions, and exposes `SynchronizeAnimations` for an arbitrary validated
+actor array. NANIM continues through the same SmartIdle graph-time abstraction.
+No separate mixed-playback synchronizer exists upstream.
+
+The Active Scenes menu again exposes upstream speed mutation (1-500%), live
+position replacement, and actor inventory navigation. `SetPosition` retains
+the existing symmetrical controller transition: queue the new controller,
+invoke the old controller's `OnEnd`, apply old/new morph/equipment lifecycle,
+and begin the replacement after its predecessor completes. The already bound
+Papyrus transform, speed, position, IK-target and synchronization functions now
+have their full upstream non-Studio dependencies. Papyrus remains 41/45 only
+because the four managed-face bindings belong to Phase C.
+
+### Recursive position trees and persistence
+
+Upstream tree XML already permits a branch node to name any `Position`, while
+the original controller passed `excludeTrees=true` when creating node
+subsystems. The bounded AE port added a stronger start-time rejection. Phase B
+removes both restrictions and permits a tree-position leaf to construct another
+`PositionTreeControlSystem`.
+
+Nested controllers retain their immediate parent, delegate actor/scene work
+through `IControllable`, and report a completed nested leaf to the containing
+tree rather than ending the outer scene. Serialization remains the historical
+cereal controller graph: no new v5 field or record was added. World-ready
+fixup recursively rebinds each active child controller to its parent before
+playback resumes, preserving each tree's current node, queued subsystem,
+selection, timer-completion flags and auto-advance state.
+
+Maintenance hardening is deliberately narrow. Position validation and base-
+animation discovery track active tree IDs and fail closed on a self-reference
+or cycle; runtime `OnBegin` repeats the ancestor check before invoking a child.
+Missing positions/trees also fail scene construction. Valid acyclic nesting has
+no arbitrary depth limit; traversal is iterative within each XML tree and
+recursive only across explicit tree references. Real nested-tree content was
+not found locally, so runtime navigation and persistence remain content-test-
+required rather than being mislabeled runtime-validated.
+
+Sequential groups retain ordered stage/loop behavior. Non-sequential groups
+retain upstream weighted random selection. Tree manual next/previous/left/right,
+auto-advance timers, force-complete behavior, duration inheritance, HUD state,
+tree-to-group/direct/tree transitions, live scene position replacement, speed
+changes, and serialized controller state are all enabled. CHAK staged/group NPC
+persistence is runtime-validated; weighted and nested tree behavior remains
+content-test-required.
+
+### Highlighting recovery and reachable relocation audit
+
+Enabling the maintained highlighting replacement exposed two stale selectors
+that could not be left to runtime popup discovery:
+
+| Interface | Stale declaration | Verified supplied AE mapping | Evidence |
+| --- | --- | --- | --- |
+| `TESObjectREFR::ApplyEffectShader` | invariant OG ID `652173` | ID `2205201`, RVA `0x5E1E80` | Dear/Addictol convergence; exact supplied record; disassembly consumes reference/shader/time/facing/stack arguments and constructs/starts `ShaderReferenceEffect` |
+| `ProcessLists` singleton | two-runtime second ID `2688869` (1.10.984) | ID `4796160`, RVA `0x30DC140` | Dear three-runtime declaration; exact supplied record; maintained singleton storage type |
+
+Play uses the verified `ApplyEffectShader` entry. Stop uses maintained
+`ProcessLists::ForEachShaderEffect`, which locks the magic-effect array, selects
+the matching target handle and shader data, and marks the effect finished—the
+previously disassembly-verified semantics of the historical finish wrapper.
+`GetFullyLoaded3D` remains physical slot `0x8D`, directly neighboring the
+corrected `Get3D` slots. Highlighting is production-enabled but visual coverage
+for every hover owner remains runtime/content-test-required.
+
+`tools/audit_runtime_action_surface.py` verifies both exact AE records, the
+`ApplyEffectShader` entry bytes, CommonLib selectors, callback/reset ownership,
+recursive tree construction/cycle/fixup guards, restored Active Scenes entries,
+and highlighting composition. Existing group/tree, menu, scene-feature,
+scene-relocation, serialization, NANIM, graph, face, package, camera, HUD and
+Papyrus audits remain required. No additional stale ID, eager relocation, or
+virtual/layout defect was found on the newly reachable Phase-B paths.
+
+### Remaining central gates after Phase B
+
+The generic callback, nested-tree, and highlighting gates are eliminated. The
+central register now contains only:
+
+- four managed-face Papyrus bindings, pending Phase C;
+- Studio menu registration, pending the authoring phase;
+- Creator/Body Creator/Face Creator main-menu entry, pending authoring;
+- Item Explorer main-menu entry, pending authoring (its highlighting dependency
+  is now restored).
+
+NANIM playback, C API, scene integration and BODY restoration remain enabled;
+visible motion/BODY runtime coverage awaits a suitable moving NANIM resource or
+Studio/HKX conversion output and does not block subsequent parity work.
+
+The 57-row parity ledger now totals: 22 restored/runtime-validated, 12
+restored/content-test-required, 13 statically restored, 2 unresolved, and 8 not
+yet ported. Thus 47/57 feature families have production or static
+implementations; the remaining ten rows belong to managed-face/authoring or
+their still-unrestored workflows. Four central source/UI gates remain.
+
+Phase-B production regression plan:
+
+1. run solo and paired HKX scenes and stop normally;
+2. run staged CHAK Hugs, mutate speed and position through Active Scenes, open
+   actor inventory, then stop;
+3. save/reload staged NPC CHAK and require the established nine-record resume;
+4. exercise tree content if available, including nested content when found;
+5. hover actor/reference rows in restored menus and confirm shader application
+   and removal;
+6. verify cleanup, package/AI/collision/camera/input restoration and both end
+   events. No artificial NANIM asset is required.
+
+The recommended next phase is the complete managed-face API and runtime state,
+followed by full Studio/Creator/Item Explorer and remaining authoring/UI parity.
+
+All 18 subsystem audits pass, including the new 2-record/18-guard Phase-B
+audit. A clean Release x64/v143 rebuild links successfully with `COPY_BUILD=OFF`.
+Development DLL SHA-256:
+`3DF82F0552AD82BA84A4D16194ACDDD655C785928E04A85D0240E37F4D097082`.

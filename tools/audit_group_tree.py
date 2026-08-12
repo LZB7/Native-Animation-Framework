@@ -17,16 +17,18 @@ SOURCE_GUARDS = {
         "case kAnimationGroup:",
         "case kPositionTree:",
         "std::ranges::all_of(group->stages",
-        "position->posType == kPositionTree",
+		"Rejected cyclic position-tree reference",
     ),
     "f4se-plugin/src/Scene/ControlSystems.h": (
         "class AnimationGroupControlSystem",
         "class PositionTreeControlSystem",
         "TransitionToAnimation",
+		"GetControlSystem(p)",
+		"subSystem->OnSerializationLoad(this)",
         'RE::UIUtils::PlayMenuSound("UIMenuOK")',
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
-        "kArbitraryCallbacksEnabled = false",
+        "kArbitraryCallbacksEnabled = true",
     ),
 }
 

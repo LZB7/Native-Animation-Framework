@@ -51,7 +51,7 @@ SOURCE_GUARDS = {
         "REL::RelocationID(192840, 2202684)",
     ),
     "f4se-plugin/src/Menu/HighlightedObjectsContainer.h": (
-        "kHighlightingEnabled = false",
+        "kHighlightingEnabled = true",
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/MainMenuHandler.h": (
         '{ "New Scene", BindGoto(kNewScene) }',
@@ -96,12 +96,10 @@ def main() -> int:
             failures.append(f"menu surface retains stale selector {forbidden}")
 
     manage = (args.source_root / "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/ManageScenesHandler.h").read_text(errors="replace")
-    for forbidden_entry in ('"Change Position..."', '"Actor Inventories..."', '"Speed (%): "'):
-        # Functions remain compiled for later restoration; only the binding in
-        # the reachable active-scene menu must be absent.
+    for required_entry in ('"Change Position..."', '"Actor Inventories..."', '"Speed (%): "'):
         active_block = manage[manage.index("case kManageScene:"):manage.index("case kManageWalkInstance:")]
-        if forbidden_entry in active_block:
-            failures.append(f"active-scene menu exposes gated entry {forbidden_entry}")
+        if required_entry not in active_block:
+            failures.append(f"active-scene menu is missing restored entry {required_entry}")
 
     if failures:
         for failure in failures:

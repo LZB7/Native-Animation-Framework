@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail if a known NAF 1.0.14 preservation gate disappears from the parity ledger."""
+"""Audit the central NAF 1.0.14 preservation ledger and remaining gates."""
 
 from pathlib import Path
 
@@ -22,9 +22,9 @@ def main() -> None:
     serialization = (ROOT / "f4se-plugin/src/Serialization/Serialization.h").read_text(encoding="utf-8")
 
     require(porting, "## Full NAF 1.0.14 -> NAF AE parity matrix", "parity ledger")
-    require(queue, "kArbitraryCallbacksEnabled = false", "ordered callback gate")
-    require(highlight, "kHighlightingEnabled = false", "highlight gate")
-    require(position, "position->posType == kPositionTree", "nested-tree gate")
+    require(queue, "kArbitraryCallbacksEnabled = true", "restored ordered callbacks")
+    require(highlight, "kHighlightingEnabled = true", "restored highlighting")
+    require(position, "Rejected cyclic position-tree reference", "nested-tree cycle guard")
     require(serialization, "case 'SHUD':", "eighth active v5 record")
     require(serialization, "case 'BODY':", "active BODY v5 restoration")
 
@@ -42,8 +42,8 @@ def main() -> None:
         raise SystemExit("FAIL: update the parity ledger for newly restored main-menu entries")
 
     print(
-        "PASS: full-parity ledger tracks remaining explicit AE gates, 4 remaining upstream "
-        "Papyrus bindings, and active BODY v5 restoration"
+        "PASS: full-parity ledger tracks restored Phase-B runtime surfaces, 4 remaining upstream "
+        "managed-face Papyrus bindings, and active BODY v5 restoration"
     )
 
 

@@ -30,7 +30,7 @@ SOURCE_GUARDS = {
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
         "kEquipmentActionsEnabled = true",
         "kMorphActionsEnabled = true",
-        "kArbitraryCallbacksEnabled = false",
+        "kArbitraryCallbacksEnabled = true",
         "ActorEquipManager::GetSingleton()->EquipObject",
         "ActorEquipManager::GetSingleton()->UnequipObject",
     ),

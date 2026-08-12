@@ -63,7 +63,7 @@ SOURCE_GUARDS = {
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
         "kEquipmentActionsEnabled = true",
         "kMorphActionsEnabled = true",
-        "kArbitraryCallbacksEnabled = false",
+        "kArbitraryCallbacksEnabled = true",
     ),
     "f4se-plugin/src/Scene/SceneManager.h": ("IsBasicSceneCompatible()",),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESForms.h": (
