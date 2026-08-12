@@ -91,7 +91,7 @@ removed.
 | `HUDManager.h` | 1317216, 1385889+0xA8 | Unresolved; function and call site require matching |
 | `EvalHook.h` | 1395257→2229805, 609985 | EvaluatePackage disassembly-verified; CheckForNewPackage unresolved |
 | `CamHook.h` | 541110 | Unresolved; detour entry point requires matching |
-| Other custom RE wrappers | 69733, 652173, 356321, 1105206, 1225688, 1286348, 992878 | Unresolved; legacy IDs absent |
+| Other custom RE wrappers | 69733, 356321, 1225688, 1286348, 992878 | Unresolved; legacy IDs absent (`1105206`/OpenContainerMenu and `652173`/ApplyEffectShader are resolved below) |
 | Studio settings/globals | 1302430, 644641 | Unresolved; global type and location require matching |
 
 `tools/match_runtime.py` now performs PE-unwind-bounded candidate searches using
@@ -4763,3 +4763,56 @@ All 18 subsystem audits pass, including the new 2-record/18-guard Phase-B
 audit. A clean Release x64/v143 rebuild links successfully with `COPY_BUILD=OFF`.
 Development DLL SHA-256:
 `3DF82F0552AD82BA84A4D16194ACDDD655C785928E04A85D0240E37F4D097082`.
+
+## Active Scenes inventory stale-ID closure
+
+The first production exercise of the restored Actor Inventories entry failed
+closed on Address Library ID `1105206`. The exact owner is NAF's local
+`RE::OpenContainerMenu` wrapper in `src/RE/ContainerMenu.h`, reached by:
+
+`Active Scenes -> Actor Inventories -> actor selection -> ShowActorInventory -> OpenContainerMenu`.
+
+ID `1105206` is an OG 1.10.163 record (RVA `0x1264F40`) that had been declared
+runtime-invariant. It is not a 1.11.221 record. The mapped historical function
+constructs `OpenContainerMenuEventData`, consumes `(TESObjectREFR*, int, bool)`,
+normalizes the menu mode when required, lazily obtains its event source, and
+dispatches the event. Focused comparison located the equivalent 1.11.221 entry
+at supplied-database ID `2248608`, RVA `0x103E1B0`. The AE implementation has
+the same three-argument ABI, form/container validation, menu-mode normalization,
+lazy event-source initialization and dispatch behavior. The wrapper now uses
+`REL::RelocationID(1105206, 2248608)`; no signature, calling-convention, layout,
+or ownership adaptation was required.
+
+NAF does not enumerate or mutate individual inventory rows after this call.
+The vanilla `ContainerMenu` owns item enumeration, names/metadata, selection,
+equip/unequip actions and list refresh. NAF temporarily adds the established
+`ShowWornItems` keyword when necessary, closes NAFMenu, dispatches the verified
+open event, observes `MenuOpenCloseEvent`, removes its temporary keyword on
+close, and reopens the prior Active Scenes submenu through the F4SE task/UI
+queue. Bounded development logs now identify actor resolution, handoff to the
+engine-owned inventory UI, event-dispatch return, menu open/close, temporary
+keyword cleanup, and fail-closed handle expiry. They deliberately do not claim
+to instrument engine-owned item selection internals.
+
+`tools/audit_inventory_controls.py` provides a dedicated reachable-path audit.
+It validates 12 exact supplied AE records spanning the container dispatcher,
+UI/menu queue, equipment manager, inventory helpers and highlighting; validates
+the known `OpenContainerMenu` entry bytes at the exact RVA; rejects the stale
+invariant selector; and guards the Active Scenes bindings, keyword/menu-mode
+composition, event handoff, cleanup logging and highlighting path. The existing
+menu audit now also requires this mapping. A bounded sweep of speed mutation,
+position replacement, group/tree navigation, inventory navigation, scene
+equipment helpers and highlighting found no additional stale selector, eager
+global, virtual-order defect or ABI mismatch on the presently reachable path.
+
+All 19 subsystem audits pass (the established 18 plus the inventory audit).
+A clean Release x64/v143 rebuild links with zero errors and `COPY_BUILD=OFF`.
+Development DLL SHA-256:
+`71EE134316098F51BA427B4E43AF52B089E8170F7FFDA2F5F546F8977CAF66C7`.
+
+The Phase-B implementation gap is closed statically. Production runtime
+validation should repeat Actor Inventories on a live scene, select/equip or
+unequip an item through the vanilla menu, close it, and confirm NAFMenu returns
+to the same scene with correct equipment state. No further Phase-B code gate is
+known; successful runtime confirmation permits transition to Phase C, the full
+managed-face API and runtime state.
