@@ -5124,3 +5124,98 @@ No deployment or live-game modification was performed by this build stage.
 Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
 Phase-D development DLL SHA-256:
 `AAD3EDFB5140458C1691EA2989D27403D2758FD7E958E581F391225B588DC5B9`.
+
+### Phase-D production follow-up: Item Explorer and LookAt Cam
+
+The first production authoring workflow reached Item Explorer successfully but
+failed closed only after selecting an armor form, on missing exact ID `1095748`.
+The owner is selected CommonLibF4's `RE::BGSObjectInstance` constructor in
+`TESObjectREFRs.h`, not form enumeration or menu construction. The precise path
+is:
+
+```text
+NAF Menu -> Item Explorer
+  -> TESDataHandler armor enumeration
+  -> plugin/form list and selection
+  -> OrderedActionQueue::AddEquipment/RemoveEquipment
+  -> DoEquip/DoUnequip
+  -> BGSObjectInstance(TESForm*, TBO_InstanceData*)
+  -> stale invariant ID 1095748
+```
+
+ID `1095748` is the OG 1.10.163 constructor at RVA `0x2F7B50`; it is absent from
+the supplied 1.11.221 database. Dear CommonLib/Addictol independently identify
+AE ID `2197563`, and that exact supplied-database record resolves to RVA
+`0x436830`. The clean AE body takes `this`/form/instance-data in RCX/RDX/R8,
+writes the two `BGSObjectInstance` fields, retains non-null instance data, and
+derives/retains the form's default instance data when the caller supplies null.
+That establishes the historical signature, layout and intrusive-pointer
+ownership semantics. CommonLib now selects
+`REL::RelocationID(1095748, 2197563)`; this is another OG-invariant declaration,
+not a 1.10.984-as-AE pair.
+
+The full reachable Item Explorer sweep covers eleven exact AE records: data and
+player singletons, `TESForm::GetFile` (`2193103`, RVA `0x3120B0`), the new
+object-instance constructor, inventory count/add, equip-manager singleton and
+equip/unequip operations, and UI message queue access. Form-array access,
+`TESRaceForm::GetFormRace`, and `TESFile::GetFilename` are direct layout reads.
+Selected and Dear declarations independently agree on `TESForm::GetPlayable`
+at physical slot `0x1D` and `GetFilledSlots` at slot `0x47`; display-name access
+uses the established `TESFullName` component. Removal uses the existing
+`TESObjectREFR::RemoveItem` virtual surface. No additional stale ID, virtual
+order defect or layout discrepancy was found on this path.
+
+Bounded production logs now record Explorer open, enumeration start/result,
+plugin/form list population, plugin selection, selected form/action, ordered
+equip/remove submission, and close. Fileless dynamic forms and unnamed-form
+hardening remain intact. Upstream Item Explorer does **not** provide a hover
+callback or world-reference preview: its rows are armor forms, not references.
+Accordingly it cannot apply the scene/reference highlight shader merely by
+hovering a row; adding that behavior would not preserve upstream semantics.
+
+The LookAt Cam source audit compared the complete upstream and AE hook bodies.
+Apart from the already-verified `FreeCameraState` ABI adaptation and detour
+guard, their behavior is identical:
+
+- the scene passes the real player's current 3D root;
+- the default target is exactly skeleton node `HEAD` (user alternatives are
+  `Chest` and `COM`);
+- the target uses the node's world translation;
+- every free-camera update calls the engine original first, preserving ordinary
+  camera input, then computes yaw/pitch from the camera root's current local
+  translation to the target world position;
+- the hook overwrites rotation continuously but does not move the camera toward
+  the target, change distance, recenter framing, or follow the actor root;
+- Q/E retain the original one-unit vertical adjustment;
+- no upstream code hides/shows the player, changes near-clip distance, adds a
+  collision/safety offset, or prevents the camera intersecting the actor.
+
+Thus the apparent translation "lock" is upstream's static-pivot behavior in the
+sense that enabling LookAt never attaches camera translation to the actor. It
+does not explicitly suppress manual free-camera translation: the original
+engine update still executes first. A player leaving the frame as the animated
+target moves is therefore possible, and an extremely close camera may also
+produce vanilla near-plane/interior-model culling. The current evidence rules
+out an NAF hide-player transition, but the reported run alone cannot distinguish
+out-of-frame orientation from near-camera clipping or prove that AE's resulting
+rotation was visually applied.
+
+To close that distinction without redesigning the feature, bounded diagnostics
+now log target lookup and LookAt updates 1, 2, 3 and 10: actor-root world
+position, `HEAD` world position, camera position, direction vector, distance,
+yaw and pitch. Lookup failure logs and disables the operation; there is no root
+fallback. Studio's external-orbit target remains a separate selected-gizmo path
+and is not conflated with ordinary-scene LookAt. No camera transform or behavior
+was changed in this follow-up.
+
+Recommended retest:
+
+1. browse several Item Explorer plugin/form lists, select/equip and remove an
+   item, close, and verify NAFMenu restoration;
+2. regress Active Scenes inventory and an ordinary scene;
+3. in a player scene, place free camera several feet away, enable LookAt, allow
+   target motion, disable it, then repeat from very close range;
+4. compare the bounded camera/HEAD/direction logs to the view. Changing yaw or
+   pitch with a valid direction proves target computation; a distant player
+   still outside the view would then identify a camera-matrix/application issue,
+   while only close-range disappearance supports vanilla clipping.

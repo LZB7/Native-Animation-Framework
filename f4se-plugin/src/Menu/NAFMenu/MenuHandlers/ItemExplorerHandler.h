@@ -23,8 +23,10 @@ namespace Menu::NAF
 		ItemExplorerHandler(IStateManager* _stateInstance) :
 			BindableMenu(_stateInstance)
 		{
+			logger::info("Item Explorer opened; starting playable armor enumeration");
 			auto playerRace = player->race;
 			auto& list = RE::TESDataHandler::GetSingleton()->GetFormArray<RE::TESObjectARMO>();
+			std::size_t acceptedForms = 0;
 			for (auto& armo : list) {
 				if (armo->GetPlayable(nullptr) && armo->GetFormRace() == playerRace) {
 					const auto file = armo->GetFile();
@@ -32,6 +34,7 @@ namespace Menu::NAF
 						const auto filename = file->GetFilename();
 						if (!filename.empty()) {
 							formMap[std::string{ filename }].push_back(armo);
+							++acceptedForms;
 						}
 					}
 				}
@@ -44,9 +47,14 @@ namespace Menu::NAF
 			}
 
 			SetSearchWidgetEnabled();
+			logger::info("Item Explorer source enumeration complete: source forms={}, accepted forms={}, plugins={}",
+				list.size(), acceptedForms, formMap.size());
 		}
 
-		virtual ~ItemExplorerHandler() {}
+		virtual ~ItemExplorerHandler()
+		{
+			logger::info("Item Explorer closed");
+		}
 
 		virtual BindingsVector GetBindings() override
 		{
@@ -78,6 +86,8 @@ namespace Menu::NAF
 			}
 
 			std::sort(result.begin(), result.end(), [](const BindingInfo& b1, const BindingInfo& b2) { return b1.text < b2.text; });
+			logger::info("Item Explorer list populated: stage={}, entries={}",
+				currentStage == kPlugins ? "plugins" : "forms", result.size());
 
 			return result;
 		}
@@ -94,6 +104,7 @@ namespace Menu::NAF
 
 		void SelectPlugin(const std::string& name, int)
 		{
+			logger::info("Item Explorer plugin selected: {}", name);
 			selectedPlugin = name;
 			currentStage = kForms;
 			manager->RefreshList(true);
@@ -101,6 +112,8 @@ namespace Menu::NAF
 
 		void SelectForm(RE::TESObjectARMO* frm, int)
 		{
+			logger::info("Item Explorer form selected: form=0x{:08X}, name='{}', action={}",
+				frm->GetFormID(), frm->GetFullName(), selectedItems.contains(frm) ? "remove" : "equip");
 			if (selectedItems.contains(frm)) {
 				DoUnSelect(frm);
 			} else {
@@ -116,11 +129,13 @@ namespace Menu::NAF
 		}
 
 		void DoSelect(RE::TESObjectARMO* frm) {
+			logger::info("Item Explorer invoking ordered equip action: form=0x{:08X}", frm->GetFormID());
 			Scene::OrderedActionQueue::AddEquipment(player, frm);
 			selectedItems.insert(frm);
 		}
 
 		void DoUnSelect(RE::TESObjectARMO* frm) {
+			logger::info("Item Explorer invoking ordered remove action: form=0x{:08X}", frm->GetFormID());
 			Scene::OrderedActionQueue::RemoveEquipment(player, frm);
 			selectedItems.erase(frm);
 		}

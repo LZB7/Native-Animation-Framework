@@ -58,6 +58,7 @@ namespace CamHook
 		DetourXS updateHook;
 		std::atomic<uint16_t> pendingInput = 0;
 		std::atomic_bool loggedProductionUpdate = false;
+		std::atomic_uint32_t lookAtDiagnosticCount = 0;
 
 		bool active = false;
 		RE::NiPointer<RE::NiAVObject> lookAtBase;
@@ -69,9 +70,15 @@ namespace CamHook
 				auto n = lookAtBase->GetObjectByName(Data::Settings::Values.sLookAtCamTarget.get());
 				if (n != nullptr) {
 					lookAtNode = RE::NiPointer<RE::NiAVObject>(n);
+					logger::info("LookAt Cam resolved target node '{}': base={}, node={}, baseWorld=({:.2f}, {:.2f}, {:.2f}), targetWorld=({:.2f}, {:.2f}, {:.2f})",
+						Data::Settings::Values.sLookAtCamTarget.get(), fmt::ptr(lookAtBase.get()), fmt::ptr(lookAtNode.get()),
+						lookAtBase->world.translate.x, lookAtBase->world.translate.y, lookAtBase->world.translate.z,
+						lookAtNode->world.translate.x, lookAtNode->world.translate.y, lookAtNode->world.translate.z);
 					return true;
 				}
 			}
+			logger::warn("LookAt Cam could not resolve target node '{}' from base={}",
+				Data::Settings::Values.sLookAtCamTarget.get(), fmt::ptr(lookAtBase.get()));
 			return false;
 		}
 
@@ -160,7 +167,7 @@ namespace CamHook
 					}
 				}
 
-				if (active && Data::Settings::Values.bUseLookAtCam) {
+				if (active && Data::Settings::Values.bUseLookAtCam && lookAtNode) {
 					doUpdate = true;
 
 					//We have to update both the free camera's numbers and the cam node's numbers to avoid input lag.
@@ -180,6 +187,20 @@ namespace CamHook
 					s->rotation.y = r.x;
 
 					camNode->local.rotate.FromEulerAnglesZXY(r.x, r.y, 0.0f);
+
+					const auto diagnosticCount = ++lookAtDiagnosticCount;
+					if (diagnosticCount <= 3 || diagnosticCount == 10) {
+						const auto direction = lookAtNode->world.translate - camNode->local.translate;
+						const auto distance = std::sqrt(
+							(direction.x * direction.x) + (direction.y * direction.y) + (direction.z * direction.z));
+						logger::info(
+							"LookAt Cam update #{}: camera=({:.2f}, {:.2f}, {:.2f}), actorRoot=({:.2f}, {:.2f}, {:.2f}), target=({:.2f}, {:.2f}, {:.2f}), direction=({:.2f}, {:.2f}, {:.2f}), distance={:.2f}, yaw={:.4f}, pitch={:.4f}",
+							diagnosticCount,
+							camNode->local.translate.x, camNode->local.translate.y, camNode->local.translate.z,
+							lookAtBase->world.translate.x, lookAtBase->world.translate.y, lookAtBase->world.translate.z,
+							lookAtNode->world.translate.x, lookAtNode->world.translate.y, lookAtNode->world.translate.z,
+							direction.x, direction.y, direction.z, distance, r.x, r.y);
+					}
 				}
 
 				if (doUpdate) {
@@ -251,6 +272,7 @@ namespace CamHook
 		}
 
 		std::unique_lock l{ detail::lock };
+		detail::lookAtDiagnosticCount = 0;
 		detail::lookAtBase = RE::NiPointer<RE::NiAVObject>(a_lookAtBase);
 		if (detail::UpdateLookAtNode()) {
 			SetActive(true);
