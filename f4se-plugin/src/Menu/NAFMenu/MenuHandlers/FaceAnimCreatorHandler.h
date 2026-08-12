@@ -168,7 +168,9 @@ namespace Menu::NAF
 			BindableMenu::InitSubmenu();
 			manager->SetMenuTitle("Face Animator");
 			currentStage = kMain;
-			UpdatePreviewTarget(RE::PlayerCharacter::GetSingleton()->As<RE::Actor>());
+			auto playerCharacter = RE::PlayerCharacter::GetSingleton();
+			logger::info("Face Creator opened; initializing default player preview target={}", fmt::ptr(playerCharacter));
+			UpdatePreviewTarget(playerCharacter ? playerCharacter->As<RE::Actor>() : nullptr);
 		}
 
 		void RefreshPanel() {
@@ -365,6 +367,9 @@ namespace Menu::NAF
 		}
 
 		void UpdatePreviewTarget(RE::Actor* newTarget) {
+			auto previousTarget = previewTarget->has_value() ? previewTarget->value().get().get() : nullptr;
+			logger::info("Face Creator preview target change: previous={}, requested={}",
+				fmt::ptr(previousTarget), fmt::ptr(newTarget));
 			if (previewTarget->has_value()) {
 				FaceAnimation::FaceUpdateHook::StopAnimation(previewTarget->value(), true);
 			}
@@ -378,6 +383,7 @@ namespace Menu::NAF
 			inst->data.duration = 2.0;
 			FaceAnimation::FaceUpdateHook::StartAnimation(previewTarget->value(), std::move(inst), "", true);
 			PushChangesToPreview();
+			logger::info("Face Creator preview initialized: actor={}, durationFrames={}", fmt::ptr(newTarget), data->animData.duration);
 		}
 
 		double GetTimeOfCurrentFrame()

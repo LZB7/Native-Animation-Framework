@@ -130,7 +130,7 @@ namespace CamHook
 				logger::info("Production FreeCameraState::Update interception observed: state={}, camera={}, nextState={}",
 					fmt::ptr(s), fmt::ptr(s ? s->camera : nullptr), fmt::ptr(a_nextState.get()));
 			}
-			bool doUpdate = false;
+			bool updateCameraRoot = false;
 
 			std::unique_lock l{ lock };
 			if (s->camera && s->camera->cameraRoot) {
@@ -138,7 +138,7 @@ namespace CamHook
 
 				if (useExternalInput) {
 					if (leftRightInput != 0.0f || forwardBackInput != 0.0f || upDownInput != 0.0f) {
-						doUpdate = true;
+						updateCameraRoot = true;
 						auto& mat = camNode->local.rotate;
 
 						RE::NiPoint3 up = { mat.entry[2][0], mat.entry[2][1], mat.entry[2][2] };
@@ -160,7 +160,7 @@ namespace CamHook
 					}
 
 					if (turnRightLeftInput != 0.0f || turnUpDownInput != 0.0f) {
-						doUpdate = true;
+						updateCameraRoot = true;
 						s->rotation.x += MathUtil::DegreeToRadian(turnUpDownInput * 0.5f);
 						s->rotation.y += MathUtil::DegreeToRadian(turnRightLeftInput * 0.5f);
 						camNode->local.rotate.FromEulerAnglesZXY(s->rotation.y, s->rotation.x, 0.0f);
@@ -168,42 +168,54 @@ namespace CamHook
 				}
 
 				if (active && Data::Settings::Values.bUseLookAtCam && lookAtNode) {
-					doUpdate = true;
-
-					//We have to update both the free camera's numbers and the cam node's numbers to avoid input lag.
+					// AE FreeCameraState::Update consumes the authoritative state fields and applies
+					// them to a separately resolved render-camera object.  The historical cameraRoot
+					// write targeted the render node on 1.10.163, but corrupts the wrong hierarchy
+					// layer on 1.11.221.  Preserve normal free-camera translation and update only
+					// the state consumed by the next vanilla update.
 					switch (pendingInput) {
 					case 1:
 						s->translation.z += 1.0f;
-						camNode->local.translate.z += 1.0f;
 						break;
 					case 2:
 						s->translation.z -= 1.0f;
-						camNode->local.translate.z -= 1.0f;
 						break;
 					}
 
-					auto r = MathUtil::GetLookAtRotation(camNode->local.translate, lookAtNode->world.translate);
+					auto r = MathUtil::GetLookAtRotation(s->translation, lookAtNode->world.translate);
 					s->rotation.x = r.y;
 					s->rotation.y = r.x;
 
-					camNode->local.rotate.FromEulerAnglesZXY(r.x, r.y, 0.0f);
-
 					const auto diagnosticCount = ++lookAtDiagnosticCount;
 					if (diagnosticCount <= 3 || diagnosticCount == 10) {
-						const auto direction = lookAtNode->world.translate - camNode->local.translate;
+						const auto direction = lookAtNode->world.translate - s->translation;
 						const auto distance = std::sqrt(
 							(direction.x * direction.x) + (direction.y * direction.y) + (direction.z * direction.z));
+						auto desiredDirection = direction;
+						if (distance > 0.0f) {
+							desiredDirection /= distance;
+						}
+						RE::NiMatrix3 stateRotation;
+						stateRotation.FromEulerAnglesZXY(s->rotation.y, s->rotation.x, 0.0f);
+						const RE::NiPoint3 stateForward{
+							stateRotation.entry[1][0], stateRotation.entry[1][1], stateRotation.entry[1][2]
+						};
+						const auto forwardDot = stateForward.Dot(desiredDirection);
 						logger::info(
-							"LookAt Cam update #{}: camera=({:.2f}, {:.2f}, {:.2f}), actorRoot=({:.2f}, {:.2f}, {:.2f}), target=({:.2f}, {:.2f}, {:.2f}), direction=({:.2f}, {:.2f}, {:.2f}), distance={:.2f}, yaw={:.4f}, pitch={:.4f}",
+							"LookAt Cam update #{}: stateCamera=({:.2f}, {:.2f}, {:.2f}), cameraRootLocal=({:.2f}, {:.2f}, {:.2f}), cameraRootWorld=({:.2f}, {:.2f}, {:.2f}), actorRoot=({:.2f}, {:.2f}, {:.2f}), target=({:.2f}, {:.2f}, {:.2f}), desired=({:.4f}, {:.4f}, {:.4f}), stateForward=({:.4f}, {:.4f}, {:.4f}), dot={:.5f}, distance={:.2f}, yaw={:.4f}, pitch={:.4f}",
 							diagnosticCount,
+							s->translation.x, s->translation.y, s->translation.z,
 							camNode->local.translate.x, camNode->local.translate.y, camNode->local.translate.z,
+							camNode->world.translate.x, camNode->world.translate.y, camNode->world.translate.z,
 							lookAtBase->world.translate.x, lookAtBase->world.translate.y, lookAtBase->world.translate.z,
 							lookAtNode->world.translate.x, lookAtNode->world.translate.y, lookAtNode->world.translate.z,
-							direction.x, direction.y, direction.z, distance, r.x, r.y);
+							desiredDirection.x, desiredDirection.y, desiredDirection.z,
+							stateForward.x, stateForward.y, stateForward.z,
+							forwardDot, distance, r.x, r.y);
 					}
 				}
 
-				if (doUpdate) {
+				if (updateCameraRoot) {
 					RE::NiUpdateData d;
 					camNode->Update(d);
 				}

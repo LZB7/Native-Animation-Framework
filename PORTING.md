@@ -5219,3 +5219,93 @@ Recommended retest:
    pitch with a valid direction proves target computation; a distant player
    still outside the view would then identify a camera-matrix/application issue,
    while only close-range disappearance supports vanilla clipping.
+
+### Phase-D production follow-up: Face Creator and AE LookAt application
+
+The next production run closed the Item Explorer issue but failed exact lookup
+on ID `1306546` after entering Face Animator.  The ID belongs to
+`TESNPC::GetAlternateHeadPartListMap`, declared in selected CommonLib's
+`TESBoundAnimObjects.h`.  Face Animator initializes a default player preview in
+`InitSubmenu`; `FaceUpdateHook::StartAnimation` binds the managed face, and its
+eye-geometry acquisition calls `GameUtil::GetEyeGeometry` ->
+`TESNPC::GetHeadParts(true)`.  For a player using an alternate head-part list,
+that reaches the global map before the first editor interaction.  This is the
+exact failing stage: Face Animator preview/eye-data initialization, not Creator
+project or filesystem creation.
+
+`1306546` is the 1.10.163 Address Library anchor (old RVA `0x38B0EC`) and had
+incorrectly been treated as invariant.  Dear CommonLib and Addictol identify
+the same map as `1306546/2662368`; importantly, ID `2662368` exists exactly in
+the supplied 1.11.221 database at RVA `0x2EFE278`.  CommonLib intentionally
+applies `-0x8`, yielding the map object at `0x2EFE270`.  Six clean-AE RIP-relative
+xrefs at RVAs `0x65EBF8`, `0x65ECA4`, `0x65ED6E`, `0x65EED8`, `0x66181A`, and
+`0x661893` reference the anchor, corroborating its live global identity.  The
+declaration is now `REL::RelocationID(1306546, 2662368)` with the historical
+`-0x8` layout adaptation preserved.  This was an OG-only invariant error, not a
+1.10.984-as-AE collapse.
+
+The expanded Face Creator audit checks five exact records: the alternate
+head-part map, verified player singleton, and the three production face-update
+entries.  It also checks twenty source/ABI/lifecycle guards spanning project
+entry, default preview binding, eye geometry, timeline controls, runtime preview
+and XML output.  A dormant-source literal sweep across Face Creator, Creator,
+Studio, face/body animation and shared `GameUtil` found zero additional missing
+AE selectors.  Bounded logs now identify Face Animator entry, preview-target
+replacement and preview initialization.
+
+The same run disproved the earlier conclusion that LookAt was runtime-faithful:
+node lookup and the vector-to-angle calculation succeeded, but the resulting
+view pointed away and the player disappeared.  The historical formula remains:
+
+```
+direction = targetWorld - cameraPosition
+yaw       = atan2(direction.x, direction.y)
+pitch     = -atan2(direction.z, horizontalDistance)
+state.pitch = pitch
+state.yaw   = yaw
+rotation.FromEulerAnglesZXY(yaw, pitch, 0)
+```
+
+The 1.11.221 layout is still correct: translation is `+0x28`, absolute pitch is
+`+0x34`, and absolute yaw is `+0x38`.  `FreeCameraState::Update` modifies these
+as accumulated absolute angles, `GetRotation` loads `+0x38` as Z/yaw and
+`+0x34` as X/pitch, and calls AE `FromEulerAnglesZXY` ID `2269825`.  The
+historical and AE matrix routines have the same sign/order convention.  Hook
+timing also remains post-original, matching upstream.
+
+The AE-specific defect was the second, immediate transform write.  On 1.10.163
+upstream wrote both state angles and `TESCamera::cameraRoot` to avoid one-frame
+input lag.  Clean 1.11.221 disassembly shows that vanilla Update instead obtains
+a separate render-camera object through ID `2214738`, converts the state
+quaternion via ID `2195654`, and writes that object's matrix/translation.  The
+port was rotating and recursively updating `cameraRoot` as though it were still
+the render target.  That wrong hierarchy-layer mutation accounts for the
+orientation/culling symptom; enabling LookAt performs no explicit player hide,
+camera-target assignment, fade or geometry-flag change.
+
+The compatibility adaptation now writes only authoritative
+`FreeCameraState::rotation` (and the original Q/E state translation adjustment).
+The next vanilla update applies it to the correct AE render-camera object.
+Ordinary free-camera translation remains processed by the original update and
+is neither disabled nor recentered; LookAt continuously changes orientation
+only.  The historical Euler formula and HEAD/Chest/COM targets are unchanged.
+
+Bounded updates 1, 2, 3 and 10 now record authoritative state translation,
+camera-root local/world translations, normalized desired direction, the forward
+vector reconstructed from the state Euler angles, and their dot product.  A
+value approaching `+1` verifies angle construction; runtime visual tracking is
+still required to verify AE application and HEAD/Chest/COM switching.  The
+LookAt audit now rejects reintroduction of the historical direct camera-root
+write.
+
+Production retest:
+
+1. enter Creator -> project -> new face animation -> Face Animator; select an
+   actor, edit a minimal key, preview, save, close and reopen;
+2. start a player solo scene in an open area and position free camera in front
+   and to one side;
+3. enable HEAD and require the player to remain visible and the bounded dot to
+   approach `+1`; switch Chest, COM and HEAD and observe the expected descending
+   pitch targets;
+4. move while LookAt remains active, then disable it and verify ordinary free
+   camera and scene cleanup.

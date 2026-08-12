@@ -7,7 +7,10 @@ raise SystemExit(audit("LookAt Cam", {
         '"LookAt Cam Target"', '"HEAD", "Chest", "COM"'),
     "f4se-plugin/src/CamHook/CamHook.h": (
         "lookAtBase->GetObjectByName", "lookAtNode->world.translate",
-        "GetLookAtRotation(camNode->local.translate", "OriginalUpdate(s, a_nextState)",
+        "GetLookAtRotation(s->translation", "OriginalUpdate(s, a_nextState)",
         "s->translation.z += 1.0f", "s->translation.z -= 1.0f",
-        "diagnosticCount <= 3", "actorRoot=", "direction=", "distance="),
-}))
+        "stateRotation.FromEulerAnglesZXY", "stateForward.Dot(desiredDirection)",
+        "diagnosticCount <= 3", "cameraRootWorld=", "desired=", "stateForward=", "dot=", "distance="),
+}, forbidden=(
+    "camNode->local.rotate.FromEulerAnglesZXY(r.x, r.y, 0.0f);",
+)))
