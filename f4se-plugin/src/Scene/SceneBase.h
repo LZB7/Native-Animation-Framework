@@ -717,6 +717,53 @@ namespace Scene
 			});
 		}
 
+		virtual bool ResumeAfterSerialization() override
+		{
+			if (status == SceneState::PendingDeletion || actors.empty() || !controlSystem) {
+				return false;
+			}
+
+			bool valid = true;
+			for (const auto& actor : actors) {
+				auto resolved = actor.first.get();
+				valid = valid && resolved && resolved->parentCell && resolved->parentCell->loadedData;
+			}
+			if (!valid) {
+				return false;
+			}
+
+			logger::info("Scene {} persistence fixup: restoring {} actor(s), control system '{}'", uid, actors.size(), controlSystem->QSystemID());
+			ForEachActor([&](RE::Actor* currentActor, ActorPropertyMap&) {
+				SceneManager::SetActorInScene(currentActor, true);
+				RE::BGSAnimationSystemUtils::InitializeActorInstant(*currentActor, false);
+				currentActor->SetGraphVariableBool("bHumanoidFootIKDisable", true);
+				EngineCompat::DisableCollision(currentActor);
+				EngineCompat::SetNoCollision(currentActor, true);
+
+				if (currentActor == player) {
+					CamHook::LookAt(player->Get3D());
+					GameUtil::SetFlyCam(true);
+					EngineCompat::SetAIControlled(player, true);
+					EngineCompat::DisableInputForPlayer(player, "NAF_Scene", GetInputsToDisableForPlayerFreeCameraScene());
+				} else {
+					EngineCompat::ModifyKeyword(currentActor, Data::Forms::BlockActivationKW, true);
+					EngineCompat::SetRestrained(currentActor, true);
+					if (currentActor->currentProcess) {
+						currentActor->currentProcess->ignoringCombat = true;
+					}
+					PackageOverride::Set(currentActor->GetActorHandle(), Data::Forms::NAFLockPackage, true);
+				}
+			}, false);
+
+			// Preserve the serialized group stage/tree node and timers. Re-request
+			// only the current actor assignments instead of calling OnBegin.
+			controlSystem->OnSerializationLoad(this);
+			PlayAnimations();
+			noUpdate = false;
+			logger::info("Scene {} persistence fixup completed", uid);
+			return true;
+		}
+
 		template <class Archive>
 		void serialize(Archive& ar, const uint32_t)
 		{

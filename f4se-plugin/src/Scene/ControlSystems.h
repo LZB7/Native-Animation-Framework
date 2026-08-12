@@ -361,6 +361,19 @@ namespace Scene
 				subSystem->OnAnimationLoop(this);
 		}
 
+		virtual void OnSerializationLoad(IControllable* scn) override
+		{
+			parent = scn;
+			parentId = scn->QUID();
+			if (hudActive && !autoAdvance) {
+				RegisterListener(Data::Events::HUD_DOWN_KEY_DOWN, &PositionTreeControlSystem::OnHudKey);
+				RegisterListener(Data::Events::HUD_UP_KEY_DOWN, &PositionTreeControlSystem::OnHudKey);
+				RegisterListener(Data::Events::HUD_LEFT_KEY_DOWN, &PositionTreeControlSystem::OnHudKey);
+				RegisterListener(Data::Events::HUD_RIGHT_KEY_DOWN, &PositionTreeControlSystem::OnHudKey);
+				UpdateHUDState();
+			}
+		}
+
 		virtual void OnEnd(IControllable* scn, std::string_view nextId) override
 		{
 			if (hudActive) {

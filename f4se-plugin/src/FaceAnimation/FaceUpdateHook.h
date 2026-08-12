@@ -65,12 +65,6 @@ namespace FaceAnimation
 			void load(Archive& ar, const uint32_t)
 			{
 				ar(managedAnims);
-				for (auto& pair : managedAnims) {
-					auto d = GameUtil::GetFaceAnimData(pair.first.get().get());
-					if (d != nullptr) {
-						managedDatas[d] = pair.first;
-					}
-				}
 			}
 		};
 
@@ -87,6 +81,20 @@ namespace FaceAnimation
 		static std::shared_mutex geoCacheLock;
 		inline static std::atomic<bool> loggedFirstUpdate{ false };
 		inline static std::atomic<bool> loggedFirstLipUpdate{ false };
+
+		void FixupAfterSerialization()
+		{
+			std::unique_lock l{ stateLock };
+			state->managedDatas.clear();
+			for (auto& pair : state->managedAnims) {
+				auto actor = pair.first.get();
+				if (actor) {
+					if (auto data = GameUtil::GetFaceAnimData(actor.get()); data) {
+						state->managedDatas[data] = pair.first;
+					}
+				}
+			}
+		}
 
 		RE::BSGeometry* GetCachedEyeGeometry(SerializableActorHandle hndl)
 		{

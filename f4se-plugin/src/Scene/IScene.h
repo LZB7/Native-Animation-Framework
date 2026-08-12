@@ -276,6 +276,8 @@ namespace Scene
 		// Once a scene is attached to the SceneManager, Update will be called between every frame
 		virtual void Update(){}
 
+		virtual bool ResumeAfterSerialization() { return false; }
+
 		virtual void SetDuration(float){}
 
 		virtual float GetRemainingDuration() { return 0.0f; }

@@ -316,6 +316,30 @@ namespace Scene
 			std::scoped_lock l{ scenesMapLock, actorsWalkingLock };
 			state = std::make_unique<PersistentState>();
 		}
+
+		static void FixupRestoredScenes()
+		{
+			const auto restoredScenes = GetSceneMapSnapshot();
+			std::size_t resumed = 0;
+			std::size_t cancelled = 0;
+			for (const auto& scene : restoredScenes) {
+				bool valid = false;
+				{
+					std::unique_lock l{ scene->lock };
+					valid = scene->ResumeAfterSerialization();
+				}
+				if (valid) {
+					++resumed;
+				} else {
+					logger::warn("Scene {} could not be safely restored; cancelling with production cleanup", scene ? scene->uid : 0);
+					if (scene) {
+						StopScene(scene->uid, true);
+					}
+					++cancelled;
+				}
+			}
+			logger::info("Active-scene persistence fixup completed: {} resumed, {} cancelled", resumed, cancelled);
+		}
 		
 	protected:
 		inline static Data::Events::EventRegistration keyReg;

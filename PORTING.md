@@ -4161,3 +4161,156 @@ normal completion; also stop once during each stage and confirm package, AI,
 collision, camera and input restoration. Do not save during the active staged
 scene. Test position-tree navigation only when complete real tree content is
 available.
+
+## Active-scene persistence, Body IK, and continuous alignment
+
+### Promoted runtime baseline
+
+The 1.11.221 production test promoted loaded-module LooksMenu 1.7.0.3
+detection, exact SHA-256 validation, body-morph interface initialization,
+animation groups, staged positions, paired staged playback, player free camera,
+staged cleanup, and both Papyrus end events. `(CHAK) *Staged* Hugs` cycled
+`CHAK_Hug_01 -> CHAK_Hug_02 -> CHAK_Hug_01 -> CHAK_Hug_02` for both actors and
+then restored camera, package, AI, input and collision state. Actual morph
+application remains content-dependent.
+
+### Dependency classification
+
+| System | A: runtime validated | B: restored/not content-tested | C: required work completed here | D: remains gated |
+| --- | --- | --- | --- | --- |
+| active-scene persistence | F4SE save/load/revert callbacks, actor/form handles, packages, camera/input cleanup, scene playback and v5 record transport | active-scene records had previously only been byte-preserved | v5 scene/task/equipment/UID/face/scene-HUD activation and world-ready fixup | custom NANIM `BODY` record |
+| Body IK | graph-update and Set3D hooks, `Get3D`, graph project-name access, actor 3D lifetime in the tested graph path | actual solver motion requires real GraphInfo IK chains/content | standalone node IK creation, target/enable API, graph cadence and cleanup | NANIM generator/recorder/Creator |
+| continuous alignment | paired and staged scenes, worker update cadence, actor transforms, collision suppression, player-3D refresh | deliberate perturbation/drift correction remains content-dependent | bounded transform/synchronization Papyrus exposure | Studio forced-alignment/editor controls |
+
+### Historical v5 active-scene records
+
+The serialization schema and record version remain unchanged. Production now
+writes and reads the same eight version-5 records as historical NAF:
+
+| Record | Persistent contents | Restoration behavior |
+| --- | --- | --- |
+| `TASK` | serializable timed tasks, duration/repeat/time-scale state | timer thread is stopped while swapping state, then restarted |
+| `SCNE` | scene IDs, actors/properties, control systems, group/tree state, speed, positions, sync state and scene task containers | loaded with updates inhibited; fixed up only after an active world exists |
+| `EQPT` | unequipped and NAF-added item restoration bookkeeping | restored without serializing pending C++ callbacks |
+| `UID` | next framework/UI identifiers | restored exactly |
+| `FACE` | managed facial-animation persistent state | restored through the already runtime-validated face subsystem |
+| `HUD` | production HUD state | unchanged |
+| `PACK` | active package override state | actively restored using the verified form/handle path |
+| `SHUD` | scene-tree HUD handles | restored with tree listener rebinding where applicable |
+
+The serialized widths, cereal ordering, record identifiers and version remain
+historical v5. Historical saves remain structurally readable, and new saves use
+the historical schema. `BODY` is deliberately still preserved byte-for-byte:
+that record serializes custom NANIM graph playback, not ordinary node IK. It is
+not written from partially enabled state.
+
+Raw graph managers, Havok objects, 3D pointers, locks, worker identity, free-
+camera objects, detached C++ callbacks and dynamic-idle runtime objects are not
+serialized. Stable form IDs/handles, animation/position data identifiers,
+control-system state and timers are serialized. Equipment pending lambdas and
+the ordered delay counter were not part of the historical schema and are not
+invented now; persistent equipment rollback data is retained by `EQPT`.
+LooksMenu owns its runtime morph data; NAF does not add a new morph record.
+
+### Deferred scene fixup and failure policy
+
+During `LoadCallback`, restored scenes are marked `noUpdate` before becoming
+visible to the game-loop worker. A generation-guarded F4SE task waits until
+`Main::gameActive`, preventing stale tasks from a revert or another load from
+touching the new state. Fixup then:
+
+1. resolves every serialized actor handle and requires a loaded parent cell;
+2. restores the NAF in-scene marker, graph initialization and foot-IK disable;
+3. reapplies collision suppression;
+4. reapplies NPC restraint/combat/package override, or player AI/input/free
+   camera ownership;
+5. re-requests the current serialized actor animation assignments;
+6. reenables scene updates.
+
+The existing control system is not restarted. Thus an animation group's
+`currentStage`/`loopsRemaining`, a position tree's `currentNode`, scene speed,
+and serializable timers retain historical state. Position-tree transient parent
+pointers and HUD key listeners are rebound through `OnSerializationLoad`
+without calling `OnBegin` or resetting progression.
+
+If any actor, control system, cell, or required runtime object is unavailable,
+the scene is force-stopped through production teardown. Valid actors receive
+normal package/input/collision/camera cleanup instead of leaving a partially
+restored scene active. Revert invalidates pending fixup tasks and resets timer,
+scene, equipment, UID, face, HUD, package and scene-HUD state.
+
+### Body IK architecture and AE evidence
+
+NAF Body IK is node-level IK, not direct traversal of Fallout 4 Havok layouts.
+`NodeAnimationGraph` is created for an actor through the already verified graph
+project-name path. `GraphInfo` supplies node names and chain topology; Set3D
+registration refreshes `NiAVObject` node pointers. The existing graph detour
+runs after the engine animation graph update and invokes `IKManager::Update`
+while the graph's update mutex is held. The pinned historical `ik` library does
+the solver math over NAF `NodeTransform`/verified `NiTransform` data. Chain
+disable or graph deletion clears active solver state and 3D registrations.
+
+The bounded reachable relocation set is unchanged and exact:
+
+- `GetAnimationGraphProjectName`: ID `2214534`, RVA `0x818730`;
+- graph update hook: ID `2214536`, RVA `0x818970`;
+- `TESObjectREFR::Set3D`: ID `2201055`, RVA `0x50C5B0`.
+
+No custom Havok structure, new virtual slot, or raw RVA was introduced. The
+production `SetIKChainTarget` and `SetIKChainEnabled` natives are enabled;
+`PlayNANIM`/`StopNANIM` remain gated. Solver movement is runtime-test-required
+until real content with matching GraphInfo IK chains is available.
+
+### Ordinary-scene alignment and bounded Papyrus surface
+
+Continuous ordinary-scene alignment was already present in `Scene::Update` and
+has run on the serialized `NonRendersafeAI` cadence throughout successful paired
+and staged scenes. Each update derives actor-local offsets from the scene root,
+corrects rotation, corrects position only outside the coordinate tolerance,
+refreshes player 3D where required, and restores collision on teardown. This is
+separate from `GameLoopHook::ForceAlignActor`, which remains used only by gated
+Studio/editor code.
+
+The path reuses exact ID `2229653` / RVA `0xC5CA70` for actor collision disable
+and ID `2231882` / RVA `0xD02270` for player 3D refresh, plus the already audited
+virtual transform calls and local math. No relocation or ABI correction was
+needed. `GetLocalTransform` and `SynchronizeAnimations` are now registered
+because they use the verified `Get3D`, `NiTransform`, and SmartIdle graph-time
+paths. Registration is now 39 production natives with six gated: NANIM play/
+stop and four managed-face calls. Studio/editor transform APIs remain absent.
+
+### Audits and runtime scope
+
+New audits:
+
+- `tools/audit_active_scene_serialization.py` checks all eight v5 records,
+  update inhibition, generation-gated world fixup, tree rebinding, cancellation,
+  and continued `BODY` exclusion;
+- `tools/audit_body_ik.py` checks three exact AE records, graph/IK update guards,
+  two IK natives, and the NANIM gate;
+- `tools/audit_continuous_alignment.py` checks ordinary-scene cadence, transform/
+  collision/player-3D guards, two exact AE records and bounded native exposure.
+
+All prior HUD, graph, face, package, Papyrus, camera, scene, menu, playback,
+scene-event, equipment/LooksMenu, and group/tree audits continue to pass.
+
+Runtime progression:
+
+1. start a simple solo/paired scene, save while active, reload, confirm the
+   persistence-fixup completion log, then stop and verify full cleanup;
+2. repeat with `(CHAK) *Staged* Hugs`, checking that the saved group stage resumes
+   rather than resetting to stage zero;
+3. repeat with the player and verify free-camera/input ownership after load and
+   restoration after stop;
+4. use real IK-chain content when available; absence of such content does not
+   block the persistence test;
+5. observe paired alignment and cleanup; deliberate perturbation remains optional
+   if no normal pack workflow exposes it.
+
+Remaining non-consumer/editor/advanced gates are custom NANIM traversal and its
+`BODY` persistence, generic ordered callbacks, full managed-face Papyrus API,
+Studio, Creator, Item Explorer, nested position trees, and editor-only transform/
+IK controls. For ordinary HKX consumer packs, the major runtime scene, staged,
+camera, package, HUD, equipment/morph infrastructure and now persistence are
+present; content-dependent IK/morph/equipment behavior still needs natural pack
+coverage.

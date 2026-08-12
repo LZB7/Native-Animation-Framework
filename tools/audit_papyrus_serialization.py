@@ -80,19 +80,19 @@ SAFE_NATIVES = {
 	"GetSceneProperty",
 	"ValidateSceneParams",
 	"ReEnablePlayerInput",
+	"SetIKChainTarget",
+	"SetIKChainEnabled",
+	"GetLocalTransform",
+	"SynchronizeAnimations",
 }
 
 GATED_NATIVES = {
     "PlayNANIM",
     "StopNANIM",
-    "SetIKChainTarget",
-    "SetIKChainEnabled",
     "SetEyeCoordOverride",
     "ClearEyeCoordOverride",
     "PlayFaceAnimation",
     "StopFaceAnimation",
-    "GetLocalTransform",
-    "SynchronizeAnimations",
 }
 
 
@@ -150,8 +150,9 @@ def main() -> int:
         "SAVE_PERSISTENT_STATE('PACK', 5",
         "deferredRecords.push_back({ type, version, std::move(payload) })",
         "ReadRecordPayload(a_intfc, length, payload)",
-        "if (version >= 5 && type == 'HUD')",
-		"if (version >= 5 && type == 'PACK')",
+		"SAVE_PERSISTENT_STATE('SCNE', 5",
+		"SAVE_PERSISTENT_STATE('TASK', 5",
+		"RunRestoredSceneFixup",
     ):
         if selector not in serialization:
             failures.append(f"missing serialization compatibility guard: {selector}")
@@ -170,7 +171,7 @@ def main() -> int:
     print(
         f"PASS: {len(EXPECTED)} Papyrus/serialization relocation IDs matched exact RVAs; "
         f"{len(SAFE_NATIVES)} safe natives registered, {len(GATED_NATIVES)} natives gated; "
-        "F4SE callback ABI, historical v5 schema and active package-record guards matched"
+        "F4SE callback ABI, historical v5 active-scene schema and deferred-fixup guards matched"
     )
     return 0
 

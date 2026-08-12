@@ -32,6 +32,10 @@ namespace Papyrus
 		PAPYRUS_BIND(GetSceneProperty);
 		PAPYRUS_BIND(ValidateSceneParams);
 		PAPYRUS_BIND(ReEnablePlayerInput);
+		PAPYRUS_BIND(SetIKChainTarget);
+		PAPYRUS_BIND(SetIKChainEnabled);
+		PAPYRUS_BIND(GetLocalTransform);
+		PAPYRUS_BIND(SynchronizeAnimations);
 
 		PAPYRUS_BIND(DrawRectangle);
 		PAPYRUS_BIND(DrawText);
@@ -48,8 +52,8 @@ namespace Papyrus
 		PAPYRUS_BIND(AttachElementTo);
 
 		Papyrus::EventProxy::GetSingleton();
-		logger::info("Registered 35 production Papyrus natives: settings (2), menu (1), actor/package (4), dynamic idle (1), scene lifecycle/query/mutation (13), player-input recovery (1), HUD (13)");
-		logger::warn("NANIM/body-IK, managed-face, transform/synchronization and Studio/editor natives remain deliberately unregistered");
+		logger::info("Registered 39 production Papyrus natives: settings (2), menu (1), actor/package (4), dynamic idle (1), scene lifecycle/query/mutation (13), player-input recovery (1), body IK (2), transform/synchronization (2), HUD (13)");
+		logger::warn("NANIM playback, managed-face and Studio/editor natives remain deliberately unregistered");
 		return true;
 	}
 }
