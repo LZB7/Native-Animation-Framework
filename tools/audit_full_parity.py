@@ -28,22 +28,22 @@ def main() -> None:
     require(serialization, "case 'SHUD':", "eighth active v5 record")
     require(serialization, "case 'BODY':", "active BODY v5 restoration")
 
-    gated_natives = {
+    managed_face_natives = {
         "SetEyeCoordOverride",
         "ClearEyeCoordOverride",
         "PlayFaceAnimation",
         "StopFaceAnimation",
     }
-    unexpectedly_bound = sorted(name for name in gated_natives if f"PAPYRUS_BIND({name});" in papyrus)
-    if unexpectedly_bound:
-        raise SystemExit(f"FAIL: update the parity ledger for newly bound natives: {unexpectedly_bound}")
+    missing_bindings = sorted(name for name in managed_face_natives if f"PAPYRUS_BIND({name});" not in papyrus)
+    if missing_bindings:
+        raise SystemExit(f"FAIL: managed-face Papyrus bindings remain gated: {missing_bindings}")
 
     if '{ "Creator", BindGoto(kCreator) }' in menu or '{ "Item Explorer", BindGoto(kItemExplorer) }' in menu:
         raise SystemExit("FAIL: update the parity ledger for newly restored main-menu entries")
 
     print(
-        "PASS: full-parity ledger tracks restored Phase-B runtime surfaces, 4 remaining upstream "
-        "managed-face Papyrus bindings, and active BODY v5 restoration"
+        "PASS: full-parity ledger tracks restored Phase-B surfaces, all 45 Papyrus bindings, "
+        "managed-face lifecycle, and active BODY/FACE v5 restoration"
     )
 
 

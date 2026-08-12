@@ -82,10 +82,25 @@ namespace FaceAnimation
 		inline static std::atomic<bool> loggedFirstUpdate{ false };
 		inline static std::atomic<bool> loggedFirstLipUpdate{ false };
 
+		void BindManagedData_NonThreadSafe(SerializableActorHandle a_handle, RE::BSFaceGenAnimationData* a_data)
+		{
+			for (auto iter = state->managedDatas.begin(); iter != state->managedDatas.end();) {
+				if (iter->second.hash() == a_handle.hash()) {
+					iter = state->managedDatas.erase(iter);
+				} else {
+					++iter;
+				}
+			}
+			if (a_data) {
+				state->managedDatas[a_data] = a_handle;
+			}
+		}
+
 		void FixupAfterSerialization()
 		{
-			std::unique_lock l{ stateLock };
+			std::scoped_lock l{ stateLock, geoCacheLock };
 			state->managedDatas.clear();
+			eyeGeoCache.clear();
 			for (auto& pair : state->managedAnims) {
 				auto actor = pair.first.get();
 				if (actor) {
@@ -165,6 +180,9 @@ namespace FaceAnimation
 			if (auto h = IsDataManaged(data); h) {
 				auto eyeGeo = GetCachedEyeGeometry(h);
 				auto a = state->managedAnims.find(h);
+				if (a == state->managedAnims.end()) {
+					return result;
+				}
 				bool pendingDelete = false;
 				RE::BSAutoLock bl{ data->instanceData.lock };
 
@@ -220,7 +238,7 @@ namespace FaceAnimation
 			anim->SetStartNow();
 			managedActor.anim = std::move(anim);
 			managedActor.animationId = id;
-			state->managedDatas[GameUtil::GetFaceAnimData(a.get())] = targetActor;
+			BindManagedData_NonThreadSafe(targetActor, GameUtil::GetFaceAnimData(a.get()));
 		}
 
 		bool LoadAndPlayAnimation(RE::ActorHandle targetActor, std::string id, bool loop = false, bool havokSync = false)
@@ -293,9 +311,13 @@ namespace FaceAnimation
 
 		void SetEyeOverride(RE::ActorHandle targetActor, double u, double v)
 		{
+			auto actor = targetActor.get();
+			if (!actor) {
+				return;
+			}
 			std::unique_lock l{ stateLock };
 			state->managedAnims[targetActor].eyeOverride = EyeVector{ u * -0.25, v * 0.2 };
-			state->managedDatas[GameUtil::GetFaceAnimData(targetActor.get().get())] = targetActor;
+			BindManagedData_NonThreadSafe(targetActor, GameUtil::GetFaceAnimData(actor.get()));
 		}
 
 		void ClearEyeOverride(RE::ActorHandle targetActor)
@@ -312,6 +334,22 @@ namespace FaceAnimation
 			state = std::make_unique<PersistentState>();
 			loadingAnims.clear();
 			eyeGeoCache.clear();
+		}
+
+		void OnSet3D(RE::TESObjectREFR* a_ref)
+		{
+			auto actor = a_ref ? a_ref->As<RE::Actor>() : nullptr;
+			if (!actor) {
+				return;
+			}
+			const auto handle = actor->GetActorHandle();
+			std::scoped_lock l{ stateLock, geoCacheLock };
+			if (!state->managedAnims.contains(handle)) {
+				return;
+			}
+			eyeGeoCache.erase(handle);
+			BindManagedData_NonThreadSafe(handle, GameUtil::GetFaceAnimData(actor));
+			logger::debug("Managed face state rebound after Set3D for actor {:p}", static_cast<void*>(actor));
 		}
 
 		bool RegisterHook(F4SE::Trampoline& trampoline)
@@ -348,6 +386,7 @@ namespace FaceAnimation
 
 			OriginalUpdate = trampoline.write_call<5>(faceGenUpdateCallLoc.address(), &HookedUpdate);
 			OriginalUpdateLip = trampoline.write_call<5>(updateLipMorphsCallLoc.address(), &HookedUpdateLip);
+			BodyAnimation::GraphHook::RegisterSet3DObserver(&OnSet3D);
 			logger::info("Installed production face/lip hooks at IDs 2209487 + 0xBD and 2209139 + 0x14B");
 			return true;
 		}

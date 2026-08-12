@@ -86,14 +86,13 @@ SAFE_NATIVES = {
     "SynchronizeAnimations",
     "PlayNANIM",
     "StopNANIM",
-}
-
-GATED_NATIVES = {
     "SetEyeCoordOverride",
     "ClearEyeCoordOverride",
     "PlayFaceAnimation",
     "StopFaceAnimation",
 }
+
+GATED_NATIVES = set()
 
 
 def main() -> int:
@@ -170,7 +169,7 @@ def main() -> int:
 
     print(
         f"PASS: {len(EXPECTED)} Papyrus/serialization relocation IDs matched exact RVAs; "
-        f"{len(SAFE_NATIVES)} safe natives registered, {len(GATED_NATIVES)} natives gated; "
+        f"{len(SAFE_NATIVES)} safe natives registered, no natives gated; "
         "F4SE callback ABI, historical v5 active-scene schema and deferred-fixup guards matched"
     )
     return 0

@@ -38,6 +38,10 @@ namespace Papyrus
 		PAPYRUS_BIND(SetIKChainEnabled);
 		PAPYRUS_BIND(GetLocalTransform);
 		PAPYRUS_BIND(SynchronizeAnimations);
+		PAPYRUS_BIND(SetEyeCoordOverride);
+		PAPYRUS_BIND(ClearEyeCoordOverride);
+		PAPYRUS_BIND(PlayFaceAnimation);
+		PAPYRUS_BIND(StopFaceAnimation);
 
 		PAPYRUS_BIND(DrawRectangle);
 		PAPYRUS_BIND(DrawText);
@@ -54,8 +58,7 @@ namespace Papyrus
 		PAPYRUS_BIND(AttachElementTo);
 
 		Papyrus::EventProxy::GetSingleton();
-		logger::info("Registered 41 production Papyrus natives, including NANIM play/stop");
-		logger::warn("Four managed-face natives remain temporarily unregistered pending Phase C restoration");
+		logger::info("Registered all 45 production Papyrus natives, including managed face and NANIM");
 		return true;
 	}
 }

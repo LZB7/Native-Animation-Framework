@@ -13,6 +13,7 @@ namespace BodyAnimation
 		inline static DetourXS Set3dDetour;
 		inline static REL::Relocation<GraphUpdate> OriginalUpdate;
 		inline static REL::Relocation<Set3d> OriginalSet3d;
+		inline static void (*Set3DObserver)(RE::TESObjectREFR*) = nullptr;
 		inline static std::atomic<bool> loggedFirstGraphUpdate{ false };
 		inline static std::atomic<bool> loggedFirstSet3D{ false };
 
@@ -299,6 +300,9 @@ namespace BodyAnimation
 
 		static void HookedSet3D(RE::TESObjectREFR* a_ref, RE::NiAVObject* a_object, bool a_queue) {
 			OriginalSet3d(a_ref, a_object, a_queue);
+			if (Set3DObserver) {
+				Set3DObserver(a_ref);
+			}
 			if (!loggedFirstSet3D.exchange(true, std::memory_order_relaxed)) {
 				logger::info("Production TESObjectREFR::Set3D observed: reference={}, object={}, queued={}", fmt::ptr(a_ref), fmt::ptr(a_object), a_queue);
 			}
@@ -316,6 +320,11 @@ namespace BodyAnimation
 				}
 			}
 			TryRestorePendingForReference(a_ref);
+		}
+
+		static void RegisterSet3DObserver(void (*a_observer)(RE::TESObjectREFR*))
+		{
+			Set3DObserver = a_observer;
 		}
 
 		static void Reset() {
