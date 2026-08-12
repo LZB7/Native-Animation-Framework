@@ -4363,10 +4363,10 @@ families), not a claim that every row has equal implementation size.
 | LooksMenu detection/hash/interface initialization | restored/runtime-validated | exact f4ee.dll 1.7.0.3 | morph application content-dependent | retain exact DLL guard and add real morph regression |
 | Graph update and Set3D integration | restored/runtime-validated | IDs 2214536/2201055 | none on tested path | regression baseline for NANIM/IK |
 | SmartIdle graph time and synchronization | restored/runtime-validated | graph variables and dynamic idle | broader synchronization native coverage | exercise multi-actor resynchronization |
-| NANIM parsing/loading/playback/stop | unresolved | custom node graph, generator traversal, graph ownership | Papyrus entry points gated; complete AE Havok/ownership audit outstanding | Phase A end-to-end NANIM audit and production restoration |
-| Exported C++ NANIM handle API | unresolved | NANIM loader/player and handle store | functions compile but production AE behavior is not validated | restore with NANIM and test load/copy/move/queue/free semantics |
+| NANIM parsing/loading/playback/stop | statically restored | NAF node graph, NiAVObject transforms, graph update/Set3D hooks | production runtime/content coverage pending | test bundled BasePose and an authored NANIM; validate stop/repeat/3D reload |
+| Exported C++ NANIM handle API | statically restored | NANIM loader/player and handle store | production plugin-consumer runtime coverage pending | test load/copy/move/queue/free semantics |
 | NANIM graph recording and pose snapshots | not yet ported | node recorder, Creator/Studio, NANIM writer | authoring menus hidden and NANIM runtime gated | restore in Phase D after Phase A runtime |
-| `BODY` v5 serialization/restoration | not yet ported | live NANIM graph state | currently preserved passively; transient AE graph reconstruction absent | activate exact historical schema after NANIM restoration |
+| `BODY` v5 serialization/restoration | statically restored | stable actor/resource/time descriptors plus world-ready graph reconstruction | NPC NANIM save/load runtime coverage pending | test active NPC NANIM save/reload/stop with exact v5 schema |
 | Body IK solver/runtime graph integration | restored/content-test-required | graph/Set3D, GraphInfo chains, pinned IK math | no suitable real IK-chain content tested | retain production initialization and test real content |
 | Body IK Papyrus target/enable API | statically restored | solver and actor node graph | registered but behavioral coverage pending | test chain targeting, disable/reset and scene teardown |
 | Full IK/editor controls | not yet ported | Studio/Creator node selection and graph editing | authoring UI inaccessible; NANIM/editor graph dependencies gated | restore complete original controls in Phases C/D |
@@ -4390,13 +4390,13 @@ families), not a claim that every row has equal implementation size.
 | Item Explorer | not yet ported | form/object enumeration, highlight, interaction | main-menu entry removed; highlighting disabled | restore entry, browsing, selection and interaction in Phase D |
 | MCM hotkey integration | statically restored | shipped MCM config and ToggleMenu native | not independently regression-tested after menu expansion | test binding, modifiers and opening every restored page |
 | Papyrus production surface (39 registered natives) | restored/runtime-validated | VM registration and underlying restored subsystems | behavior coverage remains dependency-specific | retain registration and validate through owning subsystems |
-| Remaining Papyrus surface (6 natives) | unresolved | NANIM and managed face | exactly PlayNANIM, StopNANIM, Set/ClearEyeCoordOverride, Play/StopFaceAnimation | restore in Phases A/C; final target 45/45 registered |
+| Remaining Papyrus surface (4 natives) | unresolved | managed face | exactly Set/ClearEyeCoordOverride and Play/StopFaceAnimation | restore in Phase C; final target 45/45 registered |
 | External scene events and Actor-array packing | restored/runtime-validated | corrected VM/CreateArray ABI | none for one/two-actor tested events | regress advanced scene state/events |
 | Eight active historical v5 records | restored/runtime-validated | TASK/SCNE/EQPT/UID/FACE/HUD/PACK/SHUD | staged/player coverage pending | maintain exact schema and add required regressions |
 | Staged/group active-scene persistence | statically restored | serialized control system/stage/timers | explicit stage-2 reload test pending | run prescribed CHAK stage-2 save/reload/stop test |
 | Player-involved active-scene persistence | statically restored | input, camera, package and collision fixup | explicit active player save/reload test pending | run player scene persistence test and verify teardown |
-| Advanced scene persistence | unresolved | NANIM BODY, nested trees, editor state | only eight active records restored; BODY passive | activate each original v5 state owner with its subsystem |
-| Public C++ scene/NANIM API exports | unresolved | NANIM plus validated engine-facing object lifetime | scene events work; NANIM exports unvalidated | audit every export ABI and test original plugin consumer pattern |
+| Advanced scene persistence | unresolved | nested trees, managed face and editor state | all nine v5 records are active; advanced owners still need coverage | validate each original state owner with its subsystem |
+| Public C++ scene/NANIM API exports | statically restored | NANIM plus validated object lifetime | runtime consumer coverage absent | test every export with original plugin-consumer pattern |
 
 The four C++ helpers `PositionExists`, `GetPositionType`,
 `GetPositionBaseAnimation`, and `AnimationExists` exist in upstream `NAF.h`, but
@@ -4413,12 +4413,11 @@ Every currently intentional behavior gate has one removal dependency:
 | --- | --- | --- |
 | `OrderedActionQueue::kArbitraryCallbacksEnabled=false` | arbitrary ordered callbacks | callback producer/lifetime/thread audit |
 | `HighlightedObjectsContainer::kHighlightingEnabled=false` | hover shader feedback | AE effect lifetime and cleanup validation |
-| six omitted bindings in `Papyrus::RegisterFunctions` | NANIM and managed-face public APIs | Phase A and Phase C runtime restoration |
+| four omitted bindings in `Papyrus::RegisterFunctions` | managed-face public APIs | Phase C runtime restoration |
 | `Position::IsBasicSceneCompatible` nested-tree rejection | recursive position trees | recursive controller/fixup/serialization validation |
 | `RegisterProductionSceneMenu` instead of full `Menu::Register` | Studio menu registration | Phase D dependency completion |
 | removed `Creator` main-menu binding | Creator, Body Creator and Face Creator | Phase D dependency completion |
 | removed `Item Explorer` main-menu binding | Item Explorer | form/effect/UI audit |
-| passive preservation rather than activation of `BODY` | NANIM playback restoration | Phase A NANIM graph reconstruction |
 
 The broad `kGameplaySubsystemsEnabled` flag is currently `true`; it no longer
 suppresses a subsystem. The equipment and morph ordered-action flags are also
@@ -4463,13 +4462,132 @@ content is unavailable; static restoration is never relabeled as unnecessary.
 - Ordinary two-actor active-scene persistence is runtime-validated.
 - Staged persistence must save during CHAK stage 2, reload the same stage/group
   state, continue, and stop cleanly.
-- Player persistence must restore playback, package/AI/collision, free camera and
-  input ownership, then fully return control on stop.
-- `BODY` is the only historical v5 record still passively preserved rather than
-  actively reconstructed. Its activation is coupled to Phase A.
+- Player-involved active save/load is not mandatory when Fallout 4 refuses to
+  save while the real PlayerCharacter is AI-controlled and in free camera. The
+  restoration implementation remains intact, but NAF will not bypass the engine
+  restriction or substitute a doppelganger merely to force coverage. Player
+  scene start/stop recovery is already runtime-validated. If a legitimate
+  base-game-supported save path appears, it may be tested later.
+- `BODY` now actively reads/writes the exact historical v5 descriptor and
+  reconstructs transient NANIM state after world readiness.
 - Nested-tree, managed-face, NANIM and authoring state become active only with
   their restored owners; the v5 schema is not expanded or reordered.
 
-No runtime code changed in this parity-audit pass, so the production DLL remains
-the artifact from commit `023d51e` with SHA-256
-`7FFDD1B174197A18D869B1F2564105ABAA683880C5069B4138342CDD1B051331`.
+The parity ledger is updated by each restoration phase; artifact hashes are
+recorded in the corresponding implementation section below.
+
+## NANIM runtime and active BODY restoration
+
+### Persistence test correction and promoted baseline
+
+Ordinary NPC and paired NPC active-scene save/load are runtime-validated. NPC
+staged/group persistence still requires the stage-2 CHAK save/reload test.
+Player-involved save/load is not a mandatory test if Fallout 4 disallows saving
+while NAF controls the real PlayerCharacter. The implementation remains present
+and fail-safe, but the port will not alter player-scene semantics or bypass the
+engine restriction. Player start/stop AI, input, package, collision, free-camera
+and camera restoration are already runtime-validated.
+
+### Actual upstream NANIM architecture
+
+Source tracing corrected an earlier imprecise description: NANIM does **not**
+inject, clone, replace, or own a Havok generator. Its runtime pipeline is:
+
+`PlayNANIM/API/scene SmartIdle` -> `NANIM::LoadFromFile` -> select an animation
+ID -> convert timelines to `NodeAnimation` -> obtain `GraphInfo` node names and
+IK chains -> create/reuse NAF's `NodeAnimationGraph` -> blend from the engine's
+just-produced pose -> write generated `NodeTransform` values to each
+`NiAVObject::local` -> apply Body IK -> continue on the verified post-engine
+graph-update hook. `StopNANIM` blends the NAF output back to the current engine
+pose, releases animation data at transition completion, and deletes a temporary
+graph once it has neither animation nor active IK.
+
+The file parser and animation generator are local, engine-independent code.
+NANIM retains upstream paths and format semantics: Papyrus paths are relative to
+`Data/NAF`, scenes use the same SmartIdle `kNAF` assignment, and the exported C
+API retains load-handle, copy/move play, asynchronous queue, stop and free-handle
+behavior. Missing files, unknown animation IDs, missing GraphInfo, actors or 3D
+fail without installing a graph animation.
+
+The graph update and Set3D hooks already validated in production provide the
+thread/lifetime contract. `NodeAnimationGraph::updateLock` serializes generator,
+transition, recorder and IK state. `GraphHook::stateLock` protects graph
+ownership; `loadingAnimsLock` protects asynchronous load cancellation. Set3D
+clears retained node smart pointers and reacquires the current skeleton nodes;
+unloaded 3D sets `kUnloaded3D` and prevents stale node writes.
+
+### Havok/graph ABI boundary
+
+NANIM pose generation itself touches `NiAVObject` nodes, not custom Havok object
+layouts. The adjacent Havok surface belongs to ordinary graph-time readiness and
+multi-actor synchronization, which NANIM-aware SmartIdle also uses:
+
+| Interface/layout | AE evidence/status |
+| --- | --- |
+| `hkbContext` constructor/destructor | IDs `2258328`/`2258329`, RVAs `0x13A9B10`/`0x13A9B90`, disassembly/PDB verified; size guard `0x68` |
+| `setActiveGeneratorLocalTime` | ID `2260451`, RVA `0x147C170`, disassembly/PDB verified |
+| `getNodeClone` | ID `2260454`, RVA `0x147C5A0`, disassembly/PDB verified |
+| `hkbGeneratorSyncInfo` | size `0xA4`; duration/local-time fields exercised by successful synchronized HKX scenes |
+| `hkbCharacter::behaviorGraph` | offset `0x80`; manager/graph chain exercised by graph-time synchronization |
+| `hkbBehaviorGraph::rootGenerator` | offset `0xC0`; root clone/time path exercised by scene synchronization |
+
+The duplicate `BShkbAnimationGraph::getNodeClone` wrapper now uses the verified
+two-runtime mapping instead of stale invariant ID `326555`. Historical
+`BShkbUtils::GraphTraverser` helpers remain unreachable from playback; they are
+Studio/Creator recording-analysis dependencies and are not falsely promoted by
+this pass.
+
+### Active historical BODY record
+
+The exact v5 schema remains the upstream cereal vector of:
+
+- `SerializableRefHandle` actor/reference identity;
+- NANIM `filePath` and animation `id` strings;
+- generator `localTime` float.
+
+No graph manager, node, 3D, Havok, lock, thread, animation object, or other raw
+runtime pointer is serialized. Raw `LoadCallback` places descriptors in
+`pendingRestores`. After `Main::gameActive`, BODY fixup resolves the reference,
+requires loaded 3D and valid GraphInfo/NANIM data, creates the normal production
+graph, restores local time, then allows SCNE fixup to re-request its SmartIdle.
+A one-shot descriptor suppresses that duplicate asynchronous scene load. Failed
+descriptors remain stable and serializable rather than leaving partially
+installed graph state. Revert cancels loads and clears graphs, 3D registrations,
+pending descriptors and suppression state.
+
+NANIM is supported both independently through Papyrus/C exports and through
+scene `.nanim` assignments. SCNE owns scene/control state; BODY owns the
+reference's custom node-animation resource/time. Restoration order is BODY then
+SCNE, avoiding competing ownership while preserving the historical two-record
+model. Multi-actor synchronization continues through SmartIdle graph time; Body
+IK runs after generated NANIM transforms, preserving upstream ordering.
+
+`PlayNANIM` and `StopNANIM` are registered again. Papyrus coverage is now 41/45;
+the remaining four are managed-face functions reserved for Phase C. The bundled
+`Data/NAF/Animations/Human/BasePose.nanim` is a real format/load asset, but an
+authored moving NANIM or Studio output is preferable for visible playback and
+stop testing.
+
+`tools/audit_nanim_runtime.py` verifies seven exact AE records, graph/Set3D and
+Havok layout guards, transform-output/IK ordering, both Papyrus registrations,
+active BODY save/load/fixup/reset, and absence of the four stale invariant IDs.
+All established subsystem audits remain required.
+
+Runtime test sequence:
+
+1. regress one ordinary HKX scene;
+2. invoke `PlayNANIM` on an NPC with a real NANIM file/animation ID;
+3. verify visible playback, call `StopNANIM`, and confirm ordinary animation;
+4. repeat play/stop, then exercise scene-side NANIM if matching position content
+   is available;
+5. save with NPC NANIM active, reload, require `BODY persistence fixup: 1 ...
+   restored`, then stop and verify graph/AI health;
+6. separately save `(CHAK) *Staged* Hugs` during stage 2 and verify group state;
+7. do not force or bypass saving during PlayerCharacter control.
+
+Production runtime execution and BODY restoration remain runtime-test-required;
+no suitable moving NANIM sample was found locally beyond BasePose.
+
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
+Development DLL SHA-256:
+`64D9C7E9707E0245816539CF1B928926E62E8A3BFAF23B126FD2D8E3B39D9263`.

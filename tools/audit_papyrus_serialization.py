@@ -83,12 +83,12 @@ SAFE_NATIVES = {
 	"SetIKChainTarget",
 	"SetIKChainEnabled",
 	"GetLocalTransform",
-	"SynchronizeAnimations",
+    "SynchronizeAnimations",
+    "PlayNANIM",
+    "StopNANIM",
 }
 
 GATED_NATIVES = {
-    "PlayNANIM",
-    "StopNANIM",
     "SetEyeCoordOverride",
     "ClearEyeCoordOverride",
     "PlayFaceAnimation",

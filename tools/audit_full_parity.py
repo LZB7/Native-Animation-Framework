@@ -26,12 +26,9 @@ def main() -> None:
     require(highlight, "kHighlightingEnabled = false", "highlight gate")
     require(position, "position->posType == kPositionTree", "nested-tree gate")
     require(serialization, "case 'SHUD':", "eighth active v5 record")
-    if "case 'BODY':" in serialization:
-        raise SystemExit("FAIL: BODY became active without updating the parity audit")
+    require(serialization, "case 'BODY':", "active BODY v5 restoration")
 
     gated_natives = {
-        "PlayNANIM",
-        "StopNANIM",
         "SetEyeCoordOverride",
         "ClearEyeCoordOverride",
         "PlayFaceAnimation",
@@ -45,8 +42,8 @@ def main() -> None:
         raise SystemExit("FAIL: update the parity ledger for newly restored main-menu entries")
 
     print(
-        "PASS: full-parity ledger tracks 8 explicit AE gates, 6 remaining upstream "
-        "Papyrus bindings, active v5 records, and passive BODY state"
+        "PASS: full-parity ledger tracks remaining explicit AE gates, 4 remaining upstream "
+        "Papyrus bindings, and active BODY v5 restoration"
     )
 
 

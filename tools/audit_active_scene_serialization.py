@@ -19,7 +19,7 @@ GUARDS = {
         "iter->second->noUpdate = true",
         "FixupRestoredScenes",
 		"FaceUpdateHook::FixupAfterSerialization",
-		"FixupRestoredScenes();\n\t\tTasks::TimerThread::GetSingleton()->Start();",
+		"FixupRestoredScenes();\n\t\tBodyAnimation::GraphHook::FinishSerializationFixup();\n\t\tTasks::TimerThread::GetSingleton()->Start();",
     ),
     "f4se-plugin/src/Scene/SceneBase.h": (
         "ResumeAfterSerialization() override",
@@ -53,12 +53,12 @@ def main() -> int:
             if selector not in source:
                 failures.append(f"{relative}: missing {selector}")
     serialization = (ROOT / "f4se-plugin/src/Serialization/Serialization.h").read_text(errors="replace")
-    if "SAVE_PERSISTENT_STATE('BODY'" in serialization:
-        failures.append("BODY/NANIM state must remain deferred")
+    if "SAVE_PERSISTENT_STATE('BODY', 5" not in serialization:
+        failures.append("BODY/NANIM historical-v5 state is not active")
     if failures:
         print("\n".join(f"FAIL: {failure}" for failure in failures))
         return 1
-    print("PASS: eight historical-v5 active records, deferred world-ready fixup, fail-safe cancellation, and BODY gate matched")
+    print("PASS: nine historical-v5 records, deferred world-ready scene/BODY fixup, and fail-safe cancellation matched")
     return 0
 
 

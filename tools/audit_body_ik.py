@@ -54,13 +54,10 @@ def main() -> int:
         for selector in selectors:
             if selector not in source:
                 failures.append(f"{relative}: missing {selector}")
-    papyrus = (ROOT / "f4se-plugin/src/Scripts/Papyrus.h").read_text(errors="replace")
-    if "PAPYRUS_BIND(PlayNANIM);" in papyrus or "PAPYRUS_BIND(StopNANIM);" in papyrus:
-        failures.append("NANIM playback was unintentionally exposed")
     if failures:
         print("\n".join(f"FAIL: {failure}" for failure in failures))
         return 1
-    print("PASS: 3 exact AE graph/IK records, node-level IK update guards, two IK natives, and NANIM gate matched")
+    print("PASS: 3 exact AE graph/IK records, node-level IK update guards, and two IK natives matched")
     return 0
 
 
