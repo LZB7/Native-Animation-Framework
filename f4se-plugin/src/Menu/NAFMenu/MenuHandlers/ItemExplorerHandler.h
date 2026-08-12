@@ -27,7 +27,13 @@ namespace Menu::NAF
 			auto& list = RE::TESDataHandler::GetSingleton()->GetFormArray<RE::TESObjectARMO>();
 			for (auto& armo : list) {
 				if (armo->GetPlayable(nullptr) && armo->GetFormRace() == playerRace) {
-					formMap[std::string{ armo->GetFile()->GetFilename() }].push_back(armo);
+					const auto file = armo->GetFile();
+					if (file) {
+						const auto filename = file->GetFilename();
+						if (!filename.empty()) {
+							formMap[std::string{ filename }].push_back(armo);
+						}
+					}
 				}
 			}
 
@@ -64,7 +70,8 @@ namespace Menu::NAF
 						break;
 					}
 					for (auto& item : iter->second) {
-						result.push_back({ item->GetFullName(), Bind(&ItemExplorerHandler::SelectForm, item), false, 0, 0, 0, std::nullopt, selectedItems.contains(item) });
+						const auto name = item->GetFullName();
+						result.push_back({ name && *name ? name : "[Unnamed Armor]", Bind(&ItemExplorerHandler::SelectForm, item), false, 0, 0, 0, std::nullopt, selectedItems.contains(item) });
 					}
 					break;
 				}

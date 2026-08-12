@@ -166,7 +166,7 @@ namespace Menu
 
 		static std::vector<std::string> GetManagedRefNodes(size_t idx) {
 			std::vector<std::string> result;
-			if (auto inst = GetInstance(); inst != nullptr && idx <= inst->managedActors.size()) {
+			if (auto inst = GetInstance(); inst != nullptr && idx < inst->managedActors.size()) {
 				BodyAnimation::GraphHook::VisitGraph(inst->managedActors[idx].get().get(), [&](Graph* g) {
 					for (size_t i = 0; i < g->nodeMap.size(); i++) {
 						result.emplace_back(g->nodeMap[i]);
@@ -1004,7 +1004,7 @@ namespace Menu
 				return;
 
 			if (gizmoActive) {
-				if (gizmoIndex <= nodeMarkers.size()) {
+				if (gizmoIndex < nodeMarkers.size()) {
 					RE::Scaleform::GFx::Value args[1];
 					args[0] = false;
 					nodeMarkers[gizmoIndex].Invoke("SetGizmoVisible", nullptr, args, 1);
@@ -1102,16 +1102,13 @@ namespace Menu
 			}
 		}
 
-		static RE::Setting& GetScreenHeight()
+		static std::int32_t GetScreenDimension(std::string_view a_setting)
 		{
-			REL::Relocation<RE::Setting*> singleton{ REL::ID(1302430) };
-			return *singleton;
-		}
-
-		static RE::Setting& GetScreenWidth()
-		{
-			REL::Relocation<RE::Setting*> singleton{ REL::ID(644641) };
-			return *singleton;
+			if (const auto setting = RE::GetINISetting(a_setting); setting) {
+				return setting->GetInt();
+			}
+			logger::warn("NAF Studio could not resolve {}; using the authored 1920x1080 stage fallback", a_setting);
+			return a_setting.starts_with("iSize W") ? 1920 : 1080;
 		}
 
 		void GetStageSize()
@@ -1124,8 +1121,8 @@ namespace Menu
 			menuObj.Invoke("GetStageHeight", &result);
 			float swfHeight = static_cast<float>(result.GetNumber());
 
-			float width = static_cast<float>(GetScreenWidth().GetInt());
-			float height = static_cast<float>(GetScreenHeight().GetInt());
+			float width = static_cast<float>(GetScreenDimension("iSize W:Display"));
+			float height = static_cast<float>(GetScreenDimension("iSize H:Display"));
 
 			float scaleYInverse = 1.0f / (height / swfHeight);
 			float scaledWidth = width * scaleYInverse;

@@ -28,8 +28,8 @@ bool g_gameDataReady = false;
 #include "API/API.h"
 namespace
 {
-	// Production runtime systems are restored coherently. Studio/Creator/Item
-	// Explorer and the managed-face public surface remain separate parity phases.
+	// Production runtime and authoring systems are restored coherently. This
+	// switch remains only as a fail-closed diagnostic build gate.
 	inline constexpr bool kHUDSubsystemEnabled = true;
 	inline constexpr bool kGameplaySubsystemsEnabled = true;
 
@@ -201,7 +201,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 
 	if constexpr (!kGameplaySubsystemsEnabled) {
 		logger::info("HUD, graph, face/lip, package/process, Papyrus/serialization, camera and basic scene infrastructure initialized; awaiting game data");
-		logger::warn("Studio/Creator/Item Explorer and managed-face public APIs remain gated for their dedicated parity phases");
+		logger::warn("Gameplay subsystems are disabled by the diagnostic build gate");
 		return true;
 	}
 

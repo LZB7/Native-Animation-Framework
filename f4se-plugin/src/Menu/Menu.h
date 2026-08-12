@@ -13,6 +13,7 @@ namespace Menu
 
 	void RegisterProductionSceneMenu(RE::UI* ui) {
 		ui->RegisterMenu("NAFMenu", Menu::NAFMenu::Create);
+		ui->RegisterMenu("NAFStudioMenu", Menu::NAFStudioMenu::Create);
 	}
 
 	void Register(RE::UI* ui) {

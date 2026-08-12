@@ -161,6 +161,12 @@ namespace Menu
 			}
 
 			bool Save() {
+				std::error_code directoryError;
+				std::filesystem::create_directories("Data\\NAF", directoryError);
+				if (directoryError) {
+					return false;
+				}
+
 				bool hasBodyAnims = !bodyAnims.GetAnimationList().empty();
 				std::string basePath = GetSavePath();
 				std::string xmlPath = std::format("{}.xml", basePath);
@@ -178,13 +184,7 @@ namespace Menu
 					outDoc.append_child("bodyAnimFile").append_attribute("path").set_value(nanimPath.c_str());
 				}
 
-				try {
-					outDoc.save_file(xmlPath.c_str());
-				} catch (std::exception ex) {
-					return false;
-				}
-
-				return true;
+				return outDoc.save_file(xmlPath.c_str());
 			}
 		};
 

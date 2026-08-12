@@ -381,8 +381,16 @@ namespace Menu::NAF
 		BindingsVector GetLoadableProjects() {
 			BindingsVector res;
 			const std::string projectEnding = "_project.xml";
-			std::string basePath = "Data\\NAF\\";
-			for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
+			const std::filesystem::path basePath = "Data\\NAF";
+			std::error_code directoryError;
+			std::filesystem::create_directories(basePath, directoryError);
+			if (directoryError) {
+				manager->ShowNotification(std::format("Failed to access Creator project directory: {}", directoryError.message()));
+				return res;
+			}
+
+			for (std::filesystem::directory_iterator iter(basePath, directoryError), end; iter != end && !directoryError; iter.increment(directoryError)) {
+				const auto& entry = *iter;
 				auto path = entry.path();
 				if (!entry.is_regular_file() || !path.has_filename()) {
 					continue;
@@ -392,6 +400,9 @@ namespace Menu::NAF
 					auto projName = file.substr(0, file.size() - projectEnding.size());
 					res.push_back({ projName, MENU_BINDING_WARG(CreatorMenuHandler::ParseProject, projName) });
 				}
+			}
+			if (directoryError) {
+				manager->ShowNotification(std::format("Failed while reading Creator projects: {}", directoryError.message()));
 			}
 			return res;
 		}
