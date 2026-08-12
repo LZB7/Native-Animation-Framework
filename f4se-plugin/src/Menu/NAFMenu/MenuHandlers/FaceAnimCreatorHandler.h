@@ -346,11 +346,15 @@ namespace Menu::NAF
 
 		void SetPreviewTarget(bool isPlayer, int) {
 			if (isPlayer) {
+				logger::info("Face Creator Set Ref: selecting PlayerCharacter");
 				UpdatePreviewTarget(RE::PlayerCharacter::GetSingleton()->As<RE::Actor>());
 				RefreshPanel();
 				manager->RefreshList(false);
 			} else {
-				auto ref = RE::Console::GetPickRef().get().get();
+				auto pickedHandle = RE::Console::GetPickRef();
+				auto ref = pickedHandle.get().get();
+				logger::info("Face Creator Set Ref: console pick handle=0x{:08X}, resolved={}",
+					pickedHandle.native_handle(), fmt::ptr(ref));
 				if (ref != nullptr) {
 					auto a = ref->As<RE::Actor>();
 					if (a != nullptr) {

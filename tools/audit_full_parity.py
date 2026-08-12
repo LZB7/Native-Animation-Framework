@@ -52,6 +52,7 @@ def main() -> None:
         "audit_graph_traverser.py",
         "audit_authoring_io.py",
         "audit_lookat_cam.py",
+        "audit_authoring_reference_selection.py",
     }
     missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
     if missing_audits:
@@ -60,7 +61,7 @@ def main() -> None:
     print(
         "PASS: full-parity ledger tracks restored Phase-B surfaces, all 45 Papyrus bindings, "
         "managed-face lifecycle, active BODY/FACE v5 restoration, Phase-D menu accessibility, "
-        "and all eight authoring audits"
+        "and all nine authoring audits"
     )
 
 

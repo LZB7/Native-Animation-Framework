@@ -5309,3 +5309,97 @@ Production retest:
    pitch targets;
 4. move while LookAt remains active, then disable it and verify ordinary free
    camera and scene cleanup.
+
+### Phase-D production follow-up: Face Creator Set Ref and rendered LookAt camera
+
+The next Face Animator run proved that the default player preview was healthy,
+then failed exact lookup on ID `170742` only when the user selected **Set Target
+to Selected Console Ref**.  The exact upstream chain is:
+
+`FaceAnimCreatorHandler::SetPreviewTarget(false)` ->
+`Console::GetPickRef()` -> resolve `ObjectRefHandle` -> `As<Actor>()` ->
+`UpdatePreviewTarget` -> stop the old managed preview -> bind/start the new
+preview -> refresh Face Animator.
+
+Thus “Set Ref” means the reference most recently selected through Fallout 4's
+console pick system; it is not the HUD crosshair, activation target, dialogue
+target or a separate NAF actor picker.  ID `170742` is the 1.10.163 global
+`Console::GetPickRef`, historically at RVA `0x5ADB4A8`, and selected CommonLib
+incorrectly treated it as invariant.  Dear CommonLib/Addictol identify the AE
+member as `2701395`; the exact supplied 1.11.221 database resolves that ID to
+RVA `0x33077A0`.  The neighboring pick-ref array had the same dormant defect:
+OG ID `875116` is now paired with exact AE ID `2701391`, RVA `0x3307780`.
+Current-pick index `2701382` (RVA `0x3307720`) and
+`Console::SetCurrentPickREFR` `2248551` (RVA `0x1038490`) were already correct.
+Both corrected globals retain their established `ObjectRefHandle` and
+`BSTArray<ObjectRefHandle>` storage types; no layout or ownership change was
+introduced.
+
+The earlier literal sweep missed `170742` because the Face Creator call site
+contains no relocation literal: it calls a lazy inline CommonLib accessor in the
+large shared `IMenu.h`.  Scanning the call-site roots therefore could not see
+the transitive selector, while scanning all of `IMenu.h` produces dozens of
+unrelated dormant declarations.  `audit_authoring_reference_selection.py` now
+models the semantic dependency explicitly and checks five exact AE records plus
+the complete handle-resolution/Actor-validation chain.  Face Creator's audit
+also includes both pick globals.  Bounded Set Ref logging records the native
+handle and resolved reference without retaining either beyond the callback.
+
+#### Render-camera pipeline
+
+The logged `stateDot=1.0` only proved that NAF's inverse and forward Euler
+formulae agreed.  Clean PDB/disassembly establishes the real AE chain:
+
+1. `FreeCameraState::Update` ID `2248280` updates absolute pitch `+0x34`, yaw
+   `+0x38` and translation `+0x28`.
+2. `TESCamera::GetCameraRoot` ID `2214738` returns the scene camera root and
+   vanilla copies the state rotation/translation into it.
+3. Rendering uses the distinct `NiCamera*` returned by PDB-named
+   `Main::WorldRootCamera`, ID `2228956`, RVA `0xC37A40`; the accessor reads the
+   Main-owned world camera at `Main +0x140`.
+4. The actual view object is `NiCamera` (`NiAVObject` base through `0x120`,
+   `worldToCam` at `0x120`, total size `0x1A0`).  Its parent transform composes
+   below the TESCamera root.
+
+Mapped 1.10.163 `FreeCameraState::Update` ID `541110` uses the same broad
+pipeline: it obtains a camera root (old ID `261092`), builds the state matrix,
+copies it into the returned node and updates that node.  Upstream NAF's direct
+root write therefore forced the parent-layer matrix immediately, but did not
+validate the final child `NiCamera` basis.  On AE, preserving only state values
+still left the visually rendered child orientation wrong in the production
+test.
+
+The compatibility implementation now preserves upstream state pitch/yaw for
+input continuity, but recreates the required semantic effect at AE's actual
+view object using PDB-named `NiCamera::LookAtWorldPoint`, exact ID `2270336`, RVA
+`0x16D0960`, followed by a normal NiAVObject update.  Disassembly verifies its
+ABI as `(NiCamera*, NiPoint3& target, NiPoint3& worldUp)`: it derives the
+camera-to-target basis, converts through the camera parent when present, and
+writes local orientation.  The supplied world-up vector is `(0,0,1)`.  This is
+not a yaw/pitch fudge, orbit, recenter or bone attachment; it is the maintained
+engine operation that points the actual view camera at the same world target
+while preserving translation.
+
+`NiCamera::LookAtWorldPoint` stores normalized target-minus-camera direction in
+world-rotation row 0, establishing the actual render forward axis as local/world
+`+X` for this camera representation.  Bounded updates now log:
+
+- camera root and parent identities;
+- world render camera and parent identities;
+- actor root and selected target-node identities;
+- render-camera world position;
+- reconstructed state forward/dot (diagnostic context only);
+- actual render-camera row-0 forward and `renderDot` against the current target.
+
+No code reparents or aliases camera nodes with HEAD/Chest/COM, changes
+`PlayerCamera::cameraTarget`, fades the player, switches first-person state or
+sets player 3D culling flags.  The previous disappearance is therefore
+attributed to the rendered camera pointing away from the actor, not an explicit
+visibility transition; runtime confirmation requires the corrected
+`renderDot`/visual retest.  Direct mutation of `TESCamera::cameraRoot` is not
+restored: its necessary semantic effect is now applied to the real `NiCamera`.
+
+Production retest remains Face Animator Set Ref/edit/preview/save/reopen,
+followed by a player scene with HEAD, Chest, COM and HEAD again.  Require
+`renderDot` near `+1`, visible tracking, free translation while tracking, and
+normal free rotation/cleanup after disabling LookAt.

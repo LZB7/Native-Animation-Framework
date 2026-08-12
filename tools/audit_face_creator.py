@@ -12,6 +12,8 @@ EXPECTED = {
     "BSFaceGenNiNode::UpdateMorphing": (2209487, 0x6E8BF0),
     "BSFaceGenAnimationData::Update": (2209139, 0x6D1310),
     "BSFaceGenAnimationData::UpdateMorphsFromLip": (2209124, 0x6D0560),
+    "Console pick-ref array": (2701391, 0x3307780),
+    "Console selected pick ref": (2701395, 0x33077A0),
 }
 
 GUARDS = {
@@ -24,6 +26,11 @@ GUARDS = {
         "SetMorph", "SetEyes", '"Emissive Mult:"', "TogglePreview", "ToggleHavokSync",
         "FaceUpdateHook::StartAnimation", "FaceUpdateHook::StopAnimation",
         "FaceUpdateHook::VisitAnimation", "Face Creator opened", "preview initialized",
+        "Console::GetPickRef", "Face Creator Set Ref", "pickedHandle.native_handle()",
+    ),
+    "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/IMenu.h": (
+        "REL::RelocationID(170742, 2701395)",
+        "REL::RelocationID(875116, 2701391)",
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/CreatorMenuHandler.h": (
         '"[+] New Face Animation"', '"[->] Open in Face Animator"',
@@ -58,6 +65,8 @@ def main() -> int:
                 failures.append(f"{relative}: missing {token!r}")
     if "REL::ID(1306546)" in combined:
         failures.append("Face Creator path retains invariant OG alternate-head-part ID 1306546")
+    if "REL::ID(170742)" in combined or "REL::ID(875116)" in combined:
+        failures.append("Face Creator path retains invariant OG console pick-ref globals")
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}")

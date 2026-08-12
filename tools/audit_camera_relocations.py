@@ -17,12 +17,16 @@ EXPECTED = {
     "PlayerCamera::ToggleFreeCameraMode": (2248368, 0x1027590),
     "PlayerCamera::Force3rdPerson": (2248348, 0x1026A40),
     "PlayerCamera::SetState": (2214742, 0x827AC0),
+    "Main::WorldRootCamera": (2228956, 0xC37A40),
+    "NiCamera::LookAtWorldPoint": (2270336, 0x16D0960),
 }
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/CamHook/CamHook.h": (
         "using UpdateSig = void(RE::FreeCameraState*, RE::BSTSmartPointer<RE::TESCameraState>&)",
         "REL::RelocationID(541110, 2248280)",
+        "REL::RelocationID(0, 2270336)",
+        "RE::Main::WorldRootCamera()",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESCamera.h": (
         "REL::RelocationID(1171980, 4796065)",

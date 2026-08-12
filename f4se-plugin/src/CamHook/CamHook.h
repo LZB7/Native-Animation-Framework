@@ -120,6 +120,20 @@ namespace CamHook
 
 		std::unique_ptr<InputListener> inputReceiver = nullptr;
 
+		void PointRenderedCameraAt(RE::NiCamera* a_camera, const RE::NiPoint3& a_target)
+		{
+			if (!a_camera) {
+				return;
+			}
+			using LookAtWorldPoint = void(RE::NiCamera*, RE::NiPoint3&, RE::NiPoint3&);
+			static REL::Relocation<LookAtWorldPoint> lookAtWorldPoint{ REL::RelocationID(0, 2270336) };
+			auto target = a_target;
+			RE::NiPoint3 worldUp{ 0.0f, 0.0f, 1.0f };
+			lookAtWorldPoint(a_camera, target, worldUp);
+			RE::NiUpdateData updateData;
+			a_camera->Update(updateData);
+		}
+
 		//RE::NiPoint3 location;
 		//RE::NiMatrix3 rotation;
 
@@ -186,6 +200,13 @@ namespace CamHook
 					s->rotation.x = r.y;
 					s->rotation.y = r.x;
 
+					// 1.11.221 renders through Main::WorldRootCamera (NiCamera), whose
+					// local basis is composed below TESCamera::cameraRoot.  Preserve the
+					// historical state values for input continuity, then apply the same
+					// world-space target semantically at the actual view camera.
+					auto renderCamera = RE::Main::WorldRootCamera();
+					PointRenderedCameraAt(renderCamera, lookAtNode->world.translate);
+
 					const auto diagnosticCount = ++lookAtDiagnosticCount;
 					if (diagnosticCount <= 3 || diagnosticCount == 10) {
 						const auto direction = lookAtNode->world.translate - s->translation;
@@ -201,17 +222,34 @@ namespace CamHook
 							stateRotation.entry[1][0], stateRotation.entry[1][1], stateRotation.entry[1][2]
 						};
 						const auto forwardDot = stateForward.Dot(desiredDirection);
+						RE::NiPoint3 renderForward{};
+						float renderDot = 0.0f;
+						if (renderCamera) {
+							// NiCamera::LookAtWorldPoint stores target-camera direction in
+							// world-rotation row 0; verified from AE ID 2270336.
+							renderForward = {
+								renderCamera->world.rotate.entry[0][0],
+								renderCamera->world.rotate.entry[0][1],
+								renderCamera->world.rotate.entry[0][2]
+							};
+							renderDot = renderForward.Dot(desiredDirection);
+						}
 						logger::info(
-							"LookAt Cam update #{}: stateCamera=({:.2f}, {:.2f}, {:.2f}), cameraRootLocal=({:.2f}, {:.2f}, {:.2f}), cameraRootWorld=({:.2f}, {:.2f}, {:.2f}), actorRoot=({:.2f}, {:.2f}, {:.2f}), target=({:.2f}, {:.2f}, {:.2f}), desired=({:.4f}, {:.4f}, {:.4f}), stateForward=({:.4f}, {:.4f}, {:.4f}), dot={:.5f}, distance={:.2f}, yaw={:.4f}, pitch={:.4f}",
+							"LookAt Cam update #{}: stateCamera=({:.2f}, {:.2f}, {:.2f}), cameraRoot={}/parent={}, renderCamera={}/parent={}, renderWorld=({:.2f}, {:.2f}, {:.2f}), actorRoot={}, targetNode={}, target=({:.2f}, {:.2f}, {:.2f}), desired=({:.4f}, {:.4f}, {:.4f}), stateForward=({:.4f}, {:.4f}, {:.4f}), stateDot={:.5f}, renderForward=({:.4f}, {:.4f}, {:.4f}), renderDot={:.5f}, distance={:.2f}, yaw={:.4f}, pitch={:.4f}",
 							diagnosticCount,
 							s->translation.x, s->translation.y, s->translation.z,
-							camNode->local.translate.x, camNode->local.translate.y, camNode->local.translate.z,
-							camNode->world.translate.x, camNode->world.translate.y, camNode->world.translate.z,
-							lookAtBase->world.translate.x, lookAtBase->world.translate.y, lookAtBase->world.translate.z,
+							fmt::ptr(camNode.get()), fmt::ptr(camNode->parent),
+							fmt::ptr(renderCamera), fmt::ptr(renderCamera ? renderCamera->parent : nullptr),
+							renderCamera ? renderCamera->world.translate.x : 0.0f,
+							renderCamera ? renderCamera->world.translate.y : 0.0f,
+							renderCamera ? renderCamera->world.translate.z : 0.0f,
+							fmt::ptr(lookAtBase.get()), fmt::ptr(lookAtNode.get()),
 							lookAtNode->world.translate.x, lookAtNode->world.translate.y, lookAtNode->world.translate.z,
 							desiredDirection.x, desiredDirection.y, desiredDirection.z,
 							stateForward.x, stateForward.y, stateForward.z,
-							forwardDot, distance, r.x, r.y);
+							forwardDot,
+							renderForward.x, renderForward.y, renderForward.z, renderDot,
+							distance, r.x, r.y);
 					}
 				}
 
