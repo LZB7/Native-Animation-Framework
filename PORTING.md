@@ -4061,3 +4061,103 @@ API, Studio, Creator, Item Explorer, arbitrary callbacks, and active scene
 serialization. Advanced playback/group systems are the recommended next stage
 after the equipment/morph production test; Studio should follow those playback
 and transform dependencies.
+
+## LooksMenu detection and animation-group/position-tree restoration
+
+### Runtime baseline and LooksMenu detection correction
+
+The common scene-feature runtime retained the production scene baseline (solo,
+paired and player scenes; camera; cleanup; events; HUD; graph; face; package;
+Papyrus and serialization), but it did not exercise morphs: historical
+`LooksMenu::Init` first queried F4SE plugin metadata using the logical name
+`F4EE`. F4SE 0.7.8 did not resolve that historical metadata key even though the
+exact supported `f4ee.dll` was loaded. This was a discovery failure, not a
+LooksMenu binary or interface mismatch.
+
+Detection now starts from the exact loaded module name `f4ee.dll`, obtains the
+path of that loaded module, and computes SHA-256 using Windows CNG. Initialization
+continues only for SHA-256
+`B562D636D768620760AAD8C166CCFDA22B014F490ABACE0B21E84334B26C56F0`.
+The existing RVA guards remain mandatory after the hash check:
+
+- `ApplyMorphsToShapes`: RVA `0x11400` and its verified prologue;
+- `g_bodyMorphInterface`: RVA `0x107E00`;
+- `BodyMorphInterface` vtable: RVA `0xC88B0`.
+
+There is no display-name fallback, fuzzy DLL match, signature scan, or support
+for an unrecognized binary. `tools/audit_scene_features.py` now rejects a
+regression to `GetPluginInfo("F4EE")`, verifies the loaded-module/SHA path and
+still checks the supplied DLL hash. The new detection path is statically
+validated and built; successful runtime detection/interface initialization and
+actual morph application remain runtime-test-required. Equipment and morph
+behavior likewise remain content-dependent because the supplied converted packs
+do not declare suitable choreography.
+
+### Animation-group and staged-position architecture
+
+An animation group is a production control system layered over ordinary
+animations. It selects the first stage, counts that stage's configured loops,
+then calls the established scene animation transition path. Sequential groups
+advance in definition order; non-sequential groups use their existing weighted
+selection. Completion reports through the existing control-system contract.
+Stop/cancel uses the same scene teardown already runtime-validated for ordinary
+positions. A staged position is not a separate engine mechanism: it is a
+position whose payload names an animation group.
+
+Scene compatibility now admits a group only when it is nonempty and every stage
+resolves to an animation compatible with the restored ordinary playback path.
+This is checked before constructing the scene, so a missing or still-gated stage
+fails closed instead of becoming a null transition during playback.
+
+The installed CHAK conversion provides one complete initial production test:
+
+- position `(CHAK) *Staged* Hugs` references group `CHAK_Hugs_Staged`;
+- `CHAK_Hugs_Staged` is sequential;
+- stage 1 is `CHAK_Hug_01`;
+- stage 2 is `CHAK_Hug_02`;
+- both animation definitions exist and already use the working paired-HKX path.
+
+Other incomplete converted CHAK staged definitions are not accepted as evidence
+against the framework.
+
+### Position-tree architecture
+
+Position trees remain a distinct production controller. Each node names an
+ordinary position or animation-group position; a nested controller runs that
+position. Tree progression uses the existing node timers and either automatic
+advance or HUD directional input/branch selection, with local events and menu
+sounds. Cleanup unregisters the tree listeners and tears down the nested
+controller through the scene lifecycle. Nested position trees are not supported
+by the historical `excludeTrees` construction path and are now rejected during
+compatibility validation rather than failing after scene start.
+
+The only newly reachable engine relocation in this bounded controller path is
+`UIUtils::PlayMenuSound`, exact supplied-database ID `2249707`, RVA `0x1086220`.
+Its mapping agrees semantically with the modern three-runtime reference. All
+other reachable work uses the already restored HUD, graph/playback, timers,
+events and scene mutation paths. No complete position-tree XML exists in the
+supplied converted material, so the production implementation is statically
+enabled but runtime behavior remains content-dependent.
+
+`tools/audit_group_tree.py` verifies the exact menu-sound record, group/tree
+source gates, continued rejection of arbitrary ordered callbacks, and the CHAK
+group-to-position linkage. The complete established audit set passes: 63 HUD,
+16 graph, 3 face, 12 package, 15 Papyrus/serialization, 8 camera, 40 scene, 24
+menu, 11 playback, 11 scene-event, 5 equipment/inventory, and the bounded
+group/tree record. Release x64/v143 builds and links with zero errors and
+`COPY_BUILD=OFF`.
+
+No additional Papyrus native is required for group/tree playback: the existing
+production scene entry and `SetScenePosition` surface routes through the restored
+control-system factory. The registered/gated count remains 35/10. Generic
+callbacks, NANIM/custom Havok traversal, body IK, continuous alignment and
+advanced transforms, managed-face APIs, Studio, Creator, Item Explorer, and
+active-scene serialization remain gated.
+
+Runtime plan: verify the explicit LooksMenu detection/hash/interface-success
+log, regress one known solo or paired scene, then start `(CHAK) *Staged* Hugs`.
+Observe `CHAK_Hug_01` followed by `CHAK_Hug_02`, actor synchronization, and
+normal completion; also stop once during each stage and confirm package, AI,
+collision, camera and input restoration. Do not save during the active staged
+scene. Test position-tree navigation only when complete real tree content is
+available.

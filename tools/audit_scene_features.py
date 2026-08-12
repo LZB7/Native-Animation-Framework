@@ -35,6 +35,9 @@ SOURCE_GUARDS = {
         "ActorEquipManager::GetSingleton()->UnequipObject",
     ),
     "f4se-plugin/src/LooksMenu/LooksMenu.h": (
+        'GetModuleHandleA("f4ee.dll")',
+        "BCRYPT_SHA256_ALGORITHM",
+        "expectedHash",
         "0x11400",
         "0x107E00",
         "baseAddr + 0xC88B0",
@@ -73,6 +76,10 @@ def main() -> int:
         for selector in selectors:
             if selector not in source:
                 failures.append(f"{relative_path}: missing selector {selector}")
+
+    looks_source = (args.source_root / "f4se-plugin/src/LooksMenu/LooksMenu.h").read_text(errors="replace")
+    if 'GetPluginInfo("F4EE")' in looks_source:
+        failures.append("LooksMenu detection regressed to F4SE logical plugin-name metadata")
 
     if args.looksmenu:
         digest = hashlib.sha256(args.looksmenu.read_bytes()).hexdigest()

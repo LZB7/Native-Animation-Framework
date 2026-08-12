@@ -423,7 +423,7 @@ namespace Scene
 				return { kNullPosition };
 			}
 			if (!settings.startPosition->IsBasicSceneCompatible()) {
-				logger::warn("Scene start rejected: position '{}' requires a gated animation-group or position-tree control system",
+				logger::warn("Scene start rejected: position '{}' has an unresolved or unsupported animation/group/tree dependency",
 					settings.startPosition->id);
 				return { kUnsupportedSceneFeature };
 			}

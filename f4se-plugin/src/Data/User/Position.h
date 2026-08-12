@@ -95,11 +95,46 @@ namespace Data
 
 		[[nodiscard]] bool IsBasicSceneCompatible() const
 		{
-			if (posType != kAnimation) {
+			switch (posType) {
+			case kAnimation:
+				{
+					const auto animation = GetAnimation(idForType);
+					return animation && animation->IsBasicSceneCompatible();
+				}
+			case kAnimationGroup:
+				{
+					const auto group = GetAnimationGroup(idForType);
+					return group && !group->stages.empty() && std::ranges::all_of(group->stages, [](const AnimationGroup::Stage& stage) {
+						const auto animation = GetAnimation(stage.animation);
+						return animation && animation->IsBasicSceneCompatible();
+					});
+				}
+			case kPositionTree:
+				{
+					const auto tree = GetPositionTree(idForType);
+					if (!tree || !tree->tree) {
+						return false;
+					}
+					std::stack<std::shared_ptr<const PositionTree::Node>> pending;
+					pending.push(tree->tree);
+					while (!pending.empty()) {
+						const auto node = pending.top();
+						pending.pop();
+						const auto position = node ? GetPosition(node->position) : nullptr;
+						// Nested trees are intentionally unsupported by GetControlSystem's
+						// excludeTrees path and are rejected before scene construction.
+						if (!position || position->posType == kPositionTree || !position->IsBasicSceneCompatible()) {
+							return false;
+						}
+						for (const auto& child : node->children) {
+							pending.push(child);
+						}
+					}
+					return true;
+				}
+			default:
 				return false;
 			}
-			const auto animation = GetBaseAnimation();
-			return animation && animation->IsBasicSceneCompatible();
 		}
 
 		static bool Parse(XMLUtil::Mapper& m, Position& out)

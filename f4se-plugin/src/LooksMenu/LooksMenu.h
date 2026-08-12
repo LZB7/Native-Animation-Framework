@@ -1,5 +1,7 @@
 #pragma once
+#include <bcrypt.h>
 #include <fstream>
+#pragma comment(lib, "bcrypt.lib")
 #pragma warning(push)
 #pragma warning(disable: 4100)
 
@@ -45,22 +47,42 @@ namespace LooksMenu
 		virtual bool UpdateMorphs(RE::Actor* actor) { return false; }
 	};
 
-	uint64_t checksum(const std::string& filename)
+	std::optional<std::array<std::uint8_t, 32>> sha256(const std::string& filename)
 	{
 		std::ifstream file(filename, std::ios::binary);
 		if (!file) {
 			logger::warn("Error opening file: {}", filename);
-			return 0;
+			return std::nullopt;
 		}
 
 		std::vector<uint8_t> buffer(std::istreambuf_iterator<char>(file), {});
-
-		uint64_t sum = 0;
-		for (uint8_t byte : buffer) {
-			sum += byte;
+		BCRYPT_ALG_HANDLE algorithm = nullptr;
+		BCRYPT_HASH_HANDLE hash = nullptr;
+		DWORD objectSize = 0;
+		DWORD bytesWritten = 0;
+		std::vector<std::uint8_t> hashObject;
+		std::array<std::uint8_t, 32> result{};
+		bool successful = BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) >= 0;
+		if (successful) {
+			successful = BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&objectSize), sizeof(objectSize), &bytesWritten, 0) >= 0;
 		}
-
-		return sum;
+		if (successful) {
+			hashObject.resize(objectSize);
+			successful = BCryptCreateHash(algorithm, &hash, hashObject.data(), objectSize, nullptr, 0, 0) >= 0;
+		}
+		if (successful && !buffer.empty()) {
+			successful = BCryptHashData(hash, buffer.data(), static_cast<ULONG>(buffer.size()), 0) >= 0;
+		}
+		if (successful) {
+			successful = BCryptFinishHash(hash, result.data(), static_cast<ULONG>(result.size()), 0) >= 0;
+		}
+		if (hash) {
+			BCryptDestroyHash(hash);
+		}
+		if (algorithm) {
+			BCryptCloseAlgorithmProvider(algorithm, 0);
+		}
+		return successful ? std::optional{ result } : std::nullopt;
 	}
 
 	bool isInstalled = false;
@@ -129,41 +151,35 @@ namespace LooksMenu
 	}
 
 	void Init() {
-		if (F4SE::GetPluginInfo("F4EE").has_value()) {
-			// Unfortunately expired has never changed F4EE's plugin version, so we gotta do this the old fashioned way.
-			if (auto sum = checksum("Data/F4SE/Plugins/f4ee.dll"); sum > 0) {
-				isInstalled = true;
-				std::string verStr = "";
+		const auto module = GetModuleHandleA("f4ee.dll");
+		if (!module) {
+			logger::info("Loaded module f4ee.dll was not found; LooksMenu support disabled.");
+			return;
+		}
 
-				switch (sum) {
-				case LOOKSMENU_1_6_18_CHECKSUM:
-					version = k1_6_18;
-					verStr = "1.6.18";
-					break;
-				case LOOKSMENU_1_6_20_CHECKSUM:
-					version = k1_6_20;
-					verStr = "1.6.20";
-					break;
-				case LOOKSMENU_1_7_0_3_CHECKSUM:
-					version = k1_7_0_3;
-					verStr = "1.7.0.3";
-					break;
-				default:
-					isInstalled = false;
-				}
+		std::array<char, MAX_PATH> modulePath{};
+		if (GetModuleFileNameA(module, modulePath.data(), static_cast<DWORD>(modulePath.size())) == 0) {
+			logger::warn("Failed to resolve the loaded f4ee.dll path; LooksMenu support disabled.");
+			return;
+		}
 
-				if (isInstalled) {
-					logger::info("LooksMenu version {} detected.", verStr);
-					detail::RegisterHook();
-				} else {
-					logger::info("Unsupported LooksMenu version. Checksum: {:X}", sum);
-				}
+		constexpr std::array<std::uint8_t, 32> expectedHash{
+			0xB5, 0x62, 0xD6, 0x36, 0xD7, 0x68, 0x62, 0x07,
+			0x60, 0xAA, 0xD8, 0xC1, 0x66, 0xCC, 0xFD, 0xA2,
+			0x2B, 0x01, 0x4F, 0x49, 0x0A, 0xBA, 0xCE, 0x0B,
+			0x21, 0xE8, 0x43, 0x34, 0xB2, 0x6C, 0x56, 0xF0
+		};
+		const auto actualHash = sha256(modulePath.data());
+		if (!actualHash || *actualHash != expectedHash) {
+			logger::warn("Loaded f4ee.dll does not match the supported LooksMenu 1.7.0.3 SHA-256; support disabled.");
+			return;
+		}
 
-			} else {
-				logger::warn("Failed to get LooksMenu version, support disabled.");
-			}
-		} else {
-			logger::info("LooksMenu not installed, support disabled.");
+		version = k1_7_0_3;
+		isInstalled = true;
+		detail::RegisterHook();
+		if (isInstalled) {
+			logger::info("LooksMenu 1.7.0.3 detected by loaded module, SHA-256 validated, and body-morph interface initialized.");
 		}
 	}
 
