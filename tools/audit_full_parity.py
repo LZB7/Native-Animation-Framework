@@ -19,6 +19,7 @@ def main() -> None:
     highlight = (ROOT / "f4se-plugin/src/Menu/HighlightedObjectsContainer.h").read_text(encoding="utf-8")
     position = (ROOT / "f4se-plugin/src/Data/User/Position.h").read_text(encoding="utf-8")
     menu = (ROOT / "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/MainMenuHandler.h").read_text(encoding="utf-8")
+    menu_registration = (ROOT / "f4se-plugin/src/Menu/Menu.h").read_text(encoding="utf-8")
     serialization = (ROOT / "f4se-plugin/src/Serialization/Serialization.h").read_text(encoding="utf-8")
 
     require(porting, "## Full NAF 1.0.14 -> NAF AE parity matrix", "parity ledger")
@@ -38,12 +39,28 @@ def main() -> None:
     if missing_bindings:
         raise SystemExit(f"FAIL: managed-face Papyrus bindings remain gated: {missing_bindings}")
 
-    if '{ "Creator", BindGoto(kCreator) }' in menu or '{ "Item Explorer", BindGoto(kItemExplorer) }' in menu:
-        raise SystemExit("FAIL: update the parity ledger for newly restored main-menu entries")
+    require(menu, '{ "Creator", BindGoto(kCreator) }', "Creator entry")
+    require(menu, '{ "Item Explorer", BindGoto(kItemExplorer) }', "Item Explorer entry")
+    require(menu_registration, 'RegisterMenu("NAFStudioMenu", Menu::NAFStudioMenu::Create)', "Studio registration")
+
+    phase_d_audits = {
+        "audit_studio.py",
+        "audit_creator.py",
+        "audit_face_creator.py",
+        "audit_body_creator.py",
+        "audit_item_explorer.py",
+        "audit_graph_traverser.py",
+        "audit_authoring_io.py",
+        "audit_lookat_cam.py",
+    }
+    missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
+    if missing_audits:
+        raise SystemExit(f"FAIL: Phase-D audits are not integrated: {missing_audits}")
 
     print(
         "PASS: full-parity ledger tracks restored Phase-B surfaces, all 45 Papyrus bindings, "
-        "managed-face lifecycle, and active BODY/FACE v5 restoration"
+        "managed-face lifecycle, active BODY/FACE v5 restoration, Phase-D menu accessibility, "
+        "and all eight authoring audits"
     )
 
 

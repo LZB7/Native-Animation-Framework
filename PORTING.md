@@ -4307,13 +4307,10 @@ Runtime progression:
 5. observe paired alignment and cleanup; deliberate perturbation remains optional
    if no normal pack workflow exposes it.
 
-Remaining preservation gates are custom NANIM traversal and its `BODY`
-persistence, generic ordered callbacks, full managed-face Papyrus API, Studio,
-Creator, Item Explorer, nested position trees, and the remaining transform/IK
-controls. These are all required for NAF 1.0.14 feature parity. A gate records an
-unresolved dependency or missing runtime verification; it is not a judgement
-that the upstream feature is optional. Content-dependent IK/morph/equipment
-behavior also remains on the runtime-coverage list.
+This was the gate set at the start of the full-parity campaign. Phases A-C and
+the Phase-D source restoration below have since removed every source gate.
+Content-dependent NANIM, managed-face, IK/morph/equipment, and authoring
+workflows remain explicitly on the runtime-coverage list.
 
 ## Full NAF 1.0.14 -> NAF AE parity matrix
 
@@ -4369,13 +4366,13 @@ families), not a claim that every row has equal implementation size.
 | SmartIdle graph time and synchronization | restored/runtime-validated | graph variables and dynamic idle | broader synchronization native coverage | exercise multi-actor resynchronization |
 | NANIM parsing/loading/playback/stop | statically restored | NAF node graph, NiAVObject transforms, graph update/Set3D hooks | production runtime/content coverage pending | test bundled BasePose and an authored NANIM; validate stop/repeat/3D reload |
 | Exported C++ NANIM handle API | statically restored | NANIM loader/player and handle store | production plugin-consumer runtime coverage pending | test load/copy/move/queue/free semantics |
-| NANIM graph recording and pose snapshots | not yet ported | node recorder, Creator/Studio, NANIM writer | authoring menus hidden and NANIM runtime gated | restore in Phase D after Phase A runtime |
+| NANIM graph recording and pose snapshots | statically restored | NodeAnimationCreator, Creator/Studio, NANIM writer | authoring workflow runtime coverage pending | create, bake/export, replay, and persist a moving NANIM through the production tools |
 | `BODY` v5 serialization/restoration | statically restored | stable actor/resource/time descriptors plus world-ready graph reconstruction | NPC NANIM save/load runtime coverage pending | test active NPC NANIM save/reload/stop with exact v5 schema |
 | Body IK solver/runtime graph integration | restored/content-test-required | graph/Set3D, GraphInfo chains, pinned IK math | no suitable real IK-chain content tested | retain production initialization and test real content |
 | Body IK Papyrus target/enable API | statically restored | solver and actor node graph | registered but behavioral coverage pending | test chain targeting, disable/reset and scene teardown |
-| Full IK/editor controls | not yet ported | Studio/Creator node selection and graph editing | authoring UI inaccessible; NANIM/editor graph dependencies gated | restore complete original controls in Phases C/D |
+| Full IK/editor controls | statically restored | Studio/Creator node selection and graph editing | authoring workflow runtime coverage pending | exercise chain selection, target parenting, visibility, reset, bake and cleanup |
 | Ordinary continuous scene alignment | restored/runtime-validated | actor transforms, collision, player 3D | deliberate drift perturbation not separately tested | regress paired/player scenes and add natural drift case |
-| Advanced/editor forced alignment | not yet ported | Studio actor list and transform editor | Studio registration and workflow gated | restore with Studio using production transform implementation |
+| Advanced/editor forced alignment | statically restored | Studio actor list and transform editor | authoring workflow runtime coverage pending | exercise multi-actor Studio entry, edit, close, and restoration |
 | Local-transform and animation-sync Papyrus helpers | statically restored | corrected Get3D ABI, NiTransform, SmartIdle | registered but dedicated behavior coverage incomplete | validate through original scripts/workflows |
 | Vanilla and scene face/lip pass-through | restored/runtime-validated | two verified face hooks | none on tested dialogue/scene paths | regression baseline |
 | Managed-face runtime state/persistence | restored/content-test-required | face hooks and `FACE` v5 record | external control functions gated | validate timelines, eye state, loop/body sync and cleanup in Phase C |
@@ -4387,11 +4384,11 @@ families), not a claim that every row has equal implementation size.
 | Hover/effect highlighting | restored/content-test-required | AE effect shader play/finish lifetime | visual behavior across every selecting menu not yet tested | IDs 2205201/4796160 audited; test hover/add/remove/remove-all in production menus |
 | Inventory/equipment navigation menu | restored/content-test-required | item enumeration, equipment state | broader inventory combinations not exercised | retain UI entry and test live scene equipment editing |
 | Main NAF menu and active/new-scene pages | restored/content-test-required | Scaleform/data/scene manager | restored speed/position/inventory actions need expanded runtime coverage | regress all Active Scenes mutations and navigation |
-| Studio menu registration and workflow | not yet ported | NANIM, transforms, IK, camera, graph, Creator | `NAFStudioMenu` is not registered by current bounded initialization | Phase D restore full upstream workflow, not a reduced substitute |
-| Creator project/body/face authoring | not yet ported | Studio, NANIM writer, managed face, file I/O | Creator main-menu entry removed | restore project create/load/save/export and previews in Phase D |
-| Body Animation Creator | not yet ported | Studio/NANIM recording and graph editing | reachable only through hidden Creator | restore duration/retime/multi-actor/pose workflows |
-| Face Animation Creator | not yet ported | managed-face timelines and preview | reachable only through hidden Creator | restore keyframe editing, preview, sync and export |
-| Item Explorer | not yet ported | form/object enumeration, highlight, interaction | main-menu entry removed; highlighting disabled | restore entry, browsing, selection and interaction in Phase D |
+| Studio menu registration and workflow | statically restored | NANIM, transforms, IK, camera, graph, Creator, compiled Studio SWF | production runtime workflow coverage pending | exercise actor selection, camera, gizmos, timeline, IK, bake/package, and fail-safe exit |
+| Creator project/body/face authoring | statically restored | Studio, NANIM writer, managed face, file I/O | production runtime workflow coverage pending | create/load/save/reopen a project and validate exported assets |
+| Body Animation Creator | statically restored | Studio/NANIM recording and graph editing | production runtime workflow coverage pending | edit, retime, preview, bake/package and replay generated NANIM |
+| Face Animation Creator | statically restored | managed-face timelines and preview | production runtime workflow coverage pending | author, preview, save/reopen, then exercise managed-face API with its output |
+| Item Explorer | statically restored | armor-form enumeration, ordered equipment, highlight | production runtime workflow coverage pending | browse plugins/forms, equip/remove, highlight, and exit cleanly |
 | MCM hotkey integration | statically restored | shipped MCM config and ToggleMenu native | not independently regression-tested after menu expansion | test binding, modifiers and opening every restored page |
 | Papyrus production surface (45 registered natives) | restored/content-test-required | VM registration and underlying restored subsystems | registration parity complete; behavior coverage remains dependency-specific | retain all bindings and validate through owning subsystems |
 | Remaining Papyrus surface (4 formerly gated natives) | restored/content-test-required | managed face | Set/ClearEyeCoordOverride and Play/StopFaceAnimation are production-enabled | validate managed-face behavior and FACE restoration |
@@ -4415,10 +4412,7 @@ Every currently intentional behavior gate has one removal dependency:
 
 | Gate in current AE source | Upstream behavior suppressed | Removal dependency |
 | --- | --- | --- |
-| four omitted bindings in `Papyrus::RegisterFunctions` | managed-face public APIs | Phase C runtime restoration |
-| `RegisterProductionSceneMenu` instead of full `Menu::Register` | Studio menu registration | Phase D dependency completion |
-| removed `Creator` main-menu binding | Creator, Body Creator and Face Creator | Phase D dependency completion |
-| removed `Item Explorer` main-menu binding | Item Explorer | form/effect/UI audit |
+| none | no upstream behavior is intentionally source-gated | runtime validation and concrete fault repair only |
 
 The broad `kGameplaySubsystemsEnabled` flag is currently `true`; it no longer
 suppresses a subsystem. The equipment and morph ordered-action flags are also
@@ -4933,9 +4927,9 @@ Phase-C production test plan:
 5. force a legitimate actor 3D rebuild where practical and verify the managed
    state rebinds without retaining the old face-data or eye-geometry pointer.
 
-The parity ledger now totals 22 restored/runtime-validated, 14 restored/content-
-test-required, 13 statically restored, 0 unresolved, and 8 not yet ported
-(49/57 with production or static implementations). Remaining central gates are
+At Phase-C closure, the parity ledger totaled 22 restored/runtime-validated, 14
+restored/content-test-required, 13 statically restored, 0 unresolved, and 8 not
+yet ported (49/57 with production or static implementations). The central gates at that point were
 the upstream authoring/UI workflows: Studio; Creator including Body Creator and
 Face Creator; and Item Explorer. Phase D should begin by mapping their shared
 menu/state dependencies, then restore the main-menu entries and Studio/Creator/
@@ -4945,3 +4939,188 @@ NANIM, managed face, highlighting, graph, scene, and persistence foundations.
 Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`. Phase-C
 development DLL SHA-256:
 `6BB09D7A225F746AD7AEB53C739FDC5C72D14F5B5EA7F5731DDCB63DB3887AB9`.
+
+## Phase D - Studio, Creator and authoring UI restoration
+
+### Dependency and gate audit
+
+Direct comparison with clean upstream NAF 1.0.14 established that the authoring
+implementations had not been reduced during the AE port. Face Creator and Item
+Explorer are source-identical; Creator, Body Creator and Studio differ only at
+the already-audited AE API adaptation points. The effective development gates
+were narrower than the older ledger suggested:
+
+```text
+NAF Menu
+  -> Creator (main-menu binding was removed)
+     -> project state (CreatorData singleton)
+        -> Face Animation Creator (NAFMenu state)
+        -> Body Animation Creator (NAFMenu state)
+           -> NAFStudioMenu (menu registration was omitted)
+              -> NodeAnimationGraph / NodeAnimationCreator
+              -> graph hook + NANIM + IK + transforms + package control
+              -> free-camera hook + external camera input/orbit
+              -> bake/package NANIM output
+  -> Item Explorer (main-menu binding was removed)
+     -> TESDataHandler armor forms
+     -> ordered equipment actions + highlighting
+```
+
+The Creator and Item Explorer bindings are restored, and the game-data-ready
+menu path now registers `NAFStudioMenu` together with `NAFMenu`. No constructor,
+Scaleform handler, Creator callback, preview controller, or project data source
+was otherwise gated. All 45 Papyrus registrations remain enabled; the authoring
+pages communicate primarily through C++/Scaleform state handlers rather than a
+second Papyrus registration layer.
+
+The compiled authoring asset remains the upstream `Interface/NAFStudioMenu.swf`.
+Its ActionScript/XFL source is present under `as3`, but the repository does not
+contain the Adobe-Animate-produced SWF. Runtime testing therefore requires the
+unchanged upstream NAF interface asset to be installed alongside the new DLL;
+the port does not synthesize or substitute a reduced SWF.
+
+### Creator, file model and authoring output
+
+Creator preserves the upstream workflow and file formats:
+
+- `NAF Menu -> Creator -> New Project/Load Project/Save Project` owns the
+  singleton project workspace;
+- project metadata and face timelines are written to
+  `Data/NAF/<name>_project.xml`;
+- body animations are written to the referenced
+  `Data/NAF/<name>_project.nanim`;
+- Face Creator edits 30-fps morph/eye/emissive timelines, previews through the
+  production managed-face state, optionally synchronizes to graph time, and is
+  saved through the project XML;
+- Body Creator opens the production Studio, edits NodeAnimationCreator keys,
+  chain state/targets/interpolation, and can bake per-actor NANIM files or one
+  packaged multi-character NANIM;
+- pose snapshots remain `Data/NAF/pose_snapshot.nanim`.
+
+Filesystem behavior received bounded maintenance hardening without a schema or
+path change. `Data/NAF` is created when necessary, project enumeration uses the
+non-throwing `error_code` iterator path and reports access failures, and project
+save now honors pugixml's boolean failure result instead of falsely reporting a
+successful XML write. Body NANIM is still written before its XML reference, as
+upstream. No raw pointer or runtime graph object is persisted.
+
+`Data/NAF/Animations/Human/BasePose.nanim` is authoring infrastructure, not a
+visible moving test animation. `NAF_graphInfo.xml` associates it with
+`RaiderProject`; Creator resolves the actor graph project, loads animation
+`pose`, and uses the graph's node list to seed a new body animation. If the file
+is unavailable it falls back to the GraphInfo XML skeleton pose and finally to
+an empty pose. Its role is base-pose initialization/reset for authoring and
+preview.
+
+### Studio, Body Creator, transforms and cleanup
+
+Studio uses the already-restored production graph, NANIM, IK, transform,
+package, collision and camera implementations. It supports upstream actor and
+target selection, node markers, translation/rotation gizmos, timeline keys,
+copy/delete/undo/redo, playback, node visibility, IK enable/reset/target
+parenting, interpolation, multi-actor time synchronization, save, bake and
+package export. Opening Studio pushes its three input contexts, HUD special
+mode, player-input block, free camera and external camera input. Closing saves
+the current creator graphs, destroys markers, stops forced alignment, clears
+package overrides, restores scale/collision, disables IK, transitions graphs
+back, destroys Creator instances, pops input/HUD state, disables fly camera and
+clears orbit state.
+
+Two dormant authoring bounds defects were corrected: managed-actor and gizmo
+marker indices now require `index < size`, not `index <= size`. These are
+fail-safe maintenance corrections for invalid UI selections and do not change
+valid upstream behavior.
+
+The old Studio screen-width/height relocations `1302430` and `644641` are OG
+1.10.163-only globals and are absent from the supplied AE database. They have
+not been remapped speculatively. Studio now uses maintained
+`RE::GetINISetting("iSize W:Display")` and `RE::GetINISetting("iSize H:Display")`;
+if a setting is unavailable it logs and uses the authored 1920x1080 stage
+fallback. This removes both stale IDs from the reachable authoring path.
+
+### Graph traversal finding
+
+The legacy declarations named `BShkbUtils::GraphTraverser`,
+`BShkbVisitor::TraverseAnimationGraphNodes`, and
+`BShkbAnimationGraph::VisitGraph` were audited rather than presumed to be a
+Studio dependency. Neither upstream 1.0.14 nor the AE authoring source calls
+them. Studio traversal is through NAF's `NodeAnimationGraph`, its explicit node
+map, and `GraphHook::VisitGraph`. The unused declarations remain fail-closed and
+cannot resolve merely by loading the plugin.
+
+For future reference only, old/new binary/PDB comparison gives strong entry
+candidates for the unused helper constructor/next pair at AE IDs `2258080`
+(RVA `0x139AC00`) and `2258082` (RVA `0x139AD20`), and identifies
+`BShkbVisitor::TraverseAnimationGraphNodes` at ID `2257415`, RVA `0x1367110`.
+They were deliberately not incorporated because no live upstream workflow
+requires them and the remaining legacy destructor/VisitGraph set is not fully
+verified. This is not a reduced Studio path: it records that GraphTraverser is
+dead source in the shipped upstream workflow.
+
+### Item Explorer and LookAt Cam
+
+Item Explorer is its own upstream armor browser, not an alias for ContainerMenu.
+It groups playable, player-race-compatible armor by owning plugin, presents
+selection state, and adds/removes selections through the production ordered
+equipment queue. Fileless/dynamic armor forms are now skipped safely and
+unnamed armor receives a display fallback; valid forms retain upstream behavior.
+
+Source comparison confirms `LookAt Cam` is already behaviorally faithful. Scene
+entry passes the player's actor root to `CamHook::LookAt`. The configurable
+target is a child skeleton node, default `HEAD` (alternatives `Chest` and `COM`).
+Each free-camera update first calls the engine original, then rotates from the
+camera root's current local translation toward the target node's **world**
+translation. It does not translate/recenter the camera onto the head and has no
+framing offset. Consequently a view that remains off-center while continuously
+oriented toward the head is expected upstream behavior. Normal free-camera
+translation remains available; look-at overwrites rotation, while Q/E apply the
+upstream vertical translation adjustment. Studio's separate orbit mode targets
+the selected gizmo/node and is not the ordinary-scene LookAt path.
+
+The target root/node are intrusive `NiPointer`s and are cleared when LookAt is
+disabled. Upstream reacquires the named node when LookAt starts or its setting
+changes; it does not implement a distinct Set3D observer for an already-running
+LookAt session. The AE port preserves that behavior rather than silently
+redesigning target semantics.
+
+### Audits, parity and runtime plan
+
+Eight Phase-D audits were added and integrated with the central source ledger:
+Studio, Creator, Face Creator, Body Creator, Item Explorer, authoring file I/O,
+LookAt semantics, and the legacy GraphTraverser reachability check. Together
+they verify 71 Phase-D source/lifecycle guards plus the traversal reachability
+invariant. All established relocation and
+ABI audits also pass: 63 HUD records, 40 scene records, 25 menu records, 16
+graph records, 15 Papyrus/serialization records, 12 package records, 12
+inventory records, 11 playback records, 11 scene-event records, 8 camera
+records, 7 NANIM records, 5 feature records, and the face/IK/alignment/layout
+guards. No new virtual-order, structure-layout or eager-relocation defect was
+found.
+
+The 57-row parity ledger now contains 22 restored/runtime-validated, 14
+restored/content-test-required, and 21 statically restored families: 57/57 have
+production or static implementations, with zero `unresolved` and zero `not yet
+ported` rows. The central source gate list is empty. This is not a claim of
+Phase-D runtime validation: every authoring workflow remains production-test-
+required until exercised with the installed upstream SWF.
+
+Recommended first Phase-D production workflow:
+
+1. regress NAF menu and enter Item Explorer; browse a plugin, select/remove an
+   armor item, verify highlight/equipment state, then exit;
+2. enter Creator, create and name a project, create a face animation, open Face
+   Animator, add morph/eye keys, preview, save, close and reopen the project;
+3. play the Creator-generated face animation through the normal managed-face
+   API, test replacement/stop and eye clear, and verify vanilla face recovery;
+4. create a body animation, select a loaded actor, enter Studio, exercise camera
+   and LookAt, node selection, translate/rotate, IK visibility/target/reset,
+   timeline playback, save and bake/package;
+5. replay the generated moving NANIM through normal runtime and scene paths,
+   then exercise BODY active persistence;
+6. exit every page and verify camera, input, package, collision, graph, IK,
+   highlight and temporary authoring state are restored.
+
+No deployment or live-game modification was performed by this build stage.
+Release x64/v143 builds and links with zero errors and `COPY_BUILD=OFF`.
+Phase-D development DLL SHA-256:
+`AAD3EDFB5140458C1691EA2989D27403D2758FD7E958E581F391225B588DC5B9`.
