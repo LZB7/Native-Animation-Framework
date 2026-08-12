@@ -25,11 +25,14 @@ namespace Menu::NAF
 					return RE::BSEventNotifyControl::kContinue;
 
 				if (event.opening) {
+					logger::info("Active Scenes inventory: ContainerMenu opened; inventory enumeration, metadata, selection, and actions are engine-owned");
 					EngineCompat::UpdateMenuMode(RE::UI::GetSingleton(), "ContainerMenu", false);
 				} else {
+					logger::info("Active Scenes inventory: ContainerMenu closed; restoring NAF menu state");
 					if (auto& a = state->sceneData->pendingActor; a.has_value()) {
 						auto targetActor = a.value().get().get();
 						if (targetActor) {
+							logger::debug("Active Scenes inventory: removing temporary ShowWornItems keyword from actor {:p}", static_cast<void*>(targetActor));
 							EngineCompat::ModifyKeyword(targetActor, Data::Forms::ShowWornItemsKW, false);
 							a = std::nullopt;
 						}
@@ -81,6 +84,7 @@ namespace Menu::NAF
 						Bind(&InventoryMenuHandler::ShowActorInventory, currentActor->GetActorHandle()) });
 				});
 			});
+			logger::info("Active Scenes inventory: prepared {} actor selection entries for scene {}", result.size(), curSceneId);
 
 			return result;
 		}
@@ -90,6 +94,7 @@ namespace Menu::NAF
 			RE::Actor* a = h.get().get();
 			if (a)
 			{
+				logger::info("Active Scenes inventory: resolved actor {:p} for scene {}; opening production ContainerMenu", static_cast<void*>(a), curSceneId);
 				bool hadSWIKeyword = a->HasKeyword(Data::Forms::ShowWornItemsKW);
 				if (!hadSWIKeyword)
 				{
@@ -106,7 +111,11 @@ namespace Menu::NAF
 				}
 
 				manager->CloseMenu();
+				logger::debug("Active Scenes inventory: dispatching OpenContainerMenu(mode=3, ownedNoCrime=false)");
 				RE::OpenContainerMenu(a, 3, false);
+				logger::debug("Active Scenes inventory: OpenContainerMenu event dispatch returned");
+			} else {
+				logger::warn("Active Scenes inventory: actor handle no longer resolves; suppressing menu open");
 			}
 		}
 

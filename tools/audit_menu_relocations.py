@@ -33,6 +33,7 @@ EXPECTED = {
     "TESForm all-forms lock": (4796476, 0x30E0E98),
     "TESObjectREFR::GetDisplayFullName": (2201126, 0x513310),
     "TESObjectREFR::SetLinkedRef": (2202684, 0x5645B0),
+    "OpenContainerMenu dispatcher": (2248608, 0x103E1B0),
 }
 
 SOURCE_GUARDS = {
@@ -58,6 +59,7 @@ SOURCE_GUARDS = {
         '{ "Active Scenes", BindGoto(kManageScenes) }',
     ),
     "f4se-plugin/src/Scripts/Papyrus.h": ("PAPYRUS_BIND(ToggleMenu)",),
+    "f4se-plugin/src/RE/ContainerMenu.h": ("REL::RelocationID(1105206, 2248608)",),
 }
 
 FORBIDDEN = (
@@ -65,6 +67,7 @@ FORBIDDEN = (
     "REL::RelocationID(544871, 2692013)",
     "REL::RelocationID(325206, 2692014)",
     "REL::ID(192840)",
+    "REL::ID(1105206)",
 )
 
 
