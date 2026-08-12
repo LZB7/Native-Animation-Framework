@@ -44,6 +44,9 @@ namespace BodyAnimation
 		struct PersistentState
 		{
 			std::unordered_map<RE::IAnimationGraphManagerHolder*, NodeAnimationGraph> graphs;
+			// BODY v5 serializes stable actor/resource/time descriptors. Engine graph,
+			// 3D and node pointers are rebuilt only after the world is active.
+			std::vector<GraphStateInfo> pendingRestores;
 
 			template <class Archive>
 			void save(Archive& ar, const uint32_t) const
@@ -55,6 +58,14 @@ namespace BodyAnimation
 						infos.push_back({ g.targetHandle, { g.animationFilePath, g.animationId }, g.generator.localTime });
 					}
 				}
+				for (const auto& pending : pendingRestores) {
+					const auto duplicate = std::ranges::any_of(infos, [&](const GraphStateInfo& info) {
+						return info.ref.hash() == pending.ref.hash();
+					});
+					if (!duplicate) {
+						infos.push_back(pending);
+					}
+				}
 				ar(infos);
 			}
 
@@ -63,18 +74,7 @@ namespace BodyAnimation
 			{
 				std::vector<GraphStateInfo> infos;
 				ar(infos);
-				for (const auto& i : infos) {
-					auto ref = i.ref.get();
-					if (ref == nullptr)
-						continue;
-
-					if (auto animData = LoadAnimation(ref.get(), i.animInfo.filePath, i.animInfo.id); animData != nullptr) {
-						StartAnimation(ref.get(), std::move(animData), 0.0f, i.animInfo.filePath, i.animInfo.id);
-						if (auto g = GetGraph(ref.get()); g != nullptr) {
-							g->generator.localTime = i.animTime;
-						}
-					}
-				}
+				pendingRestores = std::move(infos);
 			}
 		};
 
@@ -84,6 +84,7 @@ namespace BodyAnimation
 		inline static std::mutex loadingAnimsLock;
 		inline static std::unordered_map<SerializableRefHandle, std::set<RE::IAnimationGraphManagerHolder*>> regsFor3d;
 		inline static std::shared_mutex regsFor3dLock;
+		inline static std::unordered_map<SerializableRefHandle, AnimationInfo> restoredAnimations;
 
 		static std::unique_ptr<NodeAnimation> LoadAnimation(RE::TESObjectREFR* ref, const std::string& filePath, const std::string& id)
 		{
@@ -129,6 +130,19 @@ namespace BodyAnimation
 			if (!ref)
 				return false;
 
+			// Scene persistence re-requests its serialized SmartIdle assignment. If
+			// BODY already reconstructed this exact NANIM, consume the one-shot
+			// marker instead of racing a second asynchronous load against it.
+			{
+				std::unique_lock l{ stateLock };
+				if (auto iter = restoredAnimations.find(ref->GetHandle()); iter != restoredAnimations.end() &&
+					Utility::StringToLower(iter->second.filePath) == Utility::StringToLower(filePath) &&
+					iter->second.id == animName) {
+					restoredAnimations.erase(iter);
+					return true;
+				}
+			}
+
 			auto info = GetGraphInfo(ref);
 			if (!info)
 				return false;
@@ -137,6 +151,8 @@ namespace BodyAnimation
 
 			std::unique_lock l{ loadingAnimsLock };
 			loadingAnims[hndl] = { filePath, animName };
+			logger::info("NANIM load queued: reference={}, file='{}', animation='{}', transition={}",
+				fmt::ptr(ref), filePath, animName, transitionDur);
 
 			std::thread([filePath = filePath, animName = animName, info = info, hndl = hndl, transitionDur = transitionDur]() {
 				auto animData = LoadAnimation(info, filePath, animName);
@@ -145,7 +161,11 @@ namespace BodyAnimation
 				std::unique_lock l{ loadingAnimsLock };
 				if (auto iter = loadingAnims.find(hndl); iter != loadingAnims.end() && iter->second.filePath == filePath && iter->second.id == animName) {
 					if (animData != nullptr && ref != nullptr) {
-						StartAnimation(ref.get(), std::move(animData), transitionDur, filePath, animName);
+						if (!StartAnimation(ref.get(), std::move(animData), transitionDur, filePath, animName)) {
+							logger::warn("NANIM load completed but graph installation failed: file='{}', animation='{}'", filePath, animName);
+						}
+					} else {
+						logger::warn("NANIM load failed or target became unavailable: file='{}', animation='{}'", filePath, animName);
 					}
 					loadingAnims.erase(hndl);
 				}
@@ -165,6 +185,8 @@ namespace BodyAnimation
 			g->TransitionToAnimation(std::move(anim), transitionDur);
 			g->animationFilePath = filePath;
 			g->animationId = id;
+			logger::info("NANIM graph installed: reference={}, file='{}', animation='{}', transition={}",
+				fmt::ptr(ref), filePath, id, transitionDur);
 
 			return true;
 		}
@@ -182,6 +204,7 @@ namespace BodyAnimation
 				return false;
 
 			g->TransitionToAnimation(nullptr, transitionDur);
+			logger::info("NANIM stop requested: reference={}, transition={}", fmt::ptr(ref), transitionDur);
 			return true;
 		}
 
@@ -279,26 +302,80 @@ namespace BodyAnimation
 			if (!loggedFirstSet3D.exchange(true, std::memory_order_relaxed)) {
 				logger::info("Production TESObjectREFR::Set3D observed: reference={}, object={}, queued={}", fmt::ptr(a_ref), fmt::ptr(a_object), a_queue);
 			}
-			std::shared_lock l1{ stateLock };
-			std::shared_lock l2{ regsFor3dLock };
+			{
+				std::shared_lock l1{ stateLock };
+				std::shared_lock l2{ regsFor3dLock };
 
-			auto iter = regsFor3d.find(a_ref->GetHandle());
-			if (iter == regsFor3d.end())
-				return;
-
-			for (auto& g : iter->second) {
-				if (auto iter2 = state->graphs.find(g); iter2 != state->graphs.end()) {
-					std::unique_lock l3{ iter2->second.updateLock };
-					iter2->second.UpdateNodes(a_ref);
+				if (auto iter = regsFor3d.find(a_ref->GetHandle()); iter != regsFor3d.end()) {
+					for (auto& g : iter->second) {
+						if (auto iter2 = state->graphs.find(g); iter2 != state->graphs.end()) {
+							std::unique_lock l3{ iter2->second.updateLock };
+							iter2->second.UpdateNodes(a_ref);
+						}
+					}
 				}
 			}
+			TryRestorePendingForReference(a_ref);
 		}
 
 		static void Reset() {
 			std::scoped_lock l{ loadingAnimsLock, stateLock, regsFor3dLock };
 			state->graphs.clear();
+			state->pendingRestores.clear();
 			loadingAnims.clear();
 			regsFor3d.clear();
+			restoredAnimations.clear();
+		}
+
+		static void FixupAfterSerialization()
+		{
+			std::vector<GraphStateInfo> pending;
+			{
+				std::unique_lock l{ stateLock };
+				pending.swap(state->pendingRestores);
+				restoredAnimations.clear();
+			}
+
+			std::vector<GraphStateInfo> unresolved;
+			std::size_t restored = 0;
+			for (const auto& info : pending) {
+				auto ref = info.ref.get();
+				if (!ref || !ref->Get3D()) {
+					unresolved.push_back(info);
+					continue;
+				}
+
+				auto animation = LoadAnimation(ref.get(), info.animInfo.filePath, info.animInfo.id);
+				if (!animation || !StartAnimation(ref.get(), std::move(animation), 0.0f,
+						info.animInfo.filePath, info.animInfo.id)) {
+					unresolved.push_back(info);
+					continue;
+				}
+
+				{
+					std::unique_lock l{ stateLock };
+					if (auto graph = GetGraph(ref.get()); graph) {
+						graph->generator.localTime = info.animTime;
+						restoredAnimations[ref->GetHandle()] = info.animInfo;
+						++restored;
+					} else {
+						unresolved.push_back(info);
+					}
+				}
+			}
+
+			{
+				std::unique_lock l{ stateLock };
+				state->pendingRestores.insert(state->pendingRestores.end(), unresolved.begin(), unresolved.end());
+			}
+			logger::info("BODY persistence fixup: {} NANIM graph(s) restored, {} descriptor(s) retained unresolved",
+				restored, unresolved.size());
+		}
+
+		static void FinishSerializationFixup()
+		{
+			std::unique_lock l{ stateLock };
+			restoredAnimations.clear();
 		}
 
 		static bool RegisterHook()
@@ -344,6 +421,42 @@ namespace BodyAnimation
 		}
 
 	private:
+		static bool TryRestorePendingForReference(RE::TESObjectREFR* ref)
+		{
+			if (!ref || !ref->Get3D()) {
+				return false;
+			}
+			std::optional<GraphStateInfo> pending;
+			{
+				std::unique_lock l{ stateLock };
+				auto handle = ref->GetHandle();
+				if (auto iter = std::ranges::find_if(state->pendingRestores, [&](const GraphStateInfo& info) {
+						return info.ref.hash() == handle.native_handle();
+					}); iter != state->pendingRestores.end()) {
+					pending = *iter;
+					state->pendingRestores.erase(iter);
+				}
+			}
+			if (!pending) {
+				return false;
+			}
+			auto animation = LoadAnimation(ref, pending->animInfo.filePath, pending->animInfo.id);
+			if (!animation || !StartAnimation(ref, std::move(animation), 0.0f,
+					pending->animInfo.filePath, pending->animInfo.id)) {
+				std::unique_lock l{ stateLock };
+				state->pendingRestores.push_back(*pending);
+				return false;
+			}
+			std::unique_lock l{ stateLock };
+			if (auto graph = GetGraph(ref); graph) {
+				graph->generator.localTime = pending->animTime;
+				logger::info("BODY persistence restored NANIM after Set3D for reference {}", fmt::ptr(ref));
+				return true;
+			}
+			state->pendingRestores.push_back(*pending);
+			return false;
+		}
+
 		static NodeAnimationGraph* GetOrCreateGraph(RE::TESObjectREFR* ref) {
 			if (auto g = GetGraph(ref); g != nullptr) {
 				return g;

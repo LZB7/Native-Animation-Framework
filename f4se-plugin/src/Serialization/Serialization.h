@@ -67,6 +67,7 @@ namespace Serialization
 		case 'HUD':
 		case 'PACK':
 		case 'SHUD':
+		case 'BODY':
 			return true;
 		default:
 			return false;
@@ -129,7 +130,9 @@ namespace Serialization
 			return;
 		}
 		FaceAnimation::FaceUpdateHook::FixupAfterSerialization();
+		BodyAnimation::GraphHook::FixupAfterSerialization();
 		Scene::SceneManager::FixupRestoredScenes();
+		BodyAnimation::GraphHook::FinishSerializationFixup();
 		Tasks::TimerThread::GetSingleton()->Start();
 	}
 
@@ -151,6 +154,8 @@ namespace Serialization
 				timer->timerLock,
 				FaceAnimation::FaceUpdateHook::loadingAnimsLock,
 				FaceAnimation::FaceUpdateHook::stateLock,
+				BodyAnimation::GraphHook::loadingAnimsLock,
+				BodyAnimation::GraphHook::stateLock,
 				Data::Uid::lock,
 				PackageOverride::lock,
 				Menu::HUDManager::elementsLock,
@@ -170,6 +175,7 @@ namespace Serialization
 			SAVE_PERSISTENT_STATE('HUD', 5, "HUD", Menu::HUDManager::state);
 			SAVE_PERSISTENT_STATE('PACK', 5, "package override", PackageOverride::state);
 			SAVE_PERSISTENT_STATE('SHUD', 5, "scene HUD", Menu::SceneHUD::state);
+			SAVE_PERSISTENT_STATE('BODY', 5, "body animation", BodyAnimation::GraphHook::state);
 
 			std::size_t deferredWritten = 0;
 			for (const auto& record : deferredRecords) {
@@ -184,7 +190,7 @@ namespace Serialization
 			}
 
 			Serialization::General::s_intfc = nullptr;
-			logger::info("Serialization save completed: eight historical v5 production records written, {} advanced records preserved", deferredWritten);
+			logger::info("Serialization save completed: all nine historical v5 records written, {} unknown records preserved", deferredWritten);
 		}
 
 		logger::info("Finished serialization in {:.3f}ms", Utility::GetPerformanceCounterMS());
@@ -210,6 +216,8 @@ namespace Serialization
 				timer->timerLock,
 				FaceAnimation::FaceUpdateHook::loadingAnimsLock,
 				FaceAnimation::FaceUpdateHook::stateLock,
+				BodyAnimation::GraphHook::loadingAnimsLock,
+				BodyAnimation::GraphHook::stateLock,
 				Data::Uid::lock,
 				PackageOverride::lock,
 				Menu::HUDManager::elementsLock,
@@ -299,6 +307,12 @@ namespace Serialization
 						if (loaded) Menu::SceneHUD::state = std::move(value);
 						break;
 					}
+					case 'BODY': {
+						auto value = std::make_unique<BodyAnimation::GraphHook::PersistentState>();
+						loaded = LoadPayload("body animation", payload, value);
+						if (loaded) BodyAnimation::GraphHook::state = std::move(value);
+						break;
+					}
 					}
 				}
 
@@ -328,6 +342,7 @@ namespace Serialization
 		Tasks::TimerThread::GetSingleton()->Reset();
 		PackageOverride::Reset();
 		FaceAnimation::FaceUpdateHook::Reset();
+		BodyAnimation::GraphHook::Reset();
 		Scene::SceneManager::Reset();
 		Scene::OrderedActionQueue::Reset();
 		Data::Uid::Reset();

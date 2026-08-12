@@ -119,6 +119,7 @@ namespace RE
 			return func(this);
 		}
 	};
+	static_assert(sizeof(hkbContext) == 0x68);
 
 	class BShkbAnimationGraph
 	{
@@ -135,7 +136,7 @@ namespace RE
 
 		hkbNode* getNodeClone(hkbNode* a_node) {
 			using func_t = decltype(&BShkbAnimationGraph::getNodeClone);
-			REL::Relocation<func_t> func{ REL::ID(326555) };
+			REL::Relocation<func_t> func{ REL::RelocationID(326555, 2260454) };
 			return func(this, a_node);
 		}
 	};
