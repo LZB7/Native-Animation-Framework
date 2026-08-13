@@ -125,11 +125,11 @@ the `upstream` remote.
 
 Reproducibility note: this branch currently pins CommonLibF4 commit
 `ecd663f48c17c5e69c435d6d8fa970b0abb844cc`, which contains the accumulated AE
-ABI/relocation corrections. That commit is not yet retrievable from the
-`.gitmodules` URL `https://github.com/alandtse/CommonLibF4.git`. Publish that
-dependency commit in a public CommonLibF4 fork and then update `.gitmodules`
-before advertising a fresh-clone source build as reproducible. The `ik` and
-`pugixml` pins are publicly retrievable.
+ABI/relocation corrections. It is publicly hosted by
+`https://github.com/LZB7/CommonLibF4.git`. A disposable recursive clone of this
+branch retrieved that exact revision plus the pinned `ik` and `pugixml`
+revisions, so the documented source build is reproducible through the public
+submodules.
 
 ## Credits and license
 

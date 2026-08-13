@@ -5569,15 +5569,14 @@ compatibility fork is
 `https://github.com/Deweh/Native-Animation-Framework.git` is retained as
 `upstream`.
 
-The pinned `ik` commit is advertised publicly and the pinned `pugixml` commit
-can be fetched directly by SHA. The ported CommonLibF4 commit
-`ecd663f48c17c5e69c435d6d8fa970b0abb844cc` is neither advertised by nor
-fetchable from the current `.gitmodules` URL
-`https://github.com/alandtse/CommonLibF4.git`. No public `LZB7/CommonLibF4`
-repository existed when checked. Therefore the root source is not yet
-fresh-clone reproducible: publish this exact dependency history under a public
-fork, verify fetch-by-SHA, then deliberately update `.gitmodules`. The
-dependency was not vendored and no nonexistent URL was substituted.
+The ported CommonLibF4 commit
+`ecd663f48c17c5e69c435d6d8fa970b0abb844cc` is publicly hosted by
+`https://github.com/LZB7/CommonLibF4.git`. A disposable recursive clone of the
+public NAF `port/1.11.221` branch at commit `aa2580d` successfully retrieved
+that exact CommonLibF4 revision, `ik` revision
+`b1700d9ad080c82143e2fb83e2594604bee1b9bb`, and `pugixml` revision
+`6909df2478f7eb092e8e5b5cda097616b2595cc6`. The public-source
+reproducibility blocker is therefore closed.
 
 ### Optional-dependency failure paths
 
