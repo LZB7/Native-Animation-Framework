@@ -5557,16 +5557,27 @@ Final DLL:
 
 SHA-256:
 
-`677ED6486B7F7D4F70F581F71CE755CF3E47D53F0E2C82F6826241E1637C2E44`
+`FD89759356283DD3B1A9E69431BC4AA602650E367BCF469959DBA614CBE96A67`
 
 ## Final compatibility-port closure
 
 This repository is an **unofficial NAF 1.0.14 compatibility/source port for
 Fallout 4 1.11.221**, not a replacement ownership claim or a complete upstream
-framework repack. Original NAF is by Snapdragon/Deweh. The configured public
-Git remote is the upstream repository
-`https://github.com/Deweh/Native-Animation-Framework.git`; no separate public
-compatibility-port remote is configured in this checkout.
+framework repack. Original NAF is by Snapdragon/Deweh. The configured
+compatibility fork is
+`https://github.com/LZB7/Native-Animation-Framework.git` (`origin`), while
+`https://github.com/Deweh/Native-Animation-Framework.git` is retained as
+`upstream`.
+
+The pinned `ik` commit is advertised publicly and the pinned `pugixml` commit
+can be fetched directly by SHA. The ported CommonLibF4 commit
+`ecd663f48c17c5e69c435d6d8fa970b0abb844cc` is neither advertised by nor
+fetchable from the current `.gitmodules` URL
+`https://github.com/alandtse/CommonLibF4.git`. No public `LZB7/CommonLibF4`
+repository existed when checked. Therefore the root source is not yet
+fresh-clone reproducible: publish this exact dependency history under a public
+fork, verify fetch-by-SHA, then deliberately update `.gitmodules`. The
+dependency was not vendored and no nonexistent URL was substituted.
 
 ### Optional-dependency failure paths
 

@@ -118,10 +118,18 @@ not prepare or authorize a wholesale redistribution of the upstream release or
 third-party animation packs. A separate DLL release may be hosted according to
 the chosen host's permissions.
 
-The configured Git remote currently points to the public upstream repository,
-not a separately named compatibility-port repository. See the release notes or
-project hosting page for the compatibility source location once one is
-published.
+Compatibility source is hosted at
+`https://github.com/LZB7/Native-Animation-Framework`, with the original
+`https://github.com/Deweh/Native-Animation-Framework` repository retained as
+the `upstream` remote.
+
+Reproducibility note: this branch currently pins CommonLibF4 commit
+`ecd663f48c17c5e69c435d6d8fa970b0abb844cc`, which contains the accumulated AE
+ABI/relocation corrections. That commit is not yet retrievable from the
+`.gitmodules` URL `https://github.com/alandtse/CommonLibF4.git`. Publish that
+dependency commit in a public CommonLibF4 fork and then update `.gitmodules`
+before advertising a fresh-clone source build as reproducible. The `ik` and
+`pugixml` pins are publicly retrievable.
 
 ## Credits and license
 
