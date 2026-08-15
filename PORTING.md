@@ -5638,3 +5638,55 @@ Recommended repository title: **Native Animation Framework — Fallout 4
 1.11.221 compatibility port**. Recommended description: **Unofficial GPL-3.0
 source and DLL compatibility port of Snapdragon/Deweh's NAF 1.0.14 for Fallout
 4 1.11.221 and F4SE 0.7.8; requires the original NAF package.**
+
+## Hit-event/Papyrus object-refcount regression audit
+
+A public Hit Facial Expression reproduction on Fallout 4 `1.11.221.0`
+failed closed on Address Library ID `541793` when damage was received. The ID
+does not belong to `TESHitEvent`, `HitData`, `DamageImpactData`, or the facial
+animation update itself. Its exact owner was selected CommonLibF4's inline
+`BSScript::Object::DecRef()`, which still used the single 1.10.163 ID from
+`RE/Bethesda/BSScript/Object.h`.
+
+Dear-Modding/CommonLib identifies the pair as old ID `541793` and maintained
+ID `2314437`. Independent verification established:
+
+| Interface | 1.10.163 | 1.11.221 | Signature | Evidence |
+|---|---|---|---|---|
+| `BSScript::Object::DecRef` | ID `541793`, RVA `0x26ED210` | ID `2314437`, RVA `0x20E23C0` | `std::uint32_t (BSScript::Object::*)() const` | exact old/new Address Library records; decrypted old/new instruction bodies agree apart from relocated import/global displacements; Dear mapping convergence |
+
+The function operates on `refCountAndHandleLock` at object offset `0x28`,
+performs the same interlocked reference-release state machine in both binaries,
+and returns its result in `EAX`. The selected CommonLib declaration now uses
+`REL::RelocationID(541793, 2314437)`. Adjacent `Object::GetHandle` and
+`Object::IncRef` already selected exact AE IDs `2314431` and `2314436` and
+required no correction.
+
+The reachable NAF path is:
+
+`TESHitEvent` engine source -> `Scene::EventProxy::ProcessEvent` -> maintained
+`TESHitEvent::target` -> `Scene::OnActorHit` -> `ProcessCanNotContinue` -> F4SE
+game-thread task -> production `StopScene`/Papyrus scene-event or external
+managed-face dispatch -> destruction/replacement of a Papyrus `Variable`
+holding `BSTSmartPointer<BSScript::Object>` -> `Object::DecRef`.
+
+The precise Papyrus object lifetime which first releases depends on the active
+scene/script registrations and on the external mod's managed-face calls; the
+engine hit payload itself is not retained or mutated by NAF. NAF's event sink
+continues to return `BSEventNotifyControl::kContinue`, so other sinks such as
+Hit Facial Expression remain eligible to receive the same engine event.
+
+The earlier AE hit ABI corrections remain present: `DamageImpactData` is
+`0x40`, `HitData` is `0xE0`, `TESHitEvent` is `0x110`, and target resolution
+uses maintained `TESHitEvent::target`. Face-data ownership, Set3D rebinding,
+and managed-face lock/update logic were not changed.
+
+`tools/audit_hit_event_path.py` now rejects the legacy-only selector, verifies
+the exact AE DecRef/GetHandle/IncRef and hit-event-source records, guards all
+three hit layouts plus maintained target access, and requires non-consuming
+event delivery and game-thread stop dispatch. It is included in the full-parity
+audit inventory. The resulting **31-script** audit suite passes with zero
+failures. Release/x64/v143 rebuilt with `COPY_BUILD=OFF`, zero compile/link
+errors, and only the previously documented IK timestamp/incremental-build and
+`/Ob2`-to-`/Ob3` warnings. The rebuilt diagnostic DLL SHA-256 is
+`90E8344A5B7C0EB43EC3E1D350DD1ACBAF2EBCE4949FCB71846CE5ACC54DD654`.
