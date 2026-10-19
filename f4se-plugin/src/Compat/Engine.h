@@ -4,15 +4,10 @@ namespace EngineCompat
 {
 	namespace ExactRuntime
 	{
-		// Disassembly-verified Fallout4.exe 1.11.221 entry.  This function has no
-		// Address Library ID or supported public indirection.  Keep this fallback
-		// isolated so a future Address Library entry replaces one implementation.
-		inline constexpr std::uintptr_t freeUpAllMarkersRVA = 0x55F490;
-
 		[[nodiscard]] inline bool ValidateFreeUpAllMarkers()
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
-				logger::critical("FreeUpAllMarkers exact-runtime fallback requires Fallout 4 1.11.221.0");
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
+				logger::critical("FreeUpAllMarkers validation requires Fallout 4 1.11.240.0");
 				return false;
 			}
 
@@ -29,11 +24,13 @@ namespace EngineCompat
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF
 			};
 
-			const auto* target = reinterpret_cast<const std::uint8_t*>(REL::Module::get().base() + freeUpAllMarkersRVA);
+			// The official 1.11.240 Address Library resolves exact ID 2202575 to
+			// PDB-named TESObjectREFR::FreeUpAllMarkers at RVA 0x55F7B0.
+			static REL::Relocation<std::uintptr_t> target{ REL::RelocationID(1324833, 2202575) };
+			const auto* bytes = reinterpret_cast<const std::uint8_t*>(target.address());
 			for (std::size_t i = 0; i < signature.size(); ++i) {
-				if ((target[i] & mask[i]) != (signature[i] & mask[i])) {
-					logger::critical("FreeUpAllMarkers fallback validation failed at RVA 0x{:X}; refusing to call mismatched runtime code",
-						freeUpAllMarkersRVA);
+				if ((bytes[i] & mask[i]) != (signature[i] & mask[i])) {
+					logger::critical("FreeUpAllMarkers Address Library validation failed for ID 2202575; refusing to call mismatched runtime code");
 					return false;
 				}
 			}
@@ -49,7 +46,7 @@ namespace EngineCompat
 		}
 
 		using func_t = void(RE::TESObjectREFR*);
-		const auto func = reinterpret_cast<func_t*>(REL::Module::get().base() + ExactRuntime::freeUpAllMarkersRVA);
+		static REL::Relocation<func_t> func{ REL::RelocationID(1324833, 2202575) };
 		func(a_refr);
 		return true;
 	}

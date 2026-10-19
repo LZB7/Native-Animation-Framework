@@ -207,8 +207,8 @@ namespace CamHook
 
 		[[nodiscard]] bool RegisterHook()
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
-				logger::critical("Free-camera hook requires Fallout 4 runtime 1.11.221.0");
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
+				logger::critical("Free-camera hook requires Fallout 4 runtime 1.11.240.0");
 				return false;
 			}
 

@@ -78,7 +78,7 @@ set(Boost_USE_STATIC_LIBS ON)
 
 # ---- Dependencies ----
 
-# This port targets the post-NG 1.11.221 runtime only.  Building CommonLibF4
+# This port targets the AE 1.11.240 runtime only.  Building CommonLibF4
 # for one runtime makes accidental use of a legacy-only relocation fail at
 # build/audit time instead of silently selecting a pre-NG layout.
 set(ENABLE_FALLOUT_F4 OFF CACHE BOOL "Build legacy Fallout 4 support" FORCE)
@@ -127,6 +127,7 @@ add_library(
 target_compile_definitions(
 	${PROJECT_NAME}
 	PRIVATE
+		DETOURXS_NO_AUTOLINK
 		_UNICODE
 )
 
@@ -150,6 +151,7 @@ target_link_libraries(
 		spdlog::spdlog
 		ik
 		libzippp::libzippp
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/detourXS/LDE64x64.lib"
 )
 
 target_precompile_headers(

@@ -78,7 +78,7 @@ namespace Tasks
 		{
 			//Main::UpdateNonRenderSafeAITasks + 0x1E
 			//Call to TaskQueueInterface::ProcessQueues
-			//1.10.163: 338354 + 0x1E; 1.11.221: 2228937 + 0x1E.
+			//1.10.163: 338354 + 0x1E; 1.11.221/1.11.240: 2228937 + 0x1E.
 			//The unchanged numeric interior offset is independently verified, not translated.
 			REL::Relocation<ProcessQueues> updateCallLoc{ REL::RelocationID(338354, 2228937), 0x1E };
 			REL::Relocation<ProcessQueues> processQueues{ REL::RelocationID(882638, 2229181) };
@@ -88,13 +88,13 @@ namespace Tasks
 			const auto encodedTarget = callSite + 5 + displacement;
 			if (*reinterpret_cast<const std::uint8_t*>(callSite) != 0xE8 || encodedTarget != processQueues.address()) {
 				logger::critical("Game-loop hook validation failed at Address Library ID {} + 0x1E",
-					REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2228937 : 338354);
+					2228937);
 				return false;
 			}
 
 			OriginalProcessQueues = trampoline.write_call<5>(callSite, &HookedGameLoop);
 			logger::info("Installed game-loop ProcessQueues hook at Address Library ID {} + 0x1E; basic scene and bounded ordered-delay work enabled",
-				REL::Module::get().version() == F4SE::RUNTIME_1_11_221 ? 2228937 : 338354);
+				2228937);
 			return true;
 		}
 	}

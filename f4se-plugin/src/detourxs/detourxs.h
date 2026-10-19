@@ -17,10 +17,14 @@
 #endif
 
 #ifdef _M_IX86
-	#pragma comment(lib, "DetourXS/LDE64")
+	#ifndef DETOURXS_NO_AUTOLINK
+		#pragma comment(lib, "DetourXS/LDE64")
+	#endif
 	extern "C" size_t __stdcall LDE(const LPVOID lpData, unsigned int size);
 #else
-	#pragma comment(lib, "../src/detourXS/LDE64x64")
+	#ifndef DETOURXS_NO_AUTOLINK
+		#pragma comment(lib, "../src/detourXS/LDE64x64")
+	#endif
 	extern "C" size_t __fastcall LDE(const LPVOID lpData, unsigned int size);
 #endif
 

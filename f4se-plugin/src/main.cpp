@@ -102,19 +102,19 @@ namespace
 	}
 }
 
-// F4SE 0.7.8 scans this export before loading a plugin.  Legacy Query/Load
-// exports alone are rejected as "no version data" on runtime 1.11.221.
+// F4SE 0.7.9 scans this export before loading a plugin.  Legacy Query/Load
+// exports alone are rejected as "no version data" on runtime 1.11.240.
 F4SE_EXPORT constinit auto F4SEPlugin_Version = []() noexcept {
 	F4SE::PluginVersionData v{};
 	v.PluginVersion({ Version::MAJOR, Version::MINOR, Version::PATCH, 0 });
 	v.PluginName(Version::PROJECT);
-	v.AuthorName("Deweh / NAF 1.11.221 port");
+	v.AuthorName("Deweh / NAF 1.11.240 port");
 	v.UsesAddressLibrary(true);
 	v.UsesSigScanning(false);
 	v.IsLayoutDependent(true);
 	v.HasNoStructUse(false);
-	v.CompatibleVersions({ F4SE::RUNTIME_1_11_221 });
-	v.MinimumRequiredXSEVersion({ 0, 7, 8, 0 });
+	v.CompatibleVersions({ F4SE::RUNTIME_1_11_240 });
+	v.MinimumRequiredXSEVersion({ 0, 7, 9, 0 });
 	return v;
 }();
 
@@ -148,7 +148,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a
 	}
 
 	const auto ver = a_f4se->RuntimeVersion();
-	if (ver != F4SE::RUNTIME_1_11_221) {
+	if (ver != F4SE::RUNTIME_1_11_240) {
 		logger::critical("{} does not support runtime v{}", Version::PROJECT, ver.string());
 		return false;
 	}

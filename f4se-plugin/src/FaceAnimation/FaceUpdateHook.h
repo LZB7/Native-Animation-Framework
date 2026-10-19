@@ -346,8 +346,8 @@ namespace FaceAnimation
 
 		bool RegisterHook(F4SE::Trampoline& trampoline)
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_221) {
-				logger::critical("Face/lip hooks require Fallout 4 runtime 1.11.221.0");
+			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
+				logger::critical("Face/lip hooks require Fallout 4 runtime 1.11.240.0");
 				return false;
 			}
 

@@ -304,7 +304,7 @@ namespace BodyAnimation
 						ik_vec3_t dir = nodes[i]->position;
 						ik.vec3.sub_vec3(dir.f, nodes[i - 1]->position.f);
 						ik.vec3.normalize(dir.f);
-						ik.vec3.mul_scalar(dir.f, segmentLength);
+						ik.vec3.mul_scalar(dir.f, static_cast<ikreal_t>(segmentLength));
 						dirsCache[i] = dir;
 					}
 
