@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release-candidate invariants for the Fallout 4 1.11.221 NAF port."""
+"""Release-candidate invariants for the Fallout 4 1.11.240 NAF port."""
 
 from pathlib import Path
 
@@ -40,7 +40,7 @@ def main() -> int:
             failures.append(f"LooksMenu soft-dependency guard missing: {token}")
 
     main = read("f4se-plugin/src/main.cpp")
-    for token in ("RUNTIME_1_11_221", "ValidateFreeUpAllMarkers", "UsesSigScanning(false)"):
+    for token in ("RUNTIME_1_11_240", "ValidateFreeUpAllMarkers", "UsesSigScanning(false)"):
         if token not in main:
             failures.append(f"startup fail-closed guard missing: {token}")
     if "spdlog::level::trace" in main or "flush_on(spdlog::level::trace)" in main:
@@ -73,17 +73,16 @@ def main() -> int:
         if noisy in cam:
             failures.append(f"development LookAt diagnostic remains: {noisy}")
 
-    # The sole project-specific RVA fallback must remain isolated to the verified
-    # exact-runtime FreeUpAllMarkers helper.
-    raw_rva_literals: list[tuple[str, str]] = []
+    # FreeUpAllMarkers must use its exact Address Library identity on 1.11.240;
+    # the retired 1.11.221 raw-RVA fallback must not return.
+    engine = read("f4se-plugin/src/Compat/Engine.h")
+    if "REL::RelocationID(1324833, 2202575)" not in engine:
+        failures.append("FreeUpAllMarkers exact relocation selector is missing")
     for path in source_root.rglob("*.h"):
         text = path.read_text(encoding="utf-8", errors="replace")
-        if "0x55F490" in text:
-            raw_rva_literals.append((str(path.relative_to(ROOT)), "0x55F490"))
-        if "0x55F4B0" in text:
-            failures.append(f"withdrawn interior FreeUpAllMarkers address remains in {path.relative_to(ROOT)}")
-    if raw_rva_literals != [("f4se-plugin\\src\\Compat\\Engine.h", "0x55F490")]:
-        failures.append(f"unexpected FreeUpAllMarkers raw-RVA locations: {raw_rva_literals}")
+        for retired in ("0x55F490", "0x55F4B0"):
+            if retired in text:
+                failures.append(f"retired FreeUpAllMarkers raw RVA {retired} remains in {path.relative_to(ROOT)}")
 
     readme = read("README.md")
     for token in (
@@ -98,7 +97,7 @@ def main() -> int:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
-    print("PASS: RC gates, optional integration, startup guards, 45 natives, nine v5 records, UI parity, logging, and sole raw-RVA exception")
+    print("PASS: RC gates, optional integration, startup guards, 45 natives, nine v5 records, UI parity, logging, and exact FreeUpAllMarkers relocation")
     return 0
 
 

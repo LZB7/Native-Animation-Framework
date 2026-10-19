@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the bounded production NAFMenu entry/navigation surface for 1.11.221."""
+"""Audit the bounded production NAFMenu entry/navigation surface for 1.11.240."""
 
 from __future__ import annotations
 
@@ -9,31 +9,31 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "BSScript::Stack::GetPageForFrame": (2314680, 0x20F32F0),
-    "BSScript::Stack::GetStackFrameVariable": (2314681, 0x20F3360),
-    "UI singleton": (4796314, 0x30DD8B0),
-    "UI menu-map lock": (2707105, 0x3DA6AF0),
-    "UI::RegisterMenu": (2284766, 0x1A82210),
-    "UIMessageQueue singleton": (4796377, 0x30DDAA0),
-    "UIMessageQueue::AddMessage": (2284929, 0x1A89170),
-    "ControlMap singleton": (4799307, 0x31E5B08),
-    "ControlMap::PushInputContext": (2268335, 0x166F430),
-    "ControlMap::PopInputContext": (2268336, 0x166F500),
-    "ControlMap::SetTextEntryMode": (4491359, 0x166F9A0),
-    "PlayerControls singleton": (4799306, 0x31E5B00),
-    "BSScaleformManager singleton": (4796889, 0x30EAD10),
-    "BSScaleformManager::LoadMovie": (2287422, 0x1B1AD10),
-    "BSGFxShaderFXTarget::CreateAndSetFiltersToHUD": (2287027, 0x1B04040),
-    "SendHUDMessage::ShowHUDMessage": (2222440, 0xA36F60),
-    "SendHUDMessage::PushHUDMode": (2222443, 0xA37090),
-    "SendHUDMessage::PopHUDMode": (2222444, 0xA370A0),
-    "UIUtils::PlayMenuSound": (2249707, 0x1086220),
-    "TESDataHandler singleton": (4796135, 0x30DC080),
-    "TESForm all-forms map": (4796465, 0x30E0E48),
-    "TESForm all-forms lock": (4796476, 0x30E0E98),
-    "TESObjectREFR::GetDisplayFullName": (2201126, 0x513310),
-    "TESObjectREFR::SetLinkedRef": (2202684, 0x5645B0),
-    "OpenContainerMenu dispatcher": (2248608, 0x103E1B0),
+    "BSScript::Stack::GetPageForFrame": (2314680, 0x20FAD20),
+    "BSScript::Stack::GetStackFrameVariable": (2314681, 0x20FAD90),
+    "UI singleton": (4796314, 0x30E8930),
+    "UI menu-map lock": (2707105, 0x3DBD370),
+    "UI::RegisterMenu": (2284766, 0x1A826D0),
+    "UIMessageQueue singleton": (4796377, 0x30E8B20),
+    "UIMessageQueue::AddMessage": (2284929, 0x1A89630),
+    "ControlMap singleton": (4799307, 0x31F0B88),
+    "ControlMap::PushInputContext": (2268335, 0x166F750),
+    "ControlMap::PopInputContext": (2268336, 0x166F820),
+    "ControlMap::SetTextEntryMode": (4491359, 0x166FCC0),
+    "PlayerControls singleton": (4799306, 0x31F0B80),
+    "BSScaleformManager singleton": (4796889, 0x30F5D90),
+    "BSScaleformManager::LoadMovie": (2287422, 0x1B1B1D0),
+    "BSGFxShaderFXTarget::CreateAndSetFiltersToHUD": (2287027, 0x1B04500),
+    "SendHUDMessage::ShowHUDMessage": (2222440, 0xA37270),
+    "SendHUDMessage::PushHUDMode": (2222443, 0xA373A0),
+    "SendHUDMessage::PopHUDMode": (2222444, 0xA373B0),
+    "UIUtils::PlayMenuSound": (2249707, 0x1086570),
+    "TESDataHandler singleton": (4796135, 0x30E7100),
+    "TESForm all-forms map": (4796465, 0x30EBEC8),
+    "TESForm all-forms lock": (4796476, 0x30EBF18),
+    "TESObjectREFR::GetDisplayFullName": (2201126, 0x513630),
+    "TESObjectREFR::SetLinkedRef": (2202684, 0x5648D0),
+    "OpenContainerMenu dispatcher": (2248608, 0x103E540),
 }
 
 SOURCE_GUARDS = {

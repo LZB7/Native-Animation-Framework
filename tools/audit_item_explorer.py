@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the complete production Item Explorer/equipment path on 1.11.221."""
+"""Audit the complete production Item Explorer/equipment path on 1.11.240."""
 
 import argparse
 import struct
@@ -7,17 +7,17 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "TESDataHandler singleton": (4796135, 0x30DC080),
-    "PlayerCharacter singleton": (2698073, 0x32D22E0),
-    "BGSObjectInstance constructor": (2197563, 0x436830),
-    "TESForm::GetFile": (2193103, 0x3120B0),
-    "TESObjectREFR::GetInventoryObjectCount": (2200939, 0x502290),
-    "TESObjectREFR::AddInventoryItem": (2200949, 0x502950),
-    "ActorEquipManager singleton": (4798287, 0x31E33A8),
-    "ActorEquipManager::EquipObject": (2231392, 0xCE5A90),
-    "ActorEquipManager::UnequipObject": (2231395, 0xCE5F30),
-    "UIMessageQueue singleton": (4796377, 0x30DDAA0),
-    "UIMessageQueue::AddMessage": (2284929, 0x1A89170),
+    "TESDataHandler singleton": (4796135, 0x30E7100),
+    "PlayerCharacter singleton": (2698073, 0x32DD370),
+    "BGSObjectInstance constructor": (2197563, 0x436B50),
+    "TESForm::GetFile": (2193103, 0x3123D0),
+    "TESObjectREFR::GetInventoryObjectCount": (2200939, 0x5025B0),
+    "TESObjectREFR::AddInventoryItem": (2200949, 0x502C70),
+    "ActorEquipManager singleton": (4798287, 0x31EE428),
+    "ActorEquipManager::EquipObject": (2231392, 0xCE5E20),
+    "ActorEquipManager::UnequipObject": (2231395, 0xCE62C0),
+    "UIMessageQueue singleton": (4796377, 0x30E8B20),
+    "UIMessageQueue::AddMessage": (2284929, 0x1A89630),
 }
 
 GUARDS = {

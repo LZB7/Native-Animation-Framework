@@ -10,11 +10,11 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "ActorEquipManager singleton": (4798287, 0x31E33A8),
-    "ActorEquipManager::EquipObject": (2231392, 0xCE5A90),
-    "ActorEquipManager::UnequipObject": (2231395, 0xCE5F30),
-    "TESObjectREFR::GetInventoryObjectCount": (2200939, 0x502290),
-    "TESObjectREFR::AddInventoryItem": (2200949, 0x502950),
+    "ActorEquipManager singleton": (4798287, 0x31EE428),
+    "ActorEquipManager::EquipObject": (2231392, 0xCE5E20),
+    "ActorEquipManager::UnequipObject": (2231395, 0xCE62C0),
+    "TESObjectREFR::GetInventoryObjectCount": (2200939, 0x5025B0),
+    "TESObjectREFR::AddInventoryItem": (2200949, 0x502C70),
 }
 
 SOURCE_GUARDS = {
@@ -40,13 +40,18 @@ SOURCE_GUARDS = {
         "expectedHash",
         "0x11400",
         "0x107E00",
-        "baseAddr + 0xC88B0",
+        "0x11780",
+        "0x10DD30",
+        "0xCD840",
         "expectedApplyPrologue",
     ),
     "f4se-plugin/src/main.cpp": ("LooksMenu::Init();",),
 }
 
-LOOKSMENU_SHA256 = "b562d636d768620760aad8c166ccfda22b014f490abace0b21e84334b26c56f0"
+LOOKSMENU_SHA256 = {
+    "b562d636d768620760aad8c166ccfda22b014f490abace0b21e84334b26c56f0": "1.7.0.3",
+    "2eb76a878bad00edee64d19431d19d072fffa096215deb04dd3180abe39fdb0f": "1.7.0.4",
+}
 
 
 def read_database(path: Path) -> dict[int, int]:
@@ -83,15 +88,15 @@ def main() -> int:
 
     if args.looksmenu:
         digest = hashlib.sha256(args.looksmenu.read_bytes()).hexdigest()
-        if digest != LOOKSMENU_SHA256:
-            failures.append(f"LooksMenu 1.7.0.3 SHA-256 mismatch: {digest}")
+        if digest not in LOOKSMENU_SHA256:
+            failures.append(f"unsupported LooksMenu SHA-256: {digest}")
 
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
 
-    suffix = "; exact LooksMenu 1.7.0.3 SHA-256 matched" if args.looksmenu else ""
+    suffix = f"; exact LooksMenu {LOOKSMENU_SHA256[digest]} SHA-256 matched" if args.looksmenu else ""
     print(f"PASS: {len(EXPECTED)} equipment/inventory AE records and {sum(map(len, SOURCE_GUARDS.values()))} feature guards matched{suffix}")
     return 0
 

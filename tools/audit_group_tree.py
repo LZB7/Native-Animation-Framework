@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 PLAY_MENU_SOUND_ID = 2249707
-PLAY_MENU_SOUND_RVA = 0x1086220
+PLAY_MENU_SOUND_RVA = 0x1086570
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/Data/User/Position.h": (

@@ -8,9 +8,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    2214534: 0x818730,  # GetAnimationGraphProjectName
-    2214536: 0x818970,  # graph update hook
-    2201055: 0x50C5B0,  # Set3D hook
+    2214534: 0x818A40,  # GetAnimationGraphProjectName
+    2214536: 0x818C80,  # graph update hook
+    2201055: 0x50C8D0,  # Set3D hook
 }
 GUARDS = {
     "f4se-plugin/src/Scripts/Papyrus.h": (

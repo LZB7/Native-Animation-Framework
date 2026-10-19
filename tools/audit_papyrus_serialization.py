@@ -13,21 +13,21 @@ from pathlib import Path
 # dedicated audits; the shared allocator/string/handle machinery is repeated
 # here deliberately so this audit can fail independently before deployment.
 EXPECTED = {
-    "GameVM::GetSingleton (g_GameVM)": (4796420, 0x30E0288),
-    "BSScript::NF_util::NativeFunctionBase::Call": (2314780, 0x20F9870),
-    "MemoryManager::GetSingleton": (4471522, 0x1DFF80),
-    "MemoryManager::Allocate": (2267872, 0x1657AC0),
-    "MemoryManager::Deallocate": (2267874, 0x1657F20),
-    "MemoryManager::Reallocate": (2267873, 0x1657D20),
-    "MemoryManager::GetThreadScrapHeap": (2267850, 0x1656F30),
-    "BSStringPool::Entry::release": (2268720, 0x167D180),
-    "BSStringPool::BucketTable::GetSingleton": (2268736, 0x167E800),
-    "BSStringPool::GetEntry<char>": (2268729, 0x167DA00),
-    "BSStringPool::GetEntry<wchar_t>": (2268730, 0x167DF80),
-    "ActorHandleManager::CreateHandle": (2188375, 0x21E3F0),
-    "ActorHandleManager::GetHandle": (2188676, 0x22CA40),
-    "ActorHandleManager::GetSmartPointer": (2188681, 0x22CD40),
-    "Actor::GetActorHandle": (2229894, 0xC73410),
+    "GameVM::GetSingleton (g_GameVM)": (4796420, 0x30EB308),
+    "BSScript::NF_util::NativeFunctionBase::Call": (2314780, 0x21012A0),
+    "MemoryManager::GetSingleton": (4471522, 0x1E02A0),
+    "MemoryManager::Allocate": (2267872, 0x1657DE0),
+    "MemoryManager::Deallocate": (2267874, 0x1658240),
+    "MemoryManager::Reallocate": (2267873, 0x1658040),
+    "MemoryManager::GetThreadScrapHeap": (2267850, 0x1657250),
+    "BSStringPool::Entry::release": (2268720, 0x167D4A0),
+    "BSStringPool::BucketTable::GetSingleton": (2268736, 0x167EB20),
+    "BSStringPool::GetEntry<char>": (2268729, 0x167DD20),
+    "BSStringPool::GetEntry<wchar_t>": (2268730, 0x167E2A0),
+    "ActorHandleManager::CreateHandle": (2188375, 0x21E710),
+    "ActorHandleManager::GetHandle": (2188676, 0x22CD60),
+    "ActorHandleManager::GetSmartPointer": (2188681, 0x22D060),
+    "Actor::GetActorHandle": (2229894, 0xC737A0),
 }
 
 SOURCE_GUARDS = {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify exact Fallout 4 1.11.221 records selected by NAF's package surface."""
+"""Verify exact Fallout 4 1.11.240 records selected by NAF's package surface."""
 
 from __future__ import annotations
 
@@ -9,18 +9,18 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "Actor::EvaluatePackage": (2229805, 0xC69240),
-    "AIProcess::CheckforNewPackage": (2231539, 0xCEFAD0),
-    "Actor::GetActorHandle": (2229894, 0xC73410),
-    "AIProcess::ClearCurrentPackage": (2231582, 0xCF1340),
-    "AIProcess::ClearCurrentDataForProcess": (2232435, 0xD394F0),
-    "AIProcess::SetupSpecialIdle": (2231704, 0xCFAD40),
-    "TESObjectREFR_Events::RegisterForPackage": (2201672, 0x52D7B0),
-    "TESObjectREFR_Events::UnregisterForPackage": (2201673, 0x52D7E0),
-    "ActorHandleManager::CreateHandle": (2188375, 0x21E3F0),
-    "ActorHandleManager::GetHandle": (2188676, 0x22CA40),
-    "ActorHandleManager::GetSmartPointer": (2188681, 0x22CD40),
-    "Actor vtable": (1455516, 0x25602C0),
+    "Actor::EvaluatePackage": (2229805, 0xC695D0),
+    "AIProcess::CheckforNewPackage": (2231539, 0xCEFE60),
+    "Actor::GetActorHandle": (2229894, 0xC737A0),
+    "AIProcess::ClearCurrentPackage": (2231582, 0xCF16D0),
+    "AIProcess::ClearCurrentDataForProcess": (2232435, 0xD39880),
+    "AIProcess::SetupSpecialIdle": (2231704, 0xCFB0D0),
+    "TESObjectREFR_Events::RegisterForPackage": (2201672, 0x52DAD0),
+    "TESObjectREFR_Events::UnregisterForPackage": (2201673, 0x52DB00),
+    "ActorHandleManager::CreateHandle": (2188375, 0x21E710),
+    "ActorHandleManager::GetHandle": (2188676, 0x22CD60),
+    "ActorHandleManager::GetSmartPointer": (2188681, 0x22D060),
+    "Actor vtable": (1455516, 0x25683B0),
 }
 
 SOURCE_GUARDS = {

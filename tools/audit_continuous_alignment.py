@@ -8,8 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    2229653: 0xC5CA70,  # actor collision disable
-    2231882: 0xD02270,  # player 3D update
+    2229653: 0xC5CE00,  # actor collision disable
+    2231882: 0xD02600,  # player 3D update
 }
 GUARDS = {
     "f4se-plugin/src/Scene/SceneBase.h": (

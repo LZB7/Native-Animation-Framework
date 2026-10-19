@@ -9,8 +9,8 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "TESObjectREFR::ApplyEffectShader": (2205201, 0x5E1E80),
-    "ProcessLists singleton": (4796160, 0x30DC140),
+    "TESObjectREFR::ApplyEffectShader": (2205201, 0x5E21A0),
+    "ProcessLists singleton": (4796160, 0x30E71C0),
 }
 
 SOURCE_GUARDS = {

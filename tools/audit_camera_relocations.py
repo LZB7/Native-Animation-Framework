@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the bounded Fallout 4 1.11.221 production camera surface."""
+"""Verify the bounded Fallout 4 1.11.240 production camera surface."""
 
 from __future__ import annotations
 
@@ -9,16 +9,16 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "FreeCameraState::Update": (2248280, 0x1022040),
-    "FreeCameraState vtable": (21725, 0x25A26F8),
-    "TESCameraState vtable": (67299, 0x2475288),
-    "TESCamera::Update": (2214740, 0x827970),
-    "PlayerCamera singleton": (4796065, 0x30DBDD8),
-    "PlayerCamera::ToggleFreeCameraMode": (2248368, 0x1027590),
-    "PlayerCamera::Force3rdPerson": (2248348, 0x1026A40),
-    "PlayerCamera::SetState": (2214742, 0x827AC0),
-    "Main::WorldRootCamera": (2228956, 0xC37A40),
-    "NiCamera::LookAtWorldPoint": (2270336, 0x16D0960),
+    "FreeCameraState::Update": (2248280, 0x10223D0),
+    "FreeCameraState vtable": (21725, 0x25AA7E8),
+    "TESCameraState vtable": (67299, 0x247D2E8),
+    "TESCamera::Update": (2214740, 0x827C80),
+    "PlayerCamera singleton": (4796065, 0x30E6E58),
+    "PlayerCamera::ToggleFreeCameraMode": (2248368, 0x1027920),
+    "PlayerCamera::Force3rdPerson": (2248348, 0x1026DD0),
+    "PlayerCamera::SetState": (2214742, 0x827DD0),
+    "Main::WorldRootCamera": (2228956, 0xC37DD0),
+    "NiCamera::LookAtWorldPoint": (2270336, 0x16D0D60),
 }
 
 SOURCE_GUARDS = {
@@ -105,7 +105,7 @@ def main() -> int:
     update_rva = update_pointer - image_base
     if update_rva != EXPECTED["FreeCameraState::Update"][1]:
         failures.append(
-            f"FreeCameraState physical vslot 0x0B: expected RVA 0x1022040, got 0x{update_rva:X}"
+            f"FreeCameraState physical vslot 0x0B: expected RVA 0x10223D0, got 0x{update_rva:X}"
         )
 
     expected_prologue = bytes.fromhex("48 89 7C 24 20 55 48 8D 6C 24 A9 48 81 EC 90 00 00 00")
@@ -129,7 +129,7 @@ def main() -> int:
 
     print(
         f"PASS: {len(EXPECTED)} camera relocation IDs matched exact RVAs; "
-        "FreeCameraState physical vslot 0x0B and guarded prologue matched RVA 0x1022040; "
+        "FreeCameraState physical vslot 0x0B and guarded prologue matched RVA 0x10223D0; "
         f"{sum(map(len, SOURCE_GUARDS.values()))} source selectors matched"
     )
     return 0

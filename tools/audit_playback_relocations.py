@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the exact 1.11.221 relocation surface reached by basic scene playback."""
+"""Verify the exact 1.11.240 relocation surface reached by basic scene playback."""
 
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "BSScript::ArrayWrapper<Variable>::ReplaceArray": (2250435, 0x10B6100),
-    "BGSAnimationSystemUtils::InitializeActorInstant": (2236393, 0xE13E40),
-    "AnimationSystemUtils::IsActiveGraphInTransition": (2214305, 0x806370),
-    "AnimationSystemUtils::GetDefaultObjectForActionInitializeToBaseState": (2214309, 0x806750),
-    "TESActionData::DoIt": (2234273, 0xDBFEC0),
-    "AIProcess::SetupSpecialIdle": (2231704, 0xCFAD40),
-    "IAnimationGraphManagerHolder::SetGraphVariableBool": (2214543, 0x818DA0),
-    "hkbContext::hkbContext(hkbCharacter*,...)": (2258328, 0x13A9B10),
-    "hkbContext::~hkbContext": (2258329, 0x13A9B90),
-    "hkbBehaviorGraph::setActiveGeneratorLocalTime": (2260451, 0x147C170),
-    "hkbBehaviorGraph::getNodeClone": (2260454, 0x147C5A0),
+    "BSScript::ArrayWrapper<Variable>::ReplaceArray": (2250435, 0x10B6450),
+    "BGSAnimationSystemUtils::InitializeActorInstant": (2236393, 0xE141D0),
+    "AnimationSystemUtils::IsActiveGraphInTransition": (2214305, 0x806680),
+    "AnimationSystemUtils::GetDefaultObjectForActionInitializeToBaseState": (2214309, 0x806A60),
+    "TESActionData::DoIt": (2234273, 0xDC0250),
+    "AIProcess::SetupSpecialIdle": (2231704, 0xCFB0D0),
+    "IAnimationGraphManagerHolder::SetGraphVariableBool": (2214543, 0x8190B0),
+    "hkbContext::hkbContext(hkbCharacter*,...)": (2258328, 0x13A9E30),
+    "hkbContext::~hkbContext": (2258329, 0x13A9EB0),
+    "hkbBehaviorGraph::setActiveGeneratorLocalTime": (2260451, 0x147C490),
+    "hkbBehaviorGraph::getNodeClone": (2260454, 0x147C8C0),
 }
 
 SOURCE_GUARDS = {
@@ -92,7 +92,7 @@ def main() -> int:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
-    print(f"Playback relocation audit passed: {len(EXPECTED)} exact 1.11.221 records/source guards verified")
+    print(f"Playback relocation audit passed: {len(EXPECTED)} exact 1.11.240 records/source guards verified")
     return 0
 
 

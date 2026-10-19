@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the 1.11.221 Papyrus surface reached by production scene events."""
+"""Audit the 1.11.240 Papyrus surface reached by production scene events."""
 
 from __future__ import annotations
 
@@ -10,27 +10,27 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "BSScript::Internal::VirtualMachine vtable": (614600, 0x28F1D70),
-    "g_GameVM": (4796420, 0x30E0288),
-    "BSStringPool::Entry::release": (2268720, 0x167D180),
-    "BSStringPool::GetEntry<char>": (2268729, 0x167DA00),
-    "ScrapHeap::Allocate": (2267983, 0x165BF20),
-    "ScrapHeap::Deallocate": (2267984, 0x165C4F0),
-    "ArrayWrapper<Variable>::ReplaceArray (adjacent compatibility path)": (2250435, 0x10B6100),
-    "Stack::GetPageForFrame (adjacent native path)": (2314680, 0x20F32F0),
-    "Stack::GetStackFrameVariable (adjacent native path)": (2314681, 0x20F3360),
-    "VirtualMachine::CreateArray(RawType,...)": (2315147, 0x2112220),
-    "VirtualMachine::CreateArray(TypeInfo,...)": (2315148, 0x21123A0),
+    "BSScript::Internal::VirtualMachine vtable": (614600, 0x28FB520),
+    "g_GameVM": (4796420, 0x30EB308),
+    "BSStringPool::Entry::release": (2268720, 0x167D4A0),
+    "BSStringPool::GetEntry<char>": (2268729, 0x167DD20),
+    "ScrapHeap::Allocate": (2267983, 0x165C240),
+    "ScrapHeap::Deallocate": (2267984, 0x165C810),
+    "ArrayWrapper<Variable>::ReplaceArray (adjacent compatibility path)": (2250435, 0x10B6450),
+    "Stack::GetPageForFrame (adjacent native path)": (2314680, 0x20FAD20),
+    "Stack::GetStackFrameVariable (adjacent native path)": (2314681, 0x20FAD90),
+    "VirtualMachine::CreateArray(RawType,...)": (2315147, 0x2119C50),
+    "VirtualMachine::CreateArray(TypeInfo,...)": (2315148, 0x2119DD0),
 }
 
 VM_SLOTS = {
-    0x19: ("CreateArray(TypeInfo,...)", 0x21123A0),
-    0x1A: ("CreateArray(RawType,...)", 0x2112220),
-    0x2B: ("SendEvent", 0x2114AD0),
-    0x2C: ("DispatchStaticCall", 0x21150F0),
-    0x2D: ("DispatchMethodCall(Object,...)", 0x2115600),
-    0x2E: ("DispatchMethodCall(handle,...)", 0x2115480),
-    0x2F: ("DispatchUnboundMethodCall", 0x2115630),
+    0x19: ("CreateArray(TypeInfo,...)", 0x2119DD0),
+    0x1A: ("CreateArray(RawType,...)", 0x2119C50),
+    0x2B: ("SendEvent", 0x211C500),
+    0x2C: ("DispatchStaticCall", 0x211CB20),
+    0x2D: ("DispatchMethodCall(Object,...)", 0x211D030),
+    0x2E: ("DispatchMethodCall(handle,...)", 0x211CEB0),
+    0x2F: ("DispatchUnboundMethodCall", 0x211D060),
 }
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit transitive authoring reference-selection helpers on Fallout 4 1.11.221."""
+"""Audit transitive authoring reference-selection helpers on Fallout 4 1.11.240."""
 
 import argparse
 import struct
@@ -7,11 +7,11 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "Console current pick index": (2701382, 0x3307720),
-    "Console pick-ref array": (2701391, 0x3307780),
-    "Console selected pick ref": (2701395, 0x33077A0),
-    "Console::SetCurrentPickREFR": (2248551, 0x1038490),
-    "PlayerCharacter singleton": (2698073, 0x32D22E0),
+    "Console current pick index": (2701382, 0x33127A0),
+    "Console pick-ref array": (2701391, 0x3312800),
+    "Console selected pick ref": (2701395, 0x3312820),
+    "Console::SetCurrentPickREFR": (2248551, 0x1038820),
+    "PlayerCharacter singleton": (2698073, 0x32DD370),
 }
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the complete managed-face production surface for Fallout 4 1.11.221."""
+"""Audit the complete managed-face production surface for Fallout 4 1.11.240."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "BSFaceGenNiNode::UpdateMorphing": (2209487, 0x6E8BF0),
-    "BSFaceGenAnimationData::Update": (2209139, 0x6D1310),
-    "BSFaceGenAnimationData::UpdateMorphsFromLip": (2209124, 0x6D0560),
+    "BSFaceGenNiNode::UpdateMorphing": (2209487, 0x6E8F00),
+    "BSFaceGenAnimationData::Update": (2209139, 0x6D1630),
+    "BSFaceGenAnimationData::UpdateMorphsFromLip": (2209124, 0x6D0880),
 }
 
 GUARDS = {

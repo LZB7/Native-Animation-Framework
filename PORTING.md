@@ -5690,3 +5690,64 @@ failures. Release/x64/v143 rebuilt with `COPY_BUILD=OFF`, zero compile/link
 errors, and only the previously documented IK timestamp/incremental-build and
 `/Ob2`-to-`/Ob3` warnings. The rebuilt diagnostic DLL SHA-256 is
 `90E8344A5B7C0EB43EC3E1D350DD1ACBAF2EBCE4949FCB71846CE5ACC54DD654`.
+
+## Fallout 4 1.11.240 preservation update
+
+The `port/1.11.240` line branches from verified 1.11.221 preservation commit
+`2c6db9bc726fa610f1feb979e3de9c99b733ed84`, including the Hit Facial
+Expression/Papyrus `Object::DecRef` correction. The target is Fallout 4
+`1.11.240.0`, F4SE `0.7.9`, and the exact Address Library database
+`Address Library - version-1-11-240-0.bin` (SHA-256
+`65985CC2259384A13CFFB538D74776E422E62B0CD3766485A000620242B72B06`).
+
+The reference executable is the unmodified `Fallout4.exe` version
+`1.11.240.0`, size `55,343,016`, SHA-256
+`FDCEF37AC1230AF6D0B0050EB2142B139EF3A867B37B9211FB6EDFCC646072F8`.
+The 1.11.221 and 1.11.240 databases retain the same exact IDs throughout the
+NAF-reachable surface, while RVAs move. Targeted disassembly and PDB checks
+verified that the affected semantic identities and ABIs remain consistent.
+
+Critical hook sites are unchanged relative to their containing functions:
+
+| Hook | Exact 1.11.240 ID/RVA | Verified site |
+|---|---:|---|
+| game-loop containing function | `2228937` / `0xC365F0` | direct call at `+0x1E` still targets `ProcessQueues`, ID `2229181`, RVA `0xC45150` |
+| graph update | `2214536` / `0x818C80` | entry prologue unchanged |
+| `TESObjectREFR::Set3D` | `2201055` / `0x50C8D0` | entry prologue unchanged |
+| outer face update | `2209487` / `0x6E8F00` | direct call at `+0xBD` still targets face update ID `2209139`, RVA `0x6D1630` |
+| lip-morph update | `2209139` / `0x6D1630` | direct call at `+0x14B` still targets ID `2209124`, RVA `0x6D0880` |
+| package evaluation | `2229805` / `0xC695D0` | entry prologue unchanged |
+| package check | `2231539` / `0xCEFE60` | entry prologue unchanged |
+| free-camera update | `2248280` / `0x10223D0` | entry prologue unchanged |
+
+`TESObjectREFR::FreeUpAllMarkers` no longer needs the project raw-RVA
+exception. The 1.11.240 PDB and executable identify the callable entry at RVA
+`0x55F7B0`; exact Address Library ID `2202575` resolves to that entry. NAF now
+uses `REL::RelocationID(1324833, 2202575)` while preserving the established
+43-byte masked entry validation. The rejected historical interior address
+`0x55F4B0` is not used.
+
+CommonLibF4 is pinned to the separate `port/1.11.240` revision
+`4f6bdd2096df4ebd9fa24170007a62e8a7a21af5`. It retains all earlier AE ABI,
+layout, exact-lookup and lazy-relocation corrections and adds only the explicit
+`RUNTIME_1_11_240` constant/latest-runtime selection required by this build.
+
+LooksMenu remains optional and fail closed. In addition to the preserved exact
+1.7.0.3 profile, the supplied 1.7.0.4 `f4ee.dll` (SHA-256
+`2EB76A878BAD00EDEE64D19431D19D072FFFA096215DEB04DD3180ABE39FDB0F`)
+was matched semantically to `ApplyMorphsToShapes` RVA `0x11780`, the body-morph
+interface object RVA `0x10DD30`, and vtable RVA `0xCD840`; its entry bytes and
+live vtable remain independently validated before enabling morph support.
+
+The audit expectations were regenerated from exact 1.11.240 database records,
+not copied from 1.11.221. `tools/audit_runtime_1_11_240.py` additionally checks
+the executable hash, twelve critical records, three interior direct-call
+sites, and the masked `FreeUpAllMarkers` entry. Historical v5 serialization
+record IDs/layouts and all 45 upstream Papyrus registrations are unchanged.
+
+Runtime validation remains required on the user's installed Fallout 4
+1.11.240/F4SE 0.7.9 environment. The coherent regression covers startup and
+hook installation, HUD/menu, solo/paired/staged playback, player FreeCam,
+inventory/highlighting, active NPC scene save/reload, Creator/Studio open and
+close, serialization, and clean shutdown. The established LookAt Cam caveat
+and guidance remain unchanged.

@@ -7,9 +7,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    2214534: 0x818730, 2214536: 0x818970, 2201055: 0x50C5B0,
-    2258328: 0x13A9B10, 2258329: 0x13A9B90,
-    2260451: 0x147C170, 2260454: 0x147C5A0,
+    2214534: 0x818A40, 2214536: 0x818C80, 2201055: 0x50C8D0,
+    2258328: 0x13A9E30, 2258329: 0x13A9EB0,
+    2260451: 0x147C490, 2260454: 0x147C8C0,
 }
 GUARDS = {
     "f4se-plugin/src/BodyAnimation/GraphHook.h": (

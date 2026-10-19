@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify exact Fallout 4 1.11.221 records selected by NAF's graph surface."""
+"""Verify exact Fallout 4 1.11.240 records selected by NAF's graph surface."""
 
 from __future__ import annotations
 
@@ -9,22 +9,22 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "IAnimationGraphManagerHolder::UpdateAnimationGraphManager": (2214536, 0x818970),
-    "TESObjectREFR::Set3D": (2201055, 0x50C5B0),
-    "IAnimationGraphManagerHolder::GetAnimationGraphProjectName": (2214534, 0x818730),
-    "BGSAnimationSystemUtils::InitializeActorInstant": (2236393, 0xE13E40),
-    "AnimationSystemUtils::IsActiveGraphInTransition": (2214305, 0x806370),
-    "IAnimationGraphManagerHolder::SetGraphVariableBool": (2214543, 0x818DA0),
-    "IAnimationGraphManagerHolder::SetGraphVariableFloat": (2214545, 0x818DE0),
-    "IAnimationGraphManagerHolder::SetGraphVariableInt": (2214544, 0x818DC0),
-    "IAnimationGraphManagerHolder::RevertAnimationGraphManager": (2214541, 0x818D10),
-    "BGSAnimationSystemUtils::GetEventSourcePointersFromGraph": (2249847, 0x1090410),
-    "BSModelDB::Demand<NiNode>": (2275153, 0x17B3E30),
-    "BSModelDB::Demand<NiObject>": (2275154, 0x17B3FB0),
-    "BSStringPool::Entry::release": (2268720, 0x167D180),
-    "BSStringPool::GetEntry<char>": (2268729, 0x167DA00),
-    "BSStringPool::GetEntry<wchar_t>": (2268730, 0x167DF80),
-    "PlayerCharacter singleton": (2698073, 0x32D22E0),
+    "IAnimationGraphManagerHolder::UpdateAnimationGraphManager": (2214536, 0x818C80),
+    "TESObjectREFR::Set3D": (2201055, 0x50C8D0),
+    "IAnimationGraphManagerHolder::GetAnimationGraphProjectName": (2214534, 0x818A40),
+    "BGSAnimationSystemUtils::InitializeActorInstant": (2236393, 0xE141D0),
+    "AnimationSystemUtils::IsActiveGraphInTransition": (2214305, 0x806680),
+    "IAnimationGraphManagerHolder::SetGraphVariableBool": (2214543, 0x8190B0),
+    "IAnimationGraphManagerHolder::SetGraphVariableFloat": (2214545, 0x8190F0),
+    "IAnimationGraphManagerHolder::SetGraphVariableInt": (2214544, 0x8190D0),
+    "IAnimationGraphManagerHolder::RevertAnimationGraphManager": (2214541, 0x819020),
+    "BGSAnimationSystemUtils::GetEventSourcePointersFromGraph": (2249847, 0x1090760),
+    "BSModelDB::Demand<NiNode>": (2275153, 0x17B4240),
+    "BSModelDB::Demand<NiObject>": (2275154, 0x17B43C0),
+    "BSStringPool::Entry::release": (2268720, 0x167D4A0),
+    "BSStringPool::GetEntry<char>": (2268729, 0x167DD20),
+    "BSStringPool::GetEntry<wchar_t>": (2268730, 0x167E2A0),
+    "PlayerCharacter singleton": (2698073, 0x32DD370),
 }
 
 SOURCE_GUARDS = {

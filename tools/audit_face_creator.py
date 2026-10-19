@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the production Face Creator/preview path on Fallout 4 1.11.221."""
+"""Audit the production Face Creator/preview path on Fallout 4 1.11.240."""
 
 import argparse
 import struct
@@ -7,13 +7,13 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "alternate head-part map anchor": (2662368, 0x2EFE278),
-    "PlayerCharacter singleton": (2698073, 0x32D22E0),
-    "BSFaceGenNiNode::UpdateMorphing": (2209487, 0x6E8BF0),
-    "BSFaceGenAnimationData::Update": (2209139, 0x6D1310),
-    "BSFaceGenAnimationData::UpdateMorphsFromLip": (2209124, 0x6D0560),
-    "Console pick-ref array": (2701391, 0x3307780),
-    "Console selected pick ref": (2701395, 0x33077A0),
+    "alternate head-part map anchor": (2662368, 0x2F09278),
+    "PlayerCharacter singleton": (2698073, 0x32DD370),
+    "BSFaceGenNiNode::UpdateMorphing": (2209487, 0x6E8F00),
+    "BSFaceGenAnimationData::Update": (2209139, 0x6D1630),
+    "BSFaceGenAnimationData::UpdateMorphsFromLip": (2209124, 0x6D0880),
+    "Console pick-ref array": (2701391, 0x3312800),
+    "Console selected pick ref": (2701395, 0x3312820),
 }
 
 GUARDS = {

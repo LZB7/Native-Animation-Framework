@@ -9,18 +9,18 @@ from pathlib import Path
 
 
 EXPECTED = {
-    "OpenContainerMenu dispatcher": (2248608, 0x103E1B0),
-    "UI singleton": (4796314, 0x30DD8B0),
-    "UI menu-map lock": (2707105, 0x3DA6AF0),
-    "UIMessageQueue singleton": (4796377, 0x30DDAA0),
-    "UIMessageQueue::AddMessage": (2284929, 0x1A89170),
-    "ActorEquipManager singleton": (4798287, 0x31E33A8),
-    "ActorEquipManager::EquipObject": (2231392, 0xCE5A90),
-    "ActorEquipManager::UnequipObject": (2231395, 0xCE5F30),
-    "TESObjectREFR::GetInventoryObjectCount": (2200939, 0x502290),
-    "TESObjectREFR::AddInventoryItem": (2200949, 0x502950),
-    "TESObjectREFR::ApplyEffectShader": (2205201, 0x5E1E80),
-    "ProcessLists singleton": (4796160, 0x30DC140),
+    "OpenContainerMenu dispatcher": (2248608, 0x103E540),
+    "UI singleton": (4796314, 0x30E8930),
+    "UI menu-map lock": (2707105, 0x3DBD370),
+    "UIMessageQueue singleton": (4796377, 0x30E8B20),
+    "UIMessageQueue::AddMessage": (2284929, 0x1A89630),
+    "ActorEquipManager singleton": (4798287, 0x31EE428),
+    "ActorEquipManager::EquipObject": (2231392, 0xCE5E20),
+    "ActorEquipManager::UnequipObject": (2231395, 0xCE62C0),
+    "TESObjectREFR::GetInventoryObjectCount": (2200939, 0x5025B0),
+    "TESObjectREFR::AddInventoryItem": (2200949, 0x502C70),
+    "TESObjectREFR::ApplyEffectShader": (2205201, 0x5E21A0),
+    "ProcessLists singleton": (4796160, 0x30E71C0),
 }
 
 SOURCE_GUARDS = {

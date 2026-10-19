@@ -10,10 +10,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "BSScript::Object::DecRef": (2314437, 0x20E23C0),
+    "BSScript::Object::DecRef": (2314437, 0x20E9DF0),
     "BSScript::Object::GetHandle": (2314431, None),
     "BSScript::Object::IncRef": (2314436, None),
-    "TESHitEvent::GetEventSource": (2201886, 0x533C80),
+    "TESHitEvent::GetEventSource": (2201886, 0x533FA0),
 }
 
 
