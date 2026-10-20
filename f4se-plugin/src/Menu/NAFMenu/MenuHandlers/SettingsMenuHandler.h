@@ -1,5 +1,6 @@
 #pragma once
 #include "Menu/BindableMenu.h"
+#include "FaceAnimation/FaceUpdateHook.h"
 
 #define BIND_SETTING_BOOL(name, var) \
 	{ std::format("{}: {}", name, var ? "ON" : "OFF"), MENU_BINDING_WARG(SettingsMenuHandler::SetBool, &var) }
@@ -42,6 +43,7 @@ namespace Menu::NAF
 			BindableMenu::InitSubmenu();
 			ConfigurePanel({
 				{ "Reload Config Data", Button, MENU_BINDING(SettingsMenuHandler::ReloadXMLs) },
+				{ "Reset Player Expression", Button, MENU_BINDING(SettingsMenuHandler::ResetPlayerExpression) },
 				{ "Reset to Default", Button, MENU_BINDING(SettingsMenuHandler::Reset) },
 				{ "Apply Settings", Button, MENU_BINDING(SettingsMenuHandler::ApplySettings) },
 			});
@@ -103,6 +105,16 @@ namespace Menu::NAF
 
 		void ReloadXMLs(int) {
 			QueueHotReload("Reloading...", "Data reload complete.");
+		}
+
+		void ResetPlayerExpression(int)
+		{
+			auto playerCharacter = RE::PlayerCharacter::GetSingleton();
+			if (!playerCharacter || !FaceAnimation::FaceUpdateHook::ResetFaceExpression(playerCharacter->GetActorHandle())) {
+				manager->ShowNotification("Unable to reset player expression.", 2.0f);
+				return;
+			}
+			manager->ShowNotification("Player expression reset requested.", 2.0f);
 		}
 
 		virtual void Back() override

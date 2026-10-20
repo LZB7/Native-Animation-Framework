@@ -75,7 +75,21 @@ namespace FaceAnimation
 		static REL::Relocation<UpdateLip> OriginalUpdateLip;
 		inline static std::unique_ptr<PersistentState> state = std::make_unique<PersistentState>();
 		static std::shared_mutex stateLock;
-		static std::unordered_map<SerializableActorHandle, std::string> loadingAnims;
+		enum class PendingRequestKind : std::uint8_t
+		{
+			kLoad,
+			kReset
+		};
+
+		struct PendingRequest
+		{
+			PendingRequestKind kind{ PendingRequestKind::kLoad };
+			std::string animationId;
+			std::uint64_t generation{ 0 };
+		};
+
+		static std::unordered_map<SerializableActorHandle, PendingRequest> loadingAnims;
+		inline static std::atomic<std::uint64_t> nextRequestGeneration{ 1 };
 		static std::mutex loadingAnimsLock;
 		static std::unordered_map<SerializableActorHandle, RE::NiPointer<RE::BSGeometry>> eyeGeoCache;
 		static std::shared_mutex geoCacheLock;
@@ -149,6 +163,18 @@ namespace FaceAnimation
 				}
 				std::unique_lock l{ geoCacheLock };
 				eyeGeoCache.erase(targetActor);
+			}
+		}
+
+		void EraseManagedActor_NonThreadSafe(RE::ActorHandle targetActor)
+		{
+			state->managedAnims.erase(targetActor);
+			for (auto iter = state->managedDatas.begin(); iter != state->managedDatas.end();) {
+				if (iter->second.hash() == targetActor.native_handle()) {
+					iter = state->managedDatas.erase(iter);
+				} else {
+					++iter;
+				}
 			}
 		}
 
@@ -243,15 +269,20 @@ namespace FaceAnimation
 			newAnim->loop = loop;
 			newAnim->havokSync = havokSync;
 
+			const auto generation = nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
 			std::unique_lock l{ loadingAnimsLock };
-			loadingAnims[targetActor] = id;
+			loadingAnims[targetActor] = PendingRequest{ PendingRequestKind::kLoad, id, generation };
 			l.unlock();
 
-			std::thread([targetActor = std::move(targetActor), inst = std::move(newAnim), id = std::move(id)]() mutable {
+			std::thread([targetActor = std::move(targetActor), inst = std::move(newAnim), id = std::move(id), generation]() mutable {
 				bool successful = inst->LoadData(id);
 				std::unique_lock l{ loadingAnimsLock };
-				if (loadingAnims.contains(targetActor) && loadingAnims[targetActor] == id) {
+				auto pending = loadingAnims.find(targetActor);
+				if (pending != loadingAnims.end() &&
+					pending->second.kind == PendingRequestKind::kLoad &&
+					pending->second.generation == generation) {
 					loadingAnims.erase(targetActor);
+					l.unlock();
 					if (successful) {
 						StartAnimation(targetActor, std::move(inst), id);
 					}
@@ -286,6 +317,72 @@ namespace FaceAnimation
 					}
 				}
 			}
+		}
+
+		// Reset is intentionally stronger than StopAnimation. It removes all NAF-owned
+		// managed-face state for the actor, invalidates pending asynchronous loads, and
+		// clears only the composed expression output. baseExp/modExp remain engine-owned
+		// and are left untouched so the next vanilla update can resume normal composition.
+		bool ResetFaceExpression(RE::ActorHandle targetActor)
+		{
+			if (!targetActor.get()) {
+				return false;
+			}
+
+			const auto generation = nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
+			bool resetEyes = false;
+			{
+				std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock };
+				loadingAnims[targetActor] = PendingRequest{ PendingRequestKind::kReset, {}, generation };
+
+				auto managed = state->managedAnims.find(targetActor);
+				if (managed != state->managedAnims.end()) {
+					resetEyes = managed->second.eyeOverride.has_value();
+					if (managed->second.anim) {
+						for (const auto& timeline : managed->second.anim->data.timelines) {
+							resetEyes = resetEyes || timeline.isEyes;
+						}
+					}
+				}
+
+				EraseManagedActor_NonThreadSafe(targetActor);
+				eyeGeoCache.erase(targetActor);
+			}
+
+			F4SE::GetTaskInterface()->AddTask([targetActor, generation, resetEyes]() {
+				{
+					std::unique_lock l{ loadingAnimsLock };
+					auto pending = loadingAnims.find(targetActor);
+					if (pending == loadingAnims.end() ||
+						pending->second.kind != PendingRequestKind::kReset ||
+						pending->second.generation != generation) {
+						return;
+					}
+					loadingAnims.erase(pending);
+				}
+
+				auto actor = targetActor.get();
+				if (!actor) {
+					return;
+				}
+				auto data = GameUtil::GetFaceAnimData(actor.get());
+				if (!data) {
+					return;
+				}
+
+				{
+					RE::BSAutoLock l{ data->instanceData.lock };
+					std::fill(std::begin(data->finalExp.exp), std::end(data->finalExp.exp), 0.0f);
+				}
+
+				if (resetEyes) {
+					if (auto eyeGeo = GameUtil::GetEyeGeometry(actor.get()); eyeGeo) {
+						GameUtil::SetEyeCoords(eyeGeo, 0.0f, 0.0f);
+					}
+				}
+			});
+
+			return true;
 		}
 
 		//Thread-safe method for modifying an animation object already playing on an actor.

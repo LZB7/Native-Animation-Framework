@@ -5751,3 +5751,81 @@ hook installation, HUD/menu, solo/paired/staged playback, player FreeCam,
 inventory/highlighting, active NPC scene save/reload, Creator/Studio open and
 close, serialization, and clean shutdown. The established LookAt Cam caveat
 and guidance remain unchanged.
+## NAF Extended Phase 3A - explicit facial reset
+
+Phase 3A adds `ResetFaceExpression(Actor)` as a deliberately stronger operation
+than the upstream `StopFaceAnimation(Actor)`. The upstream stop contract remains
+unchanged: it cancels pending NAF loading and releases the active managed
+timeline, but it does not neutralize the last composed FaceGen output.
+
+### Ownership and persistence findings
+
+Managed facial state is keyed by `SerializableActorHandle`. Only
+`PersistentState::managedAnims` is written to the historical v5 `FACE` record;
+face-data pointers in `managedDatas`, eye geometry, and pending loads are
+transient. `FixupAfterSerialization` rebuilds face-data bindings after actors
+and their 3D are ready. Therefore a successfully stopped animation is not
+resurrected by NAF's `FACE` record.
+
+Hit Facial Expression supplies `DEP01` through `DEP04` plus an unused neutral
+`ResetDEP` timeline. Its scripts call `StopFaceAnimation`, not `ResetDEP`.
+`DamageEmotionQuestScript.LoadGame()` waits two seconds, calls stop, and—when
+its persistent `Cripple` quest variable is true—explicitly requests a new
+random `DEP01`/`DEP02`/`DEP03` animation. That is an external post-load
+reapplication, not NAF serialization. When `Cripple` is false, the script only
+calls the legacy stop operation, which can leave the last `finalExp` values
+visible until vanilla FaceGen replaces them.
+
+### Reset semantics
+
+The new reset operation:
+
+- invalidates any older asynchronous face load with a monotonically increasing
+  per-request generation;
+- removes the actor's NAF-managed animation, backup, eye override, face-data
+  binding, and eye-geometry cache immediately, so the next v5 save cannot
+  recreate that state;
+- resolves the actor again on the F4SE game task queue;
+- locks the current `BSFaceGenAnimationData::instanceData.lock` and clears only
+  the composed `finalExp` array;
+- deliberately leaves engine-owned `baseExp` and `modExp` untouched;
+- recenters the eye geometry only when the removed NAF state owned an eye
+  override or eye timeline; and
+- aborts the queued neutralization if a newer face request supersedes it.
+
+The operation returns `true` when the request is accepted, not when the queued
+game-thread work has visibly completed. Actors that unload after acceptance are
+still removed from NAF persistence safely; vanilla facial processing resumes
+when their face data is recreated. `Set3D` continues to rebind only actors that
+still have managed state.
+
+### User and Papyrus access
+
+The NAF Settings panel now includes **Reset Player Expression** and reports
+whether the request was accepted. The Extended Papyrus source adds:
+
+```papyrus
+Bool Function ResetFaceExpression(Actor akActor) Native Global
+```
+
+All 45 upstream natives remain unchanged; this is the forty-sixth,
+Extended-only native. The DLL registers it directly. An updated compiled
+`NAF.pex` is still required for Papyrus callers and must be produced with a
+Fallout 4 Papyrus compiler before an Extended asset package is published; no
+Papyrus compiler is present in the current development workspace.
+
+### Gate 3A runtime test
+
+1. Load an ordinary save and confirm normal lip and eye behavior.
+2. Apply a known NAF face animation to the player, then use the legacy stop.
+3. Apply it again and choose **Settings -> Reset Player Expression**.
+4. Confirm the face becomes neutral and normal lip/eye processing continues.
+5. Save, exit Fallout 4, reload, and confirm NAF does not restore the cleared
+   expression.
+6. Repeat on an NPC through the Papyrus function after compiling the updated
+   script asset.
+7. With HFE installed, take damage and reset the player expression. If HFE's
+   `Cripple` flag remains true, distinguish its explicit post-load replay from
+   NAF `FACE` restoration.
+
+Stage 3B remains blocked on user runtime validation of this gate.

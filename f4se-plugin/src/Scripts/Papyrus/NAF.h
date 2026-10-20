@@ -552,6 +552,14 @@ namespace Papyrus::NAF
 		FaceAnimation::FaceUpdateHook::StopAnimation(a_actor->GetActorHandle());
 	}
 
+	bool ResetFaceExpression(std::monostate, RE::Actor* a_actor)
+	{
+		if (!a_actor) {
+			return false;
+		}
+		return FaceAnimation::FaceUpdateHook::ResetFaceExpression(a_actor->GetActorHandle());
+	}
+
 	/*
 	|---------------|
 	| HUD Functions |

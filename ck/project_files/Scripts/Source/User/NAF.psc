@@ -267,6 +267,11 @@ Bool Function PlayFaceAnimation(Actor akActor, String akAnimationId, Bool bLoop 
 ;Note: If the actor has an active eye coord override, this function will not clear that.
 Function StopFaceAnimation(Actor akActor) Native Global
 
+;Stops NAF-managed facial playback, clears NAF-owned eye overrides, and requests
+;neutralization of the current composed expression. Returns true when the reset
+;request was accepted. Completion occurs on the game task queue.
+Bool Function ResetFaceExpression(Actor akActor) Native Global
+
 ;|---------------|
 ;| HUD Functions |
 ;|---------------|

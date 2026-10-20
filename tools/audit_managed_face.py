@@ -59,13 +59,15 @@ GUARDS = {
         "PAPYRUS_BIND(ClearEyeCoordOverride);",
         "PAPYRUS_BIND(PlayFaceAnimation);",
         "PAPYRUS_BIND(StopFaceAnimation);",
-        "Registered all 45 production Papyrus natives",
+        "PAPYRUS_BIND(ResetFaceExpression);",
+        "Registered all 45 upstream Papyrus natives plus 1 NAF Extended facial-reset native",
     ),
     "ck/project_files/Scripts/Source/User/NAF.psc": (
         "Function SetEyeCoordOverride(Actor akActor, Float fEyeX, Float fEyeY) Native Global",
         "Function ClearEyeCoordOverride(Actor akActor) Native Global",
         "Bool Function PlayFaceAnimation(Actor akActor, String akAnimationId, Bool bLoop = False, Bool bBodySync = False) Native Global",
         "Function StopFaceAnimation(Actor akActor) Native Global",
+        "Bool Function ResetFaceExpression(Actor akActor) Native Global",
     ),
 }
 

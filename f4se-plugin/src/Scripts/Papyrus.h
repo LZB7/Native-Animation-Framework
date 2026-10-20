@@ -42,6 +42,7 @@ namespace Papyrus
 		PAPYRUS_BIND(ClearEyeCoordOverride);
 		PAPYRUS_BIND(PlayFaceAnimation);
 		PAPYRUS_BIND(StopFaceAnimation);
+		PAPYRUS_BIND(ResetFaceExpression);
 
 		PAPYRUS_BIND(DrawRectangle);
 		PAPYRUS_BIND(DrawText);
@@ -58,7 +59,7 @@ namespace Papyrus
 		PAPYRUS_BIND(AttachElementTo);
 
 		Papyrus::EventProxy::GetSingleton();
-		logger::info("Registered all 45 production Papyrus natives, including managed face and NANIM");
+		logger::info("Registered all 45 upstream Papyrus natives plus 1 NAF Extended facial-reset native");
 		return true;
 	}
 }
