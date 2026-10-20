@@ -16,10 +16,10 @@ def main() -> None:
     new_scene = (ROOT / "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/NewSceneHandler.h").read_text(encoding="utf-8")
 
     for token in (
-        'GetProcAddress(module, "NAFExt_GetAPI")', "NAFEXT_DISCOVERY_MESSAGE_TYPE",
-        "subscribe_scene_events", "Self-unregistration succeeded", "ReconcileLateScenes()",
+        'GetProcAddress(module, "NAFExt_GetAPI")', "kPostLoadGame", "kNewGame",
+        "subscribe_scene_events", "ReconcileLateScenes()",
         "ValidatePacked", "NAFExtAPITest_Shutdown", "Controlled negotiation tests",
-        "CreateFileW", "WriteFile", "API acquisition deferred until PostLoad",
+        "CreateFileW", "WriteFile", "API acquisition deferred until a save or new game",
     ):
         require(harness, token, "API harness")
     load_body = harness.split("F4SEPlugin_Load", 1)[1].split("NAFExtAPITest_Shutdown", 1)[0]
@@ -27,6 +27,8 @@ def main() -> None:
         raise SystemExit("FAIL: harness performs direct provider acquisition inside F4SEPlugin_Load")
     if "std::ofstream" in harness or "std::filesystem" in harness:
         raise SystemExit("FAIL: harness restored loader-phase C++ stream/filesystem logging")
+    if 'RegisterListener(handle, "NAF"' in harness:
+        raise SystemExit("FAIL: harness registers with the NAF sender during plugin load")
     require(cmake, "add_library(NAFExtAPITest SHARED", "harness target")
     if "CommonLibF4::CommonLibF4" in cmake.split("add_library(NAFExtAPITest SHARED", 1)[1]:
         raise SystemExit("FAIL: independent harness still links CommonLibF4")

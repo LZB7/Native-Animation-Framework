@@ -6,12 +6,12 @@ It does not link CommonLib, Runtime Database, spdlog, or any NAF implementation
 library.
 It is not included in framework release packaging.
 
-The harness listens for the NAF F4SE announcement and also attempts direct
-acquisition through `NAFExt_GetAPI`. It validates provider identity, ABI,
-capabilities and required functions, logs all four scene events, validates the
-self-contained packed snapshot format, self-unregisters and resubscribes on the
-first started scene, then performs subscribe-first active-scene enumeration.
-After the first scene ends it unregisters permanently; a second scene should
-produce no harness callbacks.
+During plugin load the harness registers only for F4SE lifecycle messages. It
+does not contact NAF until a save or new game has been entered. At that point it
+acquires the API through `NAFExt_GetAPI`, validates provider identity, ABI,
+capabilities and required functions, subscribes to all four scene events, and
+performs active-scene enumeration. It validates the self-contained packed
+snapshot format for delivered scenes. After the first scene ends it unregisters
+permanently; a second scene should produce no harness callbacks.
 
 See `PORTING_EXTENDED.md` for the complete runtime procedure.

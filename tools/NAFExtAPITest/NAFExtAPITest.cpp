@@ -18,7 +18,8 @@ using namespace std::literals;
 namespace F4SERaw
 {
 	constexpr std::uint32_t kMessaging = 1;
-	constexpr std::uint32_t kPostLoad = 0;
+	constexpr std::uint32_t kPostLoadGame = 3;
+	constexpr std::uint32_t kNewGame = 8;
 	using PluginHandle = std::uint32_t;
 
 	struct Interface
@@ -127,7 +128,6 @@ namespace
 	std::mutex stateLock;
 	std::mutex retainedLock;
 	std::vector<std::byte> retainedSnapshot;
-	std::atomic_bool reconciledDuringActiveScene{};
 	std::atomic_bool deliberatelyUnregistered{};
 
 	std::string ToString(NAFExtStringView value)
@@ -253,15 +253,6 @@ namespace
 			CopyAndLog(event->scene_id, event->revision);
 		}
 
-		// Deterministic subscribe-first late-enumeration and self-unregistration test.
-		if (event->kind == NAFEXT_EVENT_SCENE_STARTED && !reconciledDuringActiveScene.exchange(true)) {
-			const auto old = subscription;
-			if (api->unsubscribe_scene_events(old) == NAFEXT_OK) {
-				logger::info("Self-unregistration succeeded; resubscribing before active-scene enumeration");
-				subscription = 0;
-				if (api->subscribe_scene_events(OnSceneEvent, nullptr, &subscription) == NAFEXT_OK) ReconcileLateScenes();
-			}
-		}
 		// The first completed scene deliberately disables further callbacks. Starting
 		// another scene proves that successful unregistration suppresses delivery.
 		if (event->kind == NAFEXT_EVENT_SCENE_ENDED && !deliberatelyUnregistered.exchange(true)) {
@@ -305,6 +296,7 @@ namespace
 		}
 		logger::info("Acquired API via {}: provider='{}' providerVersion={} ABI={} tableSize={} snapshotVersion={} capabilities=0x{:X}",
 			method, ToString(info.provider_id), info.provider_version, info.abi_version, api->struct_size, info.snapshot_version, info.capabilities);
+		ReconcileLateScenes();
 		return true;
 	}
 
@@ -323,19 +315,13 @@ namespace
 		Acquire(getAPI(NAFEXT_ABI_VERSION_1, sizeof(NAFExtAPIv1)), "NAFExt_GetAPI export");
 	}
 
-	void __cdecl OnNAFMessage(F4SERaw::Message* message)
-	{
-		if (!message || message->type != NAFEXT_DISCOVERY_MESSAGE_TYPE || message->dataLen < sizeof(NAFExtAnnouncement)) return;
-		const auto* announcement = static_cast<const NAFExtAnnouncement*>(message->data);
-		if (!announcement || announcement->struct_size < sizeof(NAFExtAnnouncement) || announcement->abi_version != NAFEXT_ABI_VERSION_1) return;
-		Acquire(announcement->api, "F4SE announcement");
-	}
-
 	void __cdecl OnF4SEMessage(F4SERaw::Message* message)
 	{
-		if (message && message->type == F4SERaw::kPostLoad) {
+		if (message && (message->type == F4SERaw::kNewGame ||
+			(message->type == F4SERaw::kPostLoadGame && static_cast<bool>(message->data)))) {
+			logger::WriteRaw("INFO", "Game entered; acquiring NAF Extended API");
 			TryDirectAcquisition();
-			if (!api) logger::warn("NAF Extended provider unavailable at PostLoad; announcement listener remains active");
+			if (!api) logger::warn("NAF Extended provider unavailable after entering the game");
 		}
 	}
 }
@@ -365,12 +351,7 @@ extern "C" __declspec(dllexport) bool __cdecl F4SEPlugin_Load(const F4SERaw::Int
 		logger::WriteRaw("CRITICAL", "Unable to register F4SE listener");
 		return false;
 	}
-	logger::WriteRaw("INFO", "Registering NAF listener");
-	if (!messaging->RegisterListener(handle, "NAF", reinterpret_cast<void*>(OnNAFMessage))) {
-		logger::WriteRaw("CRITICAL", "Unable to register NAF listener");
-		return false;
-	}
-	logger::WriteRaw("INFO", "Harness load complete; API acquisition deferred until PostLoad or NAF announcement");
+	logger::WriteRaw("INFO", "Harness load complete; API acquisition deferred until a save or new game is entered");
 	return true;
 }
 
