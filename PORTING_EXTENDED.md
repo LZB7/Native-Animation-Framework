@@ -1,5 +1,50 @@
 # NAF Extended port notes
 
+## Phase 2B: independent API harness, JSON requirements and cache correctness
+
+`tools/NAFExtAPITest` is a development-only F4SE consumer built as
+`NAFExtAPITest.dll`. It includes only the standalone C header plus documented
+F4SE/CommonLib interfaces. It listens for the NAF announcement and attempts the
+exported `NAFExt_GetAPI`, validates ABI/table/capabilities/provider identity,
+logs all lifecycle callbacks, validates caller-owned packed snapshots, and on
+the first started scene deliberately self-unregisters, resubscribes, then
+enumerates the still-active scene. It permanently unregisters after that scene
+ends, so starting a second scene verifies that delivery stopped. The harness is
+not a release artifact.
+
+Experimental JSON actor `gender` was already translated only into the legacy
+`Animation::Slot::gender` matcher; it introduced no additional restriction.
+It is now explicitly optional and defaults to `ActorGender::Any`. The clearer
+`requirements.skeleton` and optional `requirements.legacyGameSex` spellings are
+accepted while the original top-level `skeleton`/`gender` spellings remain
+compatible. This preserves XML behavior and creates room for future anatomy,
+rig and role capabilities without conflating those concepts with Fallout's NPC
+sex field.
+
+JSON position `displayName` is optional. Machine IDs remain authoritative and
+fall back as the label. The New Scene and Active Scene position menus show the
+display name while retaining the ID for lookup/mutation; API consumers receive
+it as `naf.extended:position.displayName` metadata. IDs require only a non-empty
+unique string; `NAFExtJSON_` was solely a fixture convention. Distinct IDs may
+legitimately share one HKX path.
+
+`_XMLCache.bin` stores the full text and filenames of XML inputs plus FaceAnim
+cache metadata. It does not cache JSON. Its historical validity check rejected
+newer XML but did not compare the current file manifest, so deleting an XML (or
+adding one whose timestamp predated the cache) could preserve stale cached
+definitions. Cache validation now compares the exact normalized current XML
+path set as well as timestamps. JSON is reparsed on every initialization and
+reload; reload clears all NAF registries and the parallel JSON metadata/name
+registry. No cache format or historical serialization format changed.
+
+Runtime procedure: install NAF Extended and Runtime Database, copy only the
+development harness DLL to `Data/F4SE/Plugins`, launch through F4SE 0.7.9, and
+inspect `Documents/My Games/Fallout4/F4SE/NAFExtAPITest.log`. Start the JSON `J1`
+scene, mutate it once, then stop it. The log must contain Started/Updated/
+Ending/Ended, actor and copied-snapshot details, successful self-unregistration,
+resubscription and active enumeration. Start a second scene; no further harness
+callback lines should appear. Remove the harness after testing.
+
 ## Phase 2: native API and experimental JSON animation definitions
 
 ABI v1 is implemented in `f4se-plugin/include/NAFExtendedAPI.h`. It exposes a size/version-negotiated C function table, optional provider identity `LZB7.NAF.Extended`, capability bits, token-based subscriptions, immutable scene views, active-scene enumeration, and self-contained caller-buffer snapshot copies. NAF announces the table through F4SE messaging during load and again at PostLoad; late clients can acquire the same verified table through `NAFExt_GetAPI`.

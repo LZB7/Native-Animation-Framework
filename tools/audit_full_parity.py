@@ -60,6 +60,7 @@ def main() -> None:
 		"audit_tes_data_handler.py",
 		"audit_extended_native_api.py",
 		"audit_json_animation.py",
+		"audit_phase2b.py",
     }
     missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
     if missing_audits:
