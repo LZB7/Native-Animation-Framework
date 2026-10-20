@@ -6,8 +6,6 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <format>
 #include <mutex>
 #include <string>
@@ -79,16 +77,26 @@ namespace F4SERaw
 
 namespace logger
 {
-	inline std::mutex lock;
-	inline std::ofstream file;
+	inline SRWLOCK lock = SRWLOCK_INIT;
+	inline HANDLE file = INVALID_HANDLE_VALUE;
+
+	void WriteRaw(std::string_view level, std::string_view message)
+	{
+		if (file == INVALID_HANDLE_VALUE) return;
+		std::string line;
+		line.reserve(level.size() + message.size() + 5);
+		line.append("[").append(level).append("] ").append(message).append("\r\n");
+		AcquireSRWLockExclusive(&lock);
+		DWORD written{};
+		WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
+		FlushFileBuffers(file);
+		ReleaseSRWLockExclusive(&lock);
+	}
 
 	template <class... Args>
 	void Write(std::string_view level, std::format_string<Args...> format, Args&&... args)
 	{
-		std::scoped_lock guard{ lock };
-		if (!file) return;
-		file << '[' << level << "] " << std::format(format, std::forward<Args>(args)...) << '\n';
-		file.flush();
+		WriteRaw(level, std::format(format, std::forward<Args>(args)...));
 	}
 
 	template <class... Args> void info(std::format_string<Args...> f, Args&&... a) { Write("INFO", f, std::forward<Args>(a)...); }
@@ -100,11 +108,15 @@ namespace logger
 	{
 		wchar_t documents[MAX_PATH]{};
 		if (FAILED(SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, documents))) return false;
-		auto directory = std::filesystem::path(documents) / L"My Games" / L"Fallout4" / L"F4SE";
-		std::error_code error;
-		std::filesystem::create_directories(directory, error);
-		file.open(directory / L"NAFExtAPITest.log", std::ios::out | std::ios::trunc);
-		return file.good();
+		std::wstring directory = documents;
+		directory += L"\\My Games\\Fallout4\\F4SE";
+		CreateDirectoryW(directory.c_str(), nullptr);
+		const auto path = directory + L"\\NAFExtAPITest.log";
+		file = CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS,
+			FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (file == INVALID_HANDLE_VALUE) return false;
+		WriteRaw("INFO", "Logger initialized");
+		return true;
 	}
 }
 
@@ -344,16 +356,21 @@ extern "C" __declspec(dllexport) constinit F4SERaw::PluginVersionData F4SEPlugin
 extern "C" __declspec(dllexport) bool __cdecl F4SEPlugin_Load(const F4SERaw::Interface* f4se)
 {
 	if (!f4se || !logger::Initialize() || f4se->isEditor || !f4se->QueryInterface || !f4se->GetPluginHandle) return false;
+	logger::WriteRaw("INFO", "F4SEPlugin_Load entered");
 	const auto messaging = static_cast<F4SERaw::Messaging*>(f4se->QueryInterface(F4SERaw::kMessaging));
 	const auto handle = f4se->GetPluginHandle();
+	logger::WriteRaw("INFO", "Registering F4SE listener");
 	if (!messaging || !messaging->RegisterListener ||
-		!messaging->RegisterListener(handle, "F4SE", reinterpret_cast<void*>(OnF4SEMessage)) ||
-		!messaging->RegisterListener(handle, "NAF", reinterpret_cast<void*>(OnNAFMessage))) {
-		logger::critical("Unable to register F4SE message listeners");
+		!messaging->RegisterListener(handle, "F4SE", reinterpret_cast<void*>(OnF4SEMessage))) {
+		logger::WriteRaw("CRITICAL", "Unable to register F4SE listener");
 		return false;
 	}
-	logger::info("Harness loaded; waiting for direct acquisition or F4SE announcement");
-	TryDirectAcquisition();
+	logger::WriteRaw("INFO", "Registering NAF listener");
+	if (!messaging->RegisterListener(handle, "NAF", reinterpret_cast<void*>(OnNAFMessage))) {
+		logger::WriteRaw("CRITICAL", "Unable to register NAF listener");
+		return false;
+	}
+	logger::WriteRaw("INFO", "Harness load complete; API acquisition deferred until PostLoad or NAF announcement");
 	return true;
 }
 

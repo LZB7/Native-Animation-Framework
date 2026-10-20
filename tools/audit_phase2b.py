@@ -19,8 +19,14 @@ def main() -> None:
         'GetProcAddress(module, "NAFExt_GetAPI")', "NAFEXT_DISCOVERY_MESSAGE_TYPE",
         "subscribe_scene_events", "Self-unregistration succeeded", "ReconcileLateScenes()",
         "ValidatePacked", "NAFExtAPITest_Shutdown", "Controlled negotiation tests",
+        "CreateFileW", "WriteFile", "API acquisition deferred until PostLoad",
     ):
         require(harness, token, "API harness")
+    load_body = harness.split("F4SEPlugin_Load", 1)[1].split("NAFExtAPITest_Shutdown", 1)[0]
+    if "TryDirectAcquisition();" in load_body:
+        raise SystemExit("FAIL: harness performs direct provider acquisition inside F4SEPlugin_Load")
+    if "std::ofstream" in harness or "std::filesystem" in harness:
+        raise SystemExit("FAIL: harness restored loader-phase C++ stream/filesystem logging")
     require(cmake, "add_library(NAFExtAPITest SHARED", "harness target")
     if "CommonLibF4::CommonLibF4" in cmake.split("add_library(NAFExtAPITest SHARED", 1)[1]:
         raise SystemExit("FAIL: independent harness still links CommonLibF4")
