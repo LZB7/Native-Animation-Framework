@@ -27,6 +27,9 @@ def main() -> None:
     require(modules, "Zzyxz/CommonLibF4RD.git", "CommonLibF4RD submodule")
     require(main_cpp, "UsesSigScanning(true)", "signature-independent metadata")
     require(main_cpp, "UsesAddressLibrary(false)", "Address Library opt-out")
+    require(main_cpp, "IsLayoutDependent(true)", "layout-dependent metadata")
+    require(main_cpp, "HasNoStructUse(false)", "engine structure use metadata")
+    require(main_cpp, "CompatibleVersions({ F4SE::RUNTIME_1_11_240 })", "exact supported ABI runtime metadata")
     require(resolver, "Runtime Database is required (Address Library fallback is disabled)", "missing-database failure")
     if "loadLegacyTable" in resolver or "version-{}.bin" in resolver:
         raise SystemExit("FAIL: legacy Address Library loader remains reachable")

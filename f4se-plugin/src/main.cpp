@@ -113,6 +113,8 @@ namespace
 		data.UsesSigScanning(true);
 		data.UsesAddressLibrary(false);
 		data.IsLayoutDependent(true);
+		data.HasNoStructUse(false);
+		data.CompatibleVersions({ F4SE::RUNTIME_1_11_240 });
 		data.MinimumRequiredXSEVersion({ 0, 7, 9 });
 		return data;
 	}
