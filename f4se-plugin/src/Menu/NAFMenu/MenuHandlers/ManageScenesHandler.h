@@ -193,7 +193,7 @@ namespace Menu::NAF
 
 					for (auto& p : cachedPositions) {
 						std::string strPos(p);
-						result.push_back({ strPos, MENU_BINDING_WARG(ManageScenesHandler::SetPosition, strPos) });
+						result.push_back({ Data::JSONAnimation::GetDisplayName(strPos), MENU_BINDING_WARG(ManageScenesHandler::SetPosition, strPos) });
 					}
 
 					return result;

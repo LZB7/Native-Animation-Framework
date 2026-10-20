@@ -1,0 +1,26 @@
+{
+  "format": "NAFExtendedAnimation",
+  "schemaVersion": 1,
+  "animation": {
+    "id": "shared.hkx.second-definition",
+    "actors": [
+      {
+        "file": "radbeetle\\Dances\\loop\\Belly_Dancing_Variation_One.hkx",
+        "requirements": {
+          "skeleton": "Human",
+          "legacyGameSex": "Any"
+        },
+        "role": "performer"
+      }
+    ]
+  },
+  "position": {
+    "id": "shared.hkx.second-position",
+    "displayName": "Shared HKX — Second Definition"
+  },
+  "extensions": {
+    "example.requirements": {
+      "capabilities": ["future-capability-placeholder"]
+    }
+  }
+}

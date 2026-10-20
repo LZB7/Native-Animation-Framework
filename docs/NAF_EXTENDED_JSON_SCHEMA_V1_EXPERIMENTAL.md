@@ -13,13 +13,18 @@ registration through NAF's existing `Animation` and `Position` registries.
   "schemaVersion": 1,
   "loadPriority": 0,
   "animation": {
-    "id": "UniqueAnimationID",
+    "id": "author.package.animation-id",
     "actors": [
-      { "skeleton": "Human", "gender": "Any", "file": "author\\path\\clip.hkx" }
+      {
+        "file": "author\\path\\clip.hkx",
+        "requirements": { "skeleton": "Human", "legacyGameSex": "Any" },
+        "role": "performer"
+      }
     ]
   },
   "position": {
-    "id": "UniquePositionID",
+    "id": "author.package.position-id",
+    "displayName": "Human-readable position name",
     "hidden": false,
     "tags": ["tag-one", "tag-two"]
   },
@@ -29,9 +34,25 @@ registration through NAF's existing `Animation` and `Position` registries.
 }
 ```
 
-`gender` accepts `Any`, `Male`, or `Female`. Actor-array order is slot order.
+Actor-array order is slot order. `requirements.skeleton` defaults to `Human`.
+`requirements.legacyGameSex` is optional and accepts `Any`, `Male`, or
+`Female`; omission is unrestricted (`Any`). For compatibility with the first
+experimental files, top-level actor `skeleton` and `gender` remain accepted.
+This field represents Fallout's game-record sex restriction only. It does not
+express gender identity, presentation, anatomy, sexuality, or relationship
+roles. Future versions can add capability requirements without redefining this
+legacy constraint.
+
 Each `file` is the same mesh-relative HKX path accepted by legacy NAF animation
 XML. `position.id` defaults to `animation.id` when omitted.
+
+IDs are non-empty, case-insensitive machine identifiers. No `NAFExtJSON_`
+prefix is required; reverse-domain or `author.package.name` namespacing is
+recommended only to avoid collisions. `position.displayName` is optional,
+accepts ordinary UTF-8 display text, and falls back to the position ID. It is
+used by the normal scene selector and exposed as `naf.extended` metadata without
+changing the underlying identity. Multiple distinct animation IDs may reference
+the same HKX path; an HKX resource path is not a definition key.
 
 Legacy XML loads first. JSON files then load in lexical path order. A definition
 whose animation or position ID already exists is rejected as a unit, so existing
@@ -49,3 +70,12 @@ Deferred from this provisional version: staged groups, trees, conditions,
 equipment, morph directives, actions, face timelines, and a finalized Passion
 semantic vocabulary. Legacy XML and JSON both feed the same runtime; this schema
 does not introduce a second playback engine.
+
+## Configuration cache interaction
+
+JSON is not stored in `_XMLCache.bin`; it is parsed once during each startup or
+configuration reload. The JSON metadata/display-name registry is cleared before
+reload. `_XMLCache.bin` stores complete XML source text and Face Animation cache
+metadata. Its manifest is validated against the exact current XML path set and
+timestamps, so adding, removing, or changing XML rebuilds it. Removing or
+changing a JSON file takes effect on the next startup/reload independently.

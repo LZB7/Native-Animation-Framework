@@ -2,17 +2,17 @@
   "format": "NAFExtendedAnimation",
   "schemaVersion": 1,
   "animation": {
-    "id": "NAFExtJSON_RBBelly1",
+    "id": "J1",
     "actors": [
       {
         "skeleton": "Human",
-        "gender": "Any",
         "file": "radbeetle\\Dances\\loop\\Belly_Dancing_Variation_One.hkx"
       }
     ]
   },
   "position": {
-    "id": "NAFExtJSON_RBBelly1",
+    "id": "J1",
+    "displayName": "Belly Dancing — JSON Test",
     "hidden": false,
     "tags": ["dance", "nafext-json-test"]
   },

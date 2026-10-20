@@ -11,11 +11,13 @@ namespace JSONAnimation
 
 	inline std::shared_mutex metadataLock;
 	inline std::unordered_map<std::string, std::vector<MetadataRecord>, CaseInsensitiveStringHash, CaseInsensitiveStringEqual> metadata;
+	inline std::unordered_map<std::string, std::string, CaseInsensitiveStringHash, CaseInsensitiveStringEqual> displayNames;
 
 	inline void Clear()
 	{
 		std::unique_lock lock{ metadataLock };
 		metadata.clear();
+		displayNames.clear();
 	}
 
 	inline std::vector<MetadataRecord> GetMetadata(const std::string& a_positionID)
@@ -25,6 +27,15 @@ namespace JSONAnimation
 			return it->second;
 		}
 		return {};
+	}
+
+	inline std::string GetDisplayName(const std::string& a_positionID)
+	{
+		std::shared_lock lock{ metadataLock };
+		if (const auto it = displayNames.find(a_positionID); it != displayNames.end()) {
+			return it->second;
+		}
+		return a_positionID;
 	}
 
 	inline std::optional<ActorGender> ParseGender(const std::string& a_value)
@@ -91,8 +102,14 @@ namespace JSONAnimation
 				return false;
 			}
 			const auto file = actorNode.value("file", std::string{});
-			const auto skeleton = actorNode.value("skeleton", std::string{ "Human" });
-			const auto genderText = actorNode.value("gender", std::string{ "Any" });
+			const auto requirements = actorNode.contains("requirements") && actorNode["requirements"].is_object() ?
+				&actorNode["requirements"] : nullptr;
+			const auto skeleton = requirements ? requirements->value("skeleton", actorNode.value("skeleton", std::string{ "Human" })) :
+				actorNode.value("skeleton", std::string{ "Human" });
+			// legacyGameSex is deliberately optional. Omission means ActorGender::Any;
+			// the legacy "gender" spelling remains accepted for experimental v1 files.
+			const auto genderText = requirements ? requirements->value("legacyGameSex", actorNode.value("gender", std::string{ "Any" })) :
+				actorNode.value("gender", std::string{ "Any" });
 			const auto gender = ParseGender(genderText);
 			if (file.empty() || skeleton.empty() || !gender) {
 				if (a_verbose) logger::warn("JSON animation definition '{}' contains an invalid actor slot", a_path.generic_string());
@@ -125,6 +142,14 @@ namespace JSONAnimation
 		}
 
 		std::vector<MetadataRecord> records;
+		const auto displayName = positionNode.value("displayName", positionID);
+		if (displayName.empty()) {
+			if (a_verbose) logger::warn("JSON animation definition '{}' contains an empty position displayName", a_path.generic_string());
+			return false;
+		}
+		if (displayName != positionID) {
+			records.push_back({ "naf.extended", "position.displayName", nlohmann::json(displayName).dump() });
+		}
 		if (const auto extensionIt = root.find("extensions"); extensionIt != root.end() && extensionIt->is_object()) {
 			for (const auto& [nameSpace, value] : extensionIt->items()) {
 				if (value.is_object()) {
@@ -142,6 +167,7 @@ namespace JSONAnimation
 		{
 			std::unique_lock lock{ metadataLock };
 			metadata[positionID] = std::move(records);
+			displayNames[positionID] = displayName;
 		}
 		return true;
 	}

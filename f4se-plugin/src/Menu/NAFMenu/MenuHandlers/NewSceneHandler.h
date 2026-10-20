@@ -21,6 +21,7 @@ namespace Menu::NAF
 		std::vector<RE::ObjectRefHandle> cachedLocations;
 		RE::ObjectRefHandle selectedLocation;
 		std::vector<std::string> cachedPositions;
+		std::vector<std::string> visiblePositionIDs;
 
 		Stage currentStage = Stage::kSelectActors;
 		std::string searchTerm = "";
@@ -114,6 +115,7 @@ namespace Menu::NAF
 				}
 				case Stage::kSelectPosition:
 				{
+					visiblePositionIDs.clear();
 					std::string finalTerm = searchTerm.size() > 0 ? searchTerm : "[None]";
 
 					ConfigurePanel({
@@ -123,8 +125,11 @@ namespace Menu::NAF
 					manager->SetMenuTitle("Select Position");
 
 					for (auto& p : cachedPositions) {
-						if (searchTerm.size() < 1 || Utility::StringToLower(p).find(searchTerm) != std::string::npos) {
-							result.push_back(std::string(p));
+						const auto label = Data::JSONAnimation::GetDisplayName(p);
+						if (searchTerm.size() < 1 || Utility::StringToLower(label).find(searchTerm) != std::string::npos ||
+							Utility::StringToLower(p).find(searchTerm) != std::string::npos) {
+							visiblePositionIDs.push_back(p);
+							result.push_back(label);
 						}
 					}
 					break;
@@ -223,7 +228,11 @@ namespace Menu::NAF
 						return;
 					}
 
-					auto id = manager->menuItems[index].label;
+					if (index < 0 || static_cast<std::size_t>(index) >= visiblePositionIDs.size()) {
+						manager->ShowNotification("The selected position is no longer available.");
+						return;
+					}
+					const auto& id = visiblePositionIDs[index];
 					Scene::SceneSettings settings;
 					settings.actors = selectedActors;
 					settings.locationRefr = selectedLocation;
