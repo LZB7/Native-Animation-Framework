@@ -102,21 +102,25 @@ namespace
 	}
 }
 
-// F4SE 0.7.9 scans this export before loading a plugin.  Legacy Query/Load
-// exports alone are rejected as "no version data" on runtime 1.11.240.
-F4SE_EXPORT constinit auto F4SEPlugin_Version = []() noexcept {
-	F4SE::PluginVersionData v{};
-	v.PluginVersion({ Version::MAJOR, Version::MINOR, Version::PATCH, 0 });
-	v.PluginName(Version::PROJECT);
-	v.AuthorName("Deweh / NAF 1.11.240 port");
-	v.UsesAddressLibrary(true);
-	v.UsesSigScanning(false);
-	v.IsLayoutDependent(true);
-	v.HasNoStructUse(false);
-	v.CompatibleVersions({ F4SE::RUNTIME_1_11_240 });
-	v.MinimumRequiredXSEVersion({ 0, 7, 9, 0 });
-	return v;
-}();
+namespace
+{
+	[[nodiscard]] constexpr F4SE::PluginVersionData MakePluginVersionData() noexcept
+	{
+		F4SE::PluginVersionData data{};
+		data.PluginVersion({ Version::MAJOR, Version::MINOR, Version::PATCH });
+		data.PluginName(Version::PROJECT);
+		data.AuthorName("Deweh / NAF Extended");
+		data.UsesSigScanning(true);
+		data.UsesAddressLibrary(false);
+		data.IsLayoutDependent(true);
+		data.MinimumRequiredXSEVersion({ 0, 7, 9 });
+		return data;
+	}
+}
+
+// Runtime patch selection is delegated to CommonLibF4RD. Required symbols,
+// hook callsites and ABI guards still fail closed during plugin initialization.
+F4SE_EXPORT constinit F4SE::PluginVersionData F4SEPlugin_Version = MakePluginVersionData();
 
 extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a_f4se, F4SE::PluginInfo* a_info)
 {
@@ -147,11 +151,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a
 		return false;
 	}
 
-	const auto ver = a_f4se->RuntimeVersion();
-	if (ver != F4SE::RUNTIME_1_11_240) {
-		logger::critical("{} does not support runtime v{}", Version::PROJECT, ver.string());
-		return false;
-	}
+	logger::info("Runtime {} will be validated through CommonLibF4RD", a_f4se->RuntimeVersion().string());
 
 	return true;
 }
@@ -159,8 +159,8 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a
 extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 {
 	F4SE::Init(a_f4se);
-	if (!EngineCompat::ExactRuntime::ValidateFreeUpAllMarkers()) {
-		logger::critical("Exact-runtime compatibility validation failed; refusing to load NAF");
+	if (!EngineCompat::RuntimeValidated::ValidateFreeUpAllMarkers()) {
+		logger::critical("Runtime Database compatibility validation failed; refusing to load NAF");
 		return false;
 	}
 	if (!InitializeHooking()) {

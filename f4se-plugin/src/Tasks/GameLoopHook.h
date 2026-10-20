@@ -76,24 +76,29 @@ namespace Tasks
 
 		[[nodiscard]] bool RegisterHook(F4SE::Trampoline& trampoline)
 		{
-			//Main::UpdateNonRenderSafeAITasks + 0x1E
-			//Call to TaskQueueInterface::ProcessQueues
-			//1.10.163: 338354 + 0x1E; 1.11.221/1.11.240: 2228937 + 0x1E.
-			//The unchanged numeric interior offset is independently verified, not translated.
-			REL::Relocation<ProcessQueues> updateCallLoc{ REL::RelocationID(338354, 2228937), 0x1E };
-			REL::Relocation<ProcessQueues> processQueues{ REL::RelocationID(882638, 2229181) };
+			// Resolve the unique direct call from Main::UpdateNonRenderSafeAITasks
+			// to TaskQueueInterface::ProcessQueues. Known tested offsets are used
+			// only after the resolver validates their decoded target.
+			constexpr REL::ID owner{ 338354, 2228937 };
+			constexpr REL::ID target{ 882638, 2229181 };
+			REL::Relocation<ProcessQueues> updateCallLoc{
+				owner,
+				REL::VariantOffset{ REL::AUTO_CALLSITE(target)
+					.or_offset(0x1E, REL::Version{ 1, 11, 221, 0 }, REL::Version{ 1, 11, 240, 0 }) }
+			};
+			REL::Relocation<ProcessQueues> processQueues{ target };
 			const auto callSite = updateCallLoc.address();
 			std::int32_t displacement = 0;
 			std::memcpy(&displacement, reinterpret_cast<const void*>(callSite + 1), sizeof(displacement));
 			const auto encodedTarget = callSite + 5 + displacement;
 			if (*reinterpret_cast<const std::uint8_t*>(callSite) != 0xE8 || encodedTarget != processQueues.address()) {
-				logger::critical("Game-loop hook validation failed at Address Library ID {} + 0x1E",
+				logger::critical("Game-loop hook validation failed for Runtime Database owner ID {}",
 					2228937);
 				return false;
 			}
 
 			OriginalProcessQueues = trampoline.write_call<5>(callSite, &HookedGameLoop);
-			logger::info("Installed game-loop ProcessQueues hook at Address Library ID {} + 0x1E; basic scene and bounded ordered-delay work enabled",
+			logger::info("Installed game-loop ProcessQueues hook resolved from Runtime Database owner ID {}; basic scene and ordered work enabled",
 				2228937);
 			return true;
 		}

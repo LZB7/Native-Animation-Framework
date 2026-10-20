@@ -19,7 +19,7 @@ namespace RE
 
 		inline bool GetEventSourcePointersFromGraph(const TESObjectREFR* a_refr, BSScrapArray<BSTEventSource<RE::BSAnimationGraphEvent>*>& a_sourcesOut) {
 			using func_t = decltype(&GetEventSourcePointersFromGraph);
-			REL::Relocation<func_t> func{ REL::RelocationID(897074, 2249847) };
+			REL::Relocation<func_t> func{ REL::ID(897074, 2249847) };
 			return func(a_refr, a_sourcesOut);
 		}
 
@@ -35,7 +35,7 @@ namespace RE
 
 		inline BGSAction* GetDefaultObjectForActionInitializeToBaseState() {
 			using func_t = decltype(&GetDefaultObjectForActionInitializeToBaseState);
-			REL::Relocation<func_t> func{ REL::RelocationID(639576, 2214309) };
+			REL::Relocation<func_t> func{ REL::ID(639576, 2214309) };
 			return func();
 		}
 
@@ -48,7 +48,7 @@ namespace RE
 			// Its production callers construct TESActionData for the actor/action
 			// and invoke the PDB-named TESActionData::DoIt entry directly.
 			using func_t = bool(TESActionData*);
-			REL::Relocation<func_t> func{ REL::RelocationID(390914, 2234273) };
+			REL::Relocation<func_t> func{ REL::ID(390914, 2234273) };
 			return func(std::addressof(a_action));
 		}
 	};

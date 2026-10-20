@@ -346,20 +346,24 @@ namespace FaceAnimation
 
 		bool RegisterHook(F4SE::Trampoline& trampoline)
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
-				logger::critical("Face/lip hooks require Fallout 4 runtime 1.11.240.0");
-				return false;
-			}
-
-			// BSFaceGenNiNode::UpdateMorphing + 0xBD: direct call to
-			// BSFaceGenAnimationData::Update(float, bool).
-			REL::Relocation<Update> faceGenUpdateCallLoc{ REL::RelocationID(317245, 2209487), 0xBD };
-			REL::Relocation<Update> faceGenUpdateTarget{ REL::RelocationID(3139, 2209139) };
+			constexpr REL::ID faceOwner{ 317245, 2209487 };
+			constexpr REL::ID faceTarget{ 3139, 2209139 };
+			REL::Relocation<Update> faceGenUpdateCallLoc{
+				faceOwner,
+				REL::VariantOffset{ REL::AUTO_CALLSITE(faceTarget)
+					.or_offset(0xBD, REL::Version{ 1, 11, 221, 0 }, REL::Version{ 1, 11, 240, 0 }) }
+			};
+			REL::Relocation<Update> faceGenUpdateTarget{ faceTarget };
 
 			// BSFaceGenAnimationData::Update + 0x14B: direct call to
 			// BSFaceGenAnimationData::UpdateMorphsFromLip(float).
-			REL::Relocation<UpdateLip> updateLipMorphsCallLoc{ REL::RelocationID(3139, 2209139), 0x14B };
-			REL::Relocation<UpdateLip> updateLipMorphsTarget{ REL::RelocationID(1550953, 2209124) };
+			constexpr REL::ID lipTarget{ 1550953, 2209124 };
+			REL::Relocation<UpdateLip> updateLipMorphsCallLoc{
+				faceTarget,
+				REL::VariantOffset{ REL::AUTO_CALLSITE(lipTarget)
+					.or_offset(0x14B, REL::Version{ 1, 11, 221, 0 }, REL::Version{ 1, 11, 240, 0 }) }
+			};
+			REL::Relocation<UpdateLip> updateLipMorphsTarget{ lipTarget };
 
 			auto validatesDirectCall = [](std::uintptr_t a_site, std::uintptr_t a_target) {
 				if (*reinterpret_cast<const std::uint8_t*>(a_site) != 0xE8) {
@@ -379,7 +383,7 @@ namespace FaceAnimation
 			OriginalUpdate = trampoline.write_call<5>(faceGenUpdateCallLoc.address(), &HookedUpdate);
 			OriginalUpdateLip = trampoline.write_call<5>(updateLipMorphsCallLoc.address(), &HookedUpdateLip);
 			BodyAnimation::GraphHook::RegisterSet3DObserver(&OnSet3D);
-			logger::info("Installed production face/lip hooks at IDs 2209487 + 0xBD and 2209139 + 0x14B");
+			logger::info("Installed production face/lip hooks through Runtime Database callsite resolution");
 			return true;
 		}
 	}

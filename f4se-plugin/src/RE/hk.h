@@ -406,7 +406,7 @@ namespace RE
 		{
 			using func_t = decltype(&hkbBehaviorGraph::setActiveGeneratorLocalTime);
 			// PDB/disassembly verified hkbBehaviorGraph::setActiveGeneratorLocalTime.
-			REL::Relocation<func_t> func{ REL::RelocationID(992878, 2260451) };
+			REL::Relocation<func_t> func{ REL::ID(992878, 2260451) };
 			return func(this, a_context, a_gen, a_time);
 		}
 
@@ -414,7 +414,7 @@ namespace RE
 		{
 			using func_t = decltype(&hkbBehaviorGraph::getNodeClone);
 			// PDB/disassembly verified hkbBehaviorGraph::getNodeClone.
-			REL::Relocation<func_t> func{ REL::RelocationID(326555, 2260454) };
+			REL::Relocation<func_t> func{ REL::ID(326555, 2260454) };
 			return func(this, a_node);
 		}
 	};

@@ -8,13 +8,14 @@
   "dependencies": [
     "boost-stl-interfaces",
     "fmt",
-    "mmio",
+    "rsm-mmio",
     "spdlog",
     "zstr",
     "nlohmann-json",
     "rapidcsv",
     "cereal",
     "libzippp",
-    "fp16"
+    "fp16",
+    "zydis"
   ]
 }

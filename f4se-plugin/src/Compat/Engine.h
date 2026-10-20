@@ -2,15 +2,10 @@
 
 namespace EngineCompat
 {
-	namespace ExactRuntime
+	namespace RuntimeValidated
 	{
 		[[nodiscard]] inline bool ValidateFreeUpAllMarkers()
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
-				logger::critical("FreeUpAllMarkers validation requires Fallout 4 1.11.240.0");
-				return false;
-			}
-
 			// Mask the two relative branch displacements while checking the verified
 			// entry prologue, RCX object use, base-form load and FURN/TERM tests.
 			static constexpr std::array<std::uint8_t, 43> signature{
@@ -24,13 +19,14 @@ namespace EngineCompat
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF
 			};
 
-			// The official 1.11.240 Address Library resolves exact ID 2202575 to
-			// PDB-named TESObjectREFR::FreeUpAllMarkers at RVA 0x55F7B0.
-			static REL::Relocation<std::uintptr_t> target{ REL::RelocationID(1324833, 2202575) };
+			// Runtime Database ID 2202575 identifies
+			// TESObjectREFR::FreeUpAllMarkers. The semantic entry guard remains
+			// mandatory even when a future runtime pattern resolves successfully.
+			static REL::Relocation<std::uintptr_t> target{ REL::ID(1324833, 2202575) };
 			const auto* bytes = reinterpret_cast<const std::uint8_t*>(target.address());
 			for (std::size_t i = 0; i < signature.size(); ++i) {
 				if ((bytes[i] & mask[i]) != (signature[i] & mask[i])) {
-					logger::critical("FreeUpAllMarkers Address Library validation failed for ID 2202575; refusing to call mismatched runtime code");
+					logger::critical("FreeUpAllMarkers Runtime Database validation failed for ID 2202575; refusing to call mismatched runtime code");
 					return false;
 				}
 			}
@@ -40,13 +36,13 @@ namespace EngineCompat
 
 	[[nodiscard]] inline bool FreeUpAllMarkers(RE::TESObjectREFR* a_refr)
 	{
-		static const bool validated = ExactRuntime::ValidateFreeUpAllMarkers();
+		static const bool validated = RuntimeValidated::ValidateFreeUpAllMarkers();
 		if (!validated) {
 			return false;
 		}
 
 		using func_t = void(RE::TESObjectREFR*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(1324833, 2202575) };
+		static REL::Relocation<func_t> func{ REL::ID(1324833, 2202575) };
 		func(a_refr);
 		return true;
 	}
@@ -102,77 +98,77 @@ namespace EngineCompat
 	inline void DisableCollision(RE::Actor* a_actor)
 	{
 		using func_t = void(RE::Actor*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(475952, 2229653) };
+		static REL::Relocation<func_t> func{ REL::ID(475952, 2229653) };
 		func(a_actor);
 	}
 
 	inline void EnableCollision(RE::Actor* a_actor)
 	{
 		using func_t = void(RE::Actor*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(1274117, 2229652) };
+		static REL::Relocation<func_t> func{ REL::ID(1274117, 2229652) };
 		func(a_actor);
 	}
 
 	[[nodiscard]] inline bool GetCanDoFavor(RE::Actor* a_actor, bool a_ignoreState = false)
 	{
 		using func_t = bool(RE::Actor*, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(46113, 2230148) };
+		static REL::Relocation<func_t> func{ REL::ID(46113, 2230148) };
 		return func(a_actor, a_ignoreState);
 	}
 
 	inline void SetCanDoFavor(RE::Actor* a_actor, bool a_canDoFavor)
 	{
 		using func_t = void(RE::Actor*, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(391670, 2230149) };
+		static REL::Relocation<func_t> func{ REL::ID(391670, 2230149) };
 		func(a_actor, a_canDoFavor);
 	}
 
 	inline void SetRestrained(RE::Actor* a_actor, bool a_restrained)
 	{
 		using func_t = void(RE::Actor*, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(316742, 2229910) };
+		static REL::Relocation<func_t> func{ REL::ID(316742, 2229910) };
 		func(a_actor, a_restrained);
 	}
 
 	inline void StopAlarmOnActor(RE::Actor* a_actor)
 	{
 		using func_t = void(RE::Actor*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(1564830, 2229667) };
+		static REL::Relocation<func_t> func{ REL::ID(1564830, 2229667) };
 		func(a_actor);
 	}
 
 	inline void StopInteractingQuick(RE::Actor* a_actor, bool a_flag1 = true, bool a_flag2 = true, bool a_initializeNodes = false)
 	{
 		using func_t = void(RE::Actor*, bool, bool, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(129904, 2231227) };
+		static REL::Relocation<func_t> func{ REL::ID(129904, 2231227) };
 		func(a_actor, a_flag1, a_flag2, a_initializeNodes);
 	}
 
 	inline void StopMoving(RE::Actor* a_actor, float a_decelerationMult = 1.0f)
 	{
 		using func_t = void(RE::Actor*, float);
-		static REL::Relocation<func_t> func{ REL::RelocationID(940952, 2230262) };
+		static REL::Relocation<func_t> func{ REL::ID(940952, 2230262) };
 		func(a_actor, a_decelerationMult);
 	}
 
 	inline void ClearLookAtTarget(RE::Actor* a_actor)
 	{
 		using func_t = void(RE::Actor*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(1345971, 2230291) };
+		static REL::Relocation<func_t> func{ REL::ID(1345971, 2230291) };
 		func(a_actor);
 	}
 
 	inline void TurnOffHeadtracking(RE::Actor* a_actor)
 	{
 		using func_t = void(RE::Actor*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(149104, 2230240) };
+		static REL::Relocation<func_t> func{ REL::ID(149104, 2230240) };
 		func(a_actor);
 	}
 
 	inline void WarpToRef(RE::Actor* a_actor, const RE::TESObjectREFR* a_destination)
 	{
 		using func_t = void(RE::Actor*, const RE::NiPoint3&, float, float, RE::TESObjectCELL*, RE::TESWorldSpace*, bool, bool, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(728864, 2229838) };
+		static REL::Relocation<func_t> func{ REL::ID(728864, 2229838) };
 		func(a_actor,
 			a_destination->data.location,
 			a_destination->data.angle.z,
@@ -187,14 +183,14 @@ namespace EngineCompat
 	inline void UpdatePlayer3D(RE::PlayerCharacter* a_player)
 	{
 		using func_t = void(RE::AIProcess*, RE::Actor*, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(986782, 2231882) };
+		static REL::Relocation<func_t> func{ REL::ID(986782, 2231882) };
 		func(a_player->currentProcess, a_player, true);
 	}
 
 	inline void GetAnimationGraphProjectName(RE::IAnimationGraphManagerHolder* a_holder, RE::BSFixedString& a_name)
 	{
 		using func_t = void(RE::IAnimationGraphManagerHolder*, RE::BSFixedString&);
-		static REL::Relocation<func_t> func{ REL::RelocationID(190119, 2214534) };
+		static REL::Relocation<func_t> func{ REL::ID(190119, 2214534) };
 		func(a_holder, a_name);
 	}
 
@@ -230,28 +226,28 @@ namespace EngineCompat
 	inline void Force3rdPerson(RE::PlayerCamera* a_camera)
 	{
 		using func_t = void(RE::PlayerCamera*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(162201, 2248348) };
+		static REL::Relocation<func_t> func{ REL::ID(162201, 2248348) };
 		func(a_camera);
 	}
 
 	inline void DisableInputForPlayer(RE::PlayerCharacter* a_player, const char* a_layerName, std::uint32_t a_inputMask)
 	{
 		using func_t = void(RE::TESObjectREFR*, const char*, std::uint32_t);
-		static REL::Relocation<func_t> func{ REL::RelocationID(53346, 2200872) };
+		static REL::Relocation<func_t> func{ REL::ID(53346, 2200872) };
 		func(a_player, a_layerName, a_inputMask);
 	}
 
 	inline void ReenableInputForPlayer(RE::PlayerCharacter* a_player)
 	{
 		using func_t = void(RE::TESObjectREFR*);
-		static REL::Relocation<func_t> func{ REL::RelocationID(478350, 2200873) };
+		static REL::Relocation<func_t> func{ REL::ID(478350, 2200873) };
 		func(a_player);
 	}
 
 	inline void SetAIControlled(RE::PlayerCharacter* a_player, bool a_aiControlled)
 	{
 		using func_t = void(RE::PlayerCharacter*, bool);
-		static REL::Relocation<func_t> func{ REL::RelocationID(1431972, 2233087) };
+		static REL::Relocation<func_t> func{ REL::ID(1431972, 2233087) };
 		func(a_player, a_aiControlled);
 	}
 }

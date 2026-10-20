@@ -120,7 +120,7 @@ namespace CamHook
 				return;
 			}
 			using LookAtWorldPoint = void(RE::NiCamera*, RE::NiPoint3&, RE::NiPoint3&);
-			static REL::Relocation<LookAtWorldPoint> lookAtWorldPoint{ REL::RelocationID(0, 2270336) };
+			static REL::Relocation<LookAtWorldPoint> lookAtWorldPoint{ REL::ID(0, 2270336) };
 			auto target = a_target;
 			RE::NiPoint3 worldUp{ 0.0f, 0.0f, 1.0f };
 			lookAtWorldPoint(a_camera, target, worldUp);
@@ -207,12 +207,7 @@ namespace CamHook
 
 		[[nodiscard]] bool RegisterHook()
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
-				logger::critical("Free-camera hook requires Fallout 4 runtime 1.11.240.0");
-				return false;
-			}
-
-			REL::Relocation<UpdateSig> UpdateLoc{ REL::RelocationID(541110, 2248280) };
+			REL::Relocation<UpdateSig> UpdateLoc{ REL::ID(541110, 2248280) };
 			constexpr std::array<std::uint8_t, 18> expectedPrologue{
 				0x48, 0x89, 0x7C, 0x24, 0x20, 0x55, 0x48, 0x8D, 0x6C,
 				0x24, 0xA9, 0x48, 0x81, 0xEC, 0x90, 0x00, 0x00, 0x00

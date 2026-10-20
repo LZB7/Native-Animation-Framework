@@ -78,15 +78,11 @@ set(Boost_USE_STATIC_LIBS ON)
 
 # ---- Dependencies ----
 
-# This port targets the AE 1.11.240 runtime only.  Building CommonLibF4
-# for one runtime makes accidental use of a legacy-only relocation fail at
-# build/audit time instead of silently selecting a pre-NG layout.
-set(ENABLE_FALLOUT_F4 OFF CACHE BOOL "Build legacy Fallout 4 support" FORCE)
-set(ENABLE_FALLOUT_NG ON CACHE BOOL "Build next-generation Fallout 4 support" FORCE)
-set(ENABLE_FALLOUT_VR OFF CACHE BOOL "Build Fallout 4 VR support" FORCE)
-
 if (NOT TARGET CommonLibF4)
-	add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/CommonLibF4/CommonLibF4" CommonLibF4)
+set(ENABLE_FALLOUT_F4 ON CACHE BOOL "" FORCE)
+set(ENABLE_FALLOUT_NG ON CACHE BOOL "" FORCE)
+set(ENABLE_FALLOUT_VR OFF CACHE BOOL "" FORCE)
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/CommonLibF4/CommonLibF4" CommonLibF4)
 endif ()
 
 find_package(spdlog REQUIRED CONFIG)

@@ -6,7 +6,7 @@ namespace RE
 		using func_t = decltype(&OpenContainerMenu);
 		// 1.11.221 disassembly-verified OpenContainerMenuEventData dispatcher.
 		// The historical invariant ID is 1.10.163-only.
-		REL::Relocation<func_t> func{ REL::RelocationID(1105206, 2248608) };
+		REL::Relocation<func_t> func{ REL::ID(1105206, 2248608) };
 		func(a_refr, a_menuMode, a_ownedNoCrime);
 	}
 }

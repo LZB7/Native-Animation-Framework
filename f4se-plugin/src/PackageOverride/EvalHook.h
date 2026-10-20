@@ -92,15 +92,10 @@ namespace PackageOverride::EvalHook
 	}
 
 	[[nodiscard]] bool RegisterHook() {
-		if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
-			logger::critical("Package/process hooks require Fallout 4 runtime 1.11.240.0");
-			return false;
-		}
-
 		// Actor::EvaluatePackage(bool, bool) and
 		// AIProcess::CheckforNewPackage(Actor*, bool), respectively.
-		REL::Relocation<EvaluatePackageSig> EvalPkgLoc{ REL::RelocationID(1395257, 2229805) };
-		REL::Relocation<CheckPackageSig> CheckPkgLoc{ REL::RelocationID(609985, 2231539) };
+		REL::Relocation<EvaluatePackageSig> EvalPkgLoc{ REL::ID(1395257, 2229805) };
+		REL::Relocation<CheckPackageSig> CheckPkgLoc{ REL::ID(609985, 2231539) };
 		constexpr std::array<std::uint8_t, 16> evaluatePackagePrologue{
 			0x40, 0x53, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x60,
 			0x48, 0x8B, 0x01, 0x0F, 0xB6, 0xF2, 0xB2, 0x01

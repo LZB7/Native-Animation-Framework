@@ -381,20 +381,15 @@ namespace BodyAnimation
 
 		static bool RegisterHook()
 		{
-			if (REL::Module::get().version() != F4SE::RUNTIME_1_11_240) {
-				logger::critical("Animation graph hooks require Fallout 4 runtime 1.11.240.0");
-				return false;
-			}
-
 			//IAnimationGraphManagerHolder::UpdateAnimationGraphManager(BSAnimationUpdateData)
-			REL::Relocation<GraphUpdate> hookLoc1{ REL::RelocationID(1492656, 2214536) };
+			REL::Relocation<GraphUpdate> hookLoc1{ REL::ID(1492656, 2214536) };
 			constexpr std::array<std::uint8_t, 16> updatePrologue{
 				0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74,
 				0x24, 0x18, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x40
 			};
 
 			//TESObjectREFR::Set3D
-			REL::Relocation<Set3d> hookLoc2{ REL::RelocationID(1216262, 2201055) };
+			REL::Relocation<Set3d> hookLoc2{ REL::ID(1216262, 2201055) };
 			constexpr std::array<std::uint8_t, 16> set3DPrologue{
 				0x44, 0x88, 0x44, 0x24, 0x18, 0x48, 0x89, 0x54,
 				0x24, 0x10, 0x48, 0x89, 0x4C, 0x24, 0x08, 0x55

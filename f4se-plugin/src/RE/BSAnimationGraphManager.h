@@ -108,14 +108,14 @@ namespace RE
 		{
 			using func_t = decltype(&hkbContext::Ctor);
 			// PDB/disassembly verified hkbContext(hkbCharacter*, ...).
-			REL::Relocation<func_t> func{ REL::RelocationID(1381136, 2258328) };
+			REL::Relocation<func_t> func{ REL::ID(1381136, 2258328) };
 			return func(this, a_char, a_physIntfc, a_attchMngr);
 		}
 
 		void Dtor() {
 			using func_t = decltype(&hkbContext::Dtor);
 			// PDB/disassembly verified hkbContext::~hkbContext().
-			REL::Relocation<func_t> func{ REL::RelocationID(144578, 2258329) };
+			REL::Relocation<func_t> func{ REL::ID(144578, 2258329) };
 			return func(this);
 		}
 	};
@@ -136,7 +136,7 @@ namespace RE
 
 		hkbNode* getNodeClone(hkbNode* a_node) {
 			using func_t = decltype(&BShkbAnimationGraph::getNodeClone);
-			REL::Relocation<func_t> func{ REL::RelocationID(326555, 2260454) };
+			REL::Relocation<func_t> func{ REL::ID(326555, 2260454) };
 			return func(this, a_node);
 		}
 	};
