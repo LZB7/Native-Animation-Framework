@@ -57,7 +57,7 @@ namespace Data
 		static bool IsCacheValid(const std::vector<std::pair<const std::string, const std::filesystem::file_time_type>>& xmlFiles = {})
 		{
 			std::unique_lock l{ lock };
-			if (cacheValid.has_value())
+			if (xmlFiles.empty() && cacheValid.has_value())
 				return cacheValid.value();
 
 			if (!std::filesystem::exists(cachePath)) {
@@ -66,6 +66,21 @@ namespace Data
 			}
 
 			auto cacheTime = std::filesystem::last_write_time(cachePath);
+			if (!xmlFiles.empty()) {
+				std::unordered_set<std::string, CaseInsensitiveStringHash, CaseInsensitiveStringEqual> currentFiles;
+				currentFiles.reserve(xmlFiles.size());
+				for (const auto& pair : xmlFiles) currentFiles.insert(std::filesystem::path(pair.first).lexically_normal().generic_string());
+				if (currentFiles.size() != primaryCache.files.size()) {
+					cacheValid = false;
+					return false;
+				}
+				for (const auto& cached : primaryCache.files) {
+					if (!currentFiles.contains(std::filesystem::path(cached.filename).lexically_normal().generic_string())) {
+						cacheValid = false;
+						return false;
+					}
+				}
+			}
 			for (auto& pair : xmlFiles) {
 				if (pair.second > cacheTime) {
 					cacheValid = false;
@@ -89,6 +104,7 @@ namespace Data
 
 				cereal::BinaryInputArchive archive(file);
 				archive(primaryCache);
+				cacheValid = std::nullopt;
 			} catch (const std::exception& e) {
 				logger::warn("Failed to load cache. Full Message: {}", e.what());
 				cacheValid = false;

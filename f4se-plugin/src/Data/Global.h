@@ -321,7 +321,7 @@ namespace Data
 
 			Utility::StartPerformanceCounter();
 			
-			if (!XMLCache::IsCacheValid(xmlFiles) || !XMLCache::LoadCache() || !AnimCache::Load()) {
+			if (!std::filesystem::exists(XMLCache::cachePath) || !XMLCache::LoadCache() || !XMLCache::IsCacheValid(xmlFiles) || !AnimCache::Load()) {
 				AnimCache::Delete();
 				XMLCache::Delete();
 				if (verbose)
