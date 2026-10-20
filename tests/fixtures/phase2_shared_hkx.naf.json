@@ -9,8 +9,7 @@
         "requirements": {
           "skeleton": "Human",
           "legacyGameSex": "Any"
-        },
-        "role": "performer"
+        }
       }
     ]
   },

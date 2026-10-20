@@ -1,0 +1,31 @@
+{
+  "format": "NAFExtendedAnimation",
+  "schemaVersion": 1,
+  "animation": {
+    "id": "example.intimate.scene01",
+    "actors": [
+      {
+        "requirements": {
+          "skeleton": "Human"
+        },
+        "expectedBodyType": "Masc",
+        "role": "giver",
+        "erection": true,
+        "file": "Example\\Actor1.hkx"
+      },
+      {
+        "requirements": {
+          "skeleton": "Human"
+        },
+        "expectedBodyType": "Femme",
+        "role": "receiver",
+        "file": "Example\\Actor2.hkx"
+      }
+    ]
+  },
+  "position": {
+    "id": "example.intimate.scene01",
+    "displayName": "Example Scene 01",
+    "tags": ["example"]
+  }
+}

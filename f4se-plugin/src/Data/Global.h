@@ -30,6 +30,7 @@ namespace Data
 	{
 		struct MetadataRecord;
 		bool ParseFile(const std::filesystem::path&, bool);
+		void LoadFiles(const std::vector<std::filesystem::path>&, bool);
 		void Clear();
 		std::vector<MetadataRecord> GetMetadata(const std::string&);
 	}
@@ -348,14 +349,11 @@ namespace Data
 				}
 			});
 
-			// JSON definitions are intentionally processed in lexical order after
-			// legacy XML. Existing IDs therefore win deterministically.
+			// JSON definitions are processed in lexical order after legacy XML.
+			// NAFPackCache stores validated normalized definitions; registration and
+			// collision handling still run on every load so XML precedence is unchanged.
 			std::ranges::sort(jsonFiles);
-			for (const auto& path : jsonFiles) {
-				if (JSONAnimation::ParseFile(path, verbose) && verbose) {
-					logger::info("Loaded experimental JSON animation definition {}", path.generic_string());
-				}
-			}
+			JSONAnimation::LoadFiles(jsonFiles, verbose);
 
 			if (verbose) {
 				auto performanceSeconds = Utility::GetPerformanceCounter();
