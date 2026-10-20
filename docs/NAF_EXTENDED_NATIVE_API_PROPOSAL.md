@@ -20,9 +20,9 @@ If NAF is absent, the request receives no compatible response and the client dis
 
 ## Lifecycle delivery points
 
-- `SceneStarted`: emitted after the scene is committed Active and a complete snapshot exists.
+- `SceneStarted`: emitted once after the scene is committed Active and a complete snapshot exists. Notifications queued in the same game-loop interval are ordered so Started precedes Updated. A late-registration or persistence reconciliation may synthesize Started with `NAFEXT_UPDATE_RESTORED`, but it does not duplicate an already queued start.
 - `SceneUpdated`: emitted after a committed change. Its reason mask covers position, stage, group/tree, animation, synchronization, speed, actor-3D rebind, and persistence fixup.
-- `SceneEnding`: emitted before actor slots and scene-owned state are destroyed; the final snapshot is valid.
+- `SceneEnding`: emitted during teardown with actor identity and the last committed resolved position, animation, tags, and semantic metadata retained for deterministic consumer cleanup.
 - `SceneEnded`: emitted after removal as an idempotent tombstone with no live snapshot.
 
 NAF copies event work out of its internal event handlers and releases scene/global locks before invoking external callbacks. Events preserve commit order per scene. Callbacks are observational and must not synchronously mutate NAF; future commands must be queued through a separately designed command API. The implementation must document the actual worker/game/UI context and clients must marshal engine work to their own safe context. No main-thread guarantee is implied.

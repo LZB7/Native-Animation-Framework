@@ -15,16 +15,18 @@ The harness is a development tool and must not be shipped with NAF Extended.
 
 1. Launch through F4SE and load an ordinary save.
 2. Open `Documents/My Games/Fallout4/F4SE/NAFExtAPITest.log`. Require provider
-   `LZB7.NAF.Extended`, ABI 1, the table size/capabilities, and both the direct
-   or announcement discovery result plus safe duplicate-discovery handling.
-3. Start JSON position `J1` (shown as `Belly Dancing — JSON Test`).
+   `LZB7.NAF.Extended`, ABI 1, the table size/capabilities, deferred direct
+   discovery after game entry, and initial active-scene enumeration.
+3. Start the Phase 2C two-actor JSON fixture (or installed equivalent).
 4. Require `SceneStarted`, actor slot/FormID/handle/name/animation information,
-   a valid packed copy, self-unregistration, resubscription, and late enumeration
-   of the active scene.
+   a valid packed copy, and namespaced `naf.extended.actor` records. Slot 0 must
+   expose `Masc`, `giver`, and erection `true`; slot 1 must expose `Femme` and
+   `receiver` with no erection key.
 5. Change scene speed or position. Require `SceneUpdated` and a line confirming
    the previously copied snapshot still validates after its originating callback.
 6. Stop normally. Require `SceneEnding`, `SceneEnded`, and final test
-   unregistration.
+   unregistration. `SceneEnding` must retain the final position, animation,
+   tags, and actor metadata; `SceneEnded` remains a tombstone.
 7. Start a second scene. The harness must emit no scene callbacks after its
    successful final unregistration.
 8. Remove `NAFExtAPITest.dll` after testing.

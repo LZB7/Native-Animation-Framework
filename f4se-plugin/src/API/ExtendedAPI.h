@@ -240,6 +240,15 @@ namespace NAFExtended::NativeAPI
 		}
 		for (const auto& tombstone : endedWork) Dispatch(NAFEXT_EVENT_SCENE_ENDED, 0, tombstone);
 
+		// Internal position/animation notifications can be queued in the same game-loop
+		// interval as SCENE_START. Present a deterministic external lifecycle: the first
+		// notification for a scene is Started, followed by any updates from that interval.
+		std::stable_partition(work.begin(), work.end(), [](const auto& event) { return event.kind == NAFEXT_EVENT_SCENE_STARTED; });
+		std::unordered_set<std::uint64_t> queuedStarts;
+		std::erase_if(work, [&](const auto& event) {
+			return event.kind == NAFEXT_EVENT_SCENE_STARTED && !queuedStarts.insert(event.sceneID).second;
+		});
+
 		// Reconcile unknown active scenes for late registration and persistence fixups.
 		for (const auto& scene : Scene::SceneManager::GetSceneMapSnapshot()) {
 			bool known = false;
@@ -247,7 +256,7 @@ namespace NAFExtended::NativeAPI
 				std::scoped_lock lock{ stateLock };
 				known = snapshots.contains(scene->uid);
 			}
-			if ((!known || resync) && scene->status == Scene::SceneState::Active) {
+			if ((!known || resync) && scene->status == Scene::SceneState::Active && !queuedStarts.contains(scene->uid)) {
 				work.push_back({ scene->uid, NAFEXT_EVENT_SCENE_STARTED, NAFEXT_UPDATE_RESTORED });
 				if (known) work.back().kind = NAFEXT_EVENT_SCENE_UPDATED;
 			}
@@ -257,14 +266,26 @@ namespace NAFExtended::NativeAPI
 			std::shared_ptr<Scene::IScene> scene;
 			Scene::SceneManager::GetScene(item.sceneID, scene);
 			std::shared_ptr<OwnedSnapshot> snapshot;
+			std::shared_ptr<OwnedSnapshot> previous;
+			{
+				std::scoped_lock lock{ stateLock };
+				if (const auto it = snapshots.find(item.sceneID); it != snapshots.end()) previous = it->second;
+			}
 			if (scene) {
 				std::unique_lock sceneGuard{ scene->lock };
 				snapshot = BuildSnapshot(scene, item.kind == NAFEXT_EVENT_SCENE_ENDING ? NAFEXT_SCENE_ENDING : NAFEXT_SCENE_ACTIVE);
 			}
-			if (!snapshot) {
-				std::scoped_lock lock{ stateLock };
-				if (const auto it = snapshots.find(item.sceneID); it != snapshots.end()) snapshot = it->second;
+			if (previous && snapshot && previous->positionID.size() && snapshot->positionID.empty()) {
+				snapshot = std::make_shared<OwnedSnapshot>(*previous);
+				snapshot->phase = item.kind == NAFEXT_EVENT_SCENE_ENDING ? NAFEXT_SCENE_ENDING : NAFEXT_SCENE_ACTIVE;
 			}
+			// Scene teardown can clear the control system before SCENE_END is drained.
+			// Preserve the last committed resolved metadata for SceneEnding cleanup.
+			if (item.kind == NAFEXT_EVENT_SCENE_ENDING && previous && (!snapshot || snapshot->positionID.empty())) {
+				snapshot = std::make_shared<OwnedSnapshot>(*previous);
+				snapshot->phase = NAFEXT_SCENE_ENDING;
+			}
+			if (!snapshot) snapshot = previous;
 			if (!snapshot) continue;
 			{
 				std::scoped_lock lock{ stateLock };
@@ -308,7 +329,7 @@ namespace NAFExtended::NativeAPI
 	{
 		if (!output || output->struct_size < sizeof(NAFExtProviderInfo)) return NAFEXT_E_INVALID_ARGUMENT;
 		static constexpr std::string_view provider{ NAFEXT_PROVIDER_ID };
-		static constexpr std::string_view build{ "1.11.240-phase2b" };
+		static constexpr std::string_view build{ "1.11.240-phase2c" };
 		*output = { sizeof(NAFExtProviderInfo), NAFEXT_ABI_VERSION_1, 1, NAFEXT_SNAPSHOT_VERSION_1, kCapabilities,
 			{ provider.data(), static_cast<std::uint32_t>(provider.size()) }, { build.data(), static_cast<std::uint32_t>(build.size()) } };
 		return NAFEXT_OK;
