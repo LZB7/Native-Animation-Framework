@@ -1,0 +1,25 @@
+{
+  "format": "NAFExtendedAnimation",
+  "schemaVersion": 1,
+  "animation": {
+    "id": "NAFExtJSON_RBBelly1",
+    "actors": [
+      {
+        "skeleton": "Human",
+        "gender": "Any",
+        "file": "radbeetle\\Dances\\loop\\Belly_Dancing_Variation_One.hkx"
+      }
+    ]
+  },
+  "position": {
+    "id": "NAFExtJSON_RBBelly1",
+    "hidden": false,
+    "tags": ["dance", "nafext-json-test"]
+  },
+  "extensions": {
+    "org.example.test": {
+      "source": "phase2-fixture",
+      "intensity": 0.5
+    }
+  }
+}

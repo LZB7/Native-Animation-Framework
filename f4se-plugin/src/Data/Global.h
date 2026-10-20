@@ -26,6 +26,13 @@ namespace Data
 	class PositionTree;
 	class Race;
 	class GraphInfo;
+	namespace JSONAnimation
+	{
+		struct MetadataRecord;
+		bool ParseFile(const std::filesystem::path&, bool);
+		void Clear();
+		std::vector<MetadataRecord> GetMetadata(const std::string&);
+	}
 
 	std::shared_ptr<const Animation> GetAnimation(const std::string&);
 	std::shared_ptr<const Position> GetPosition(const std::string&);
@@ -292,6 +299,7 @@ namespace Data
 
 			std::vector<std::pair<const std::string, const std::filesystem::file_time_type>> xmlFiles;
 			std::vector<std::string> nanimFiles;
+			std::vector<std::filesystem::path> jsonFiles;
 
 			try {
 				for (auto& f : std::filesystem::recursive_directory_iterator(USERDATA_DIR)) {
@@ -302,6 +310,8 @@ namespace Data
 							xmlFiles.push_back({ p.generic_string(), std::filesystem::last_write_time(p) });
 						} else if (ex == ".nanim") {
 							nanimFiles.push_back(p.generic_string());
+						} else if (Utility::StringEndsWith(p.filename().generic_string(), ".naf.json")) {
+							jsonFiles.push_back(p);
 						}
 					}
 				}
@@ -337,6 +347,15 @@ namespace Data
 					logger::info("Loaded {}", f);
 				}
 			});
+
+			// JSON definitions are intentionally processed in lexical order after
+			// legacy XML. Existing IDs therefore win deterministically.
+			std::ranges::sort(jsonFiles);
+			for (const auto& path : jsonFiles) {
+				if (JSONAnimation::ParseFile(path, verbose) && verbose) {
+					logger::info("Loaded experimental JSON animation definition {}", path.generic_string());
+				}
+			}
 
 			if (verbose) {
 				auto performanceSeconds = Utility::GetPerformanceCounter();
@@ -376,6 +395,7 @@ namespace Data
 			Furnitures.clear();
 			PositionTrees.clear();
 			GraphInfos.clear();
+			JSONAnimation::Clear();
 			FaceAnim::nextFileId = 0;
 			Init(false);
 			LinkDataReferences(false);
@@ -649,6 +669,8 @@ namespace Data
 			TagData::Datas.clear();
 		}
 	};
+
+#include "Data/JSONAnimation.h"
 
 	template <typename T>
 	std::shared_ptr<T> GetObjectFromIDMap(Global::IDMap<T>& m, const std::string& id)
