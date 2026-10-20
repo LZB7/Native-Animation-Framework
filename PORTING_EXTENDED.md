@@ -1,17 +1,73 @@
 # NAF Extended port notes
 
+## Phase 2C: normalized pack cache, actor semantics, and lifecycle ordering
+
+JSON animation sources now use the independent `Data/NAF/NAFPackCache.bin`.
+The established XML cache remains untouched. Cache version 1 stores validated,
+normalized definitions as CBOR; it contains no engine pointers or parser-owned
+objects. Its exact lexical source manifest records normalized relative path,
+size, modification time, and FNV-1a fingerprint. Header version/schema, bounded
+payload length, and payload checksum reject stale, truncated, or corrupt data.
+Cold rebuild writes a temporary file and atomically replaces the old cache.
+Failure to write the cache does not prevent source definitions from loading.
+
+Warm reconstruction still runs ordinary registry insertion after XML loading,
+so XML-first precedence, JSON lexical first-wins behavior, independent IDs that
+share an HKX, display names, extension metadata, and runtime linking semantics
+are unchanged. Hot reload clears registries and validates the complete manifest;
+deleted sources cannot survive through the cache. Fingerprinting closes the
+same-size/preserved-timestamp edit gap at the cost of reading JSON bytes on a
+warm load; it avoids JSON text parsing and normalization but cannot eliminate
+filesystem enumeration or improve HKX playback/loading itself.
+
+Actor slots accept descriptive `expectedBodyType` (`Masc`, `Femme`, `Any`,
+default `Any`), optional `role` (`giver`, `receiver`), and tri-state `erection`
+(`true`, `false`, omitted). They never alter eligibility or engine state. The
+deprecated JSON `gender` and preferred `requirements.legacyGameSex` retain the
+experimental hard game-record-sex behavior independently. ABI v1 remains
+unchanged: namespace `naf.extended.actor` publishes slot-indexed skeleton,
+expected body type, optional role, and optional erection JSON values. Absence of
+the erection key remains distinguishable from explicit `false`.
+
+The Phase 2B harness showed Updated revision 1, Started revision 2, and a second
+synthetic Started revision 3 because same-tick internal events were drained in
+queue order and active-scene reconciliation ran before that queue established a
+known snapshot. Processing now orders and deduplicates queued starts before
+updates and suppresses reconciliation when an explicit start is pending. The
+empty revision 13 snapshot came from control-system cleanup preceding event
+drain. The API now preserves the last committed resolved snapshot through that
+window and `SceneEnding`; `SceneEnded` remains a snapshot-free tombstone.
+
+Static/build validation is complete. Cache cold/warm timing and the new metadata
+records still require focused in-game evidence before they are described as
+runtime-validated.
+
+The standalone `tools/benchmark_pack_cache.cpp` model uses the same nlohmann
+text parse, normalized CBOR, and full-source fingerprint strategy without NAF
+registry or engine-linking cost. On the development machine it measured:
+
+| Definitions/files | Cold parse + normalize | Warm hash + CBOR | Invalidated hash + parse | Cache size | Working set |
+|---:|---:|---:|---:|---:|---:|
+| 1,000 | 30.1 ms | 22.6 ms | 40.6 ms | 166,715 B | 8,908,800 B |
+| 5,000 | 148.4 ms | 113.4 ms | 204.4 ms | 846,715 B | 25,894,912 B |
+| 20,000 | 775.0 ms | 695.6 ms | 1,282.7 ms | 3,426,715 B | 89,026,560 B |
+
+These are development pipeline measurements, not in-game startup claims. Many
+small-file opens and correctness-oriented full fingerprints dominate warm time;
+the cache removes JSON text parsing/normalization but not source enumeration,
+hashing, runtime registry insertion, engine linking, or HKX loading.
+
 ## Phase 2B: independent API harness, JSON requirements and cache correctness
 
 `tools/NAFExtAPITest` is a development-only F4SE consumer built as
 `NAFExtAPITest.dll`. It includes only the standalone C header plus the documented
 raw F4SE interface ABI; it does not link CommonLib, Runtime Database, spdlog, or
-NAF implementation code. It listens for the NAF announcement and attempts the
-exported `NAFExt_GetAPI`, validates ABI/table/capabilities/provider identity,
-logs all lifecycle callbacks, validates caller-owned packed snapshots, and on
-the first started scene deliberately self-unregisters, resubscribes, then
-enumerates the still-active scene. It permanently unregisters after that scene
-ends, so starting a second scene verifies that delivery stopped. The harness is
-not a release artifact.
+NAF implementation code. Plugin load registers only an F4SE lifecycle listener.
+After a save or new game is entered it acquires exported `NAFExt_GetAPI`,
+validates ABI/table/capabilities/provider identity, subscribes, enumerates active
+scenes, logs all lifecycle callbacks, and validates caller-owned packed
+snapshots. It permanently unregisters after the first scene ends, so a second
+scene verifies that delivery stopped. The harness is not a release artifact.
 
 Experimental JSON actor `gender` was already translated only into the legacy
 `Animation::Slot::gender` matcher; it introduced no additional restriction.
@@ -34,16 +90,16 @@ cache metadata. It does not cache JSON. Its historical validity check rejected
 newer XML but did not compare the current file manifest, so deleting an XML (or
 adding one whose timestamp predated the cache) could preserve stale cached
 definitions. Cache validation now compares the exact normalized current XML
-path set as well as timestamps. JSON is reparsed on every initialization and
-reload; reload clears all NAF registries and the parallel JSON metadata/name
-registry. No cache format or historical serialization format changed.
+path set as well as timestamps. Phase 2C supersedes the earlier uncached JSON
+behavior with the separate pack cache described above. No XML cache or
+historical serialization format changed.
 
 Runtime procedure: install NAF Extended and Runtime Database, copy only the
 development harness DLL to `Data/F4SE/Plugins`, launch through F4SE 0.7.9, and
 inspect `Documents/My Games/Fallout4/F4SE/NAFExtAPITest.log`. Start the JSON `J1`
 scene, mutate it once, then stop it. The log must contain Started/Updated/
-Ending/Ended, actor and copied-snapshot details, successful self-unregistration,
-resubscription and active enumeration. Start a second scene; no further harness
+Ending/Ended, actor and copied-snapshot details, active enumeration and final
+unregistration. Start a second scene; no further harness
 callback lines should appear. Remove the harness after testing.
 
 ## Phase 2: native API and experimental JSON animation definitions
