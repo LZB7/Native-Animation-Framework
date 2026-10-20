@@ -126,10 +126,10 @@ the `upstream` remote.
 Reproducibility note: this branch currently pins CommonLibF4 commit
 `4f6bdd2096df4ebd9fa24170007a62e8a7a21af5`, which contains the accumulated AE
 ABI/relocation corrections plus the 1.11.240 runtime constant. This new
-dependency commit and the parent `port/1.11.240` branch remain local until
-publication is separately authorized. Publish the dependency branch before
-the parent branch so a public recursive clone can retrieve the pinned gitlink.
-The `ik` and `pugixml` pins remain unchanged and publicly retrievable.
+dependency commit is publicly hosted on the `port/1.11.240` branch of
+`https://github.com/LZB7/CommonLibF4.git`. The parent branch pins that exact
+retrievable gitlink; the `ik` and `pugixml` pins remain unchanged and publicly
+retrievable.
 
 ## Credits and license
 
