@@ -1,7 +1,9 @@
 # NAF Extended API Runtime Harness
 
 `NAFExtAPITest.dll` is a development-only F4SE plugin. It consumes only the
-public `NAFExtendedAPI.h` contract and documented F4SE/CommonLib interfaces.
+public `NAFExtendedAPI.h` contract and the documented raw F4SE interface ABI.
+It does not link CommonLib, Runtime Database, spdlog, or any NAF implementation
+library.
 It is not included in framework release packaging.
 
 The harness listens for the NAF F4SE announcement and also attempts direct

@@ -1,22 +1,112 @@
-#include "F4SE/F4SE.h"
 #include "NAFExtendedAPI.h"
 
 #include <Windows.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/basic_file_sink.h>
+#include <ShlObj.h>
 
 #include <atomic>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <format>
-#include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
-namespace logger = F4SE::log;
 using namespace std::literals;
+
+namespace F4SERaw
+{
+	constexpr std::uint32_t kMessaging = 1;
+	constexpr std::uint32_t kPostLoad = 0;
+	using PluginHandle = std::uint32_t;
+
+	struct Interface
+	{
+		std::uint32_t f4seVersion;
+		std::uint32_t runtimeVersion;
+		std::uint32_t editorVersion;
+		std::uint32_t isEditor;
+		void* (__cdecl* QueryInterface)(std::uint32_t);
+		PluginHandle(__cdecl* GetPluginHandle)();
+		std::uint32_t(__cdecl* GetReleaseIndex)();
+		const void* (__cdecl* GetPluginInfo)(const char*);
+		const char* (__cdecl* GetSaveFolderName)();
+	};
+
+	struct Message
+	{
+		const char* sender;
+		std::uint32_t type;
+		std::uint32_t dataLen;
+		void* data;
+	};
+
+	using MessageCallback = void(__cdecl*)(Message*);
+
+	struct Messaging
+	{
+		std::uint32_t interfaceVersion;
+		bool(__cdecl* RegisterListener)(PluginHandle, const char*, void*);
+		bool(__cdecl* Dispatch)(PluginHandle, std::uint32_t, void*, std::uint32_t, const char*);
+		void* (__cdecl* GetEventDispatcher)(std::uint32_t);
+	};
+
+	struct PluginVersionData
+	{
+		const std::uint32_t dataVersion{ 1 };
+		std::uint32_t pluginVersion{};
+		char pluginName[256]{};
+		char author[256]{};
+		std::uint32_t addressIndependence{};
+		std::uint32_t structureIndependence{};
+		std::uint32_t compatibleVersions[16]{};
+		std::uint32_t xseMinimum{};
+		const std::uint32_t reservedNonBreaking{};
+		const std::uint32_t reservedBreaking{};
+		const std::uint8_t reserved[512]{};
+	};
+
+	constexpr std::uint32_t PackVersion(std::uint32_t a, std::uint32_t b, std::uint32_t c, std::uint32_t d = 0)
+	{
+		return ((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((c & 0xFFF) << 4) | (d & 0xF);
+	}
+
+	static_assert(sizeof(PluginVersionData) == 0x45C);
+}
+
+namespace logger
+{
+	inline std::mutex lock;
+	inline std::ofstream file;
+
+	template <class... Args>
+	void Write(std::string_view level, std::format_string<Args...> format, Args&&... args)
+	{
+		std::scoped_lock guard{ lock };
+		if (!file) return;
+		file << '[' << level << "] " << std::format(format, std::forward<Args>(args)...) << '\n';
+		file.flush();
+	}
+
+	template <class... Args> void info(std::format_string<Args...> f, Args&&... a) { Write("INFO", f, std::forward<Args>(a)...); }
+	template <class... Args> void warn(std::format_string<Args...> f, Args&&... a) { Write("WARN", f, std::forward<Args>(a)...); }
+	template <class... Args> void error(std::format_string<Args...> f, Args&&... a) { Write("ERROR", f, std::forward<Args>(a)...); }
+	template <class... Args> void critical(std::format_string<Args...> f, Args&&... a) { Write("CRITICAL", f, std::forward<Args>(a)...); }
+
+	bool Initialize()
+	{
+		wchar_t documents[MAX_PATH]{};
+		if (FAILED(SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, documents))) return false;
+		auto directory = std::filesystem::path(documents) / L"My Games" / L"Fallout4" / L"F4SE";
+		std::error_code error;
+		std::filesystem::create_directories(directory, error);
+		file.open(directory / L"NAFExtAPITest.log", std::ios::out | std::ios::trunc);
+		return file.good();
+	}
+}
 
 namespace
 {
@@ -221,7 +311,7 @@ namespace
 		Acquire(getAPI(NAFEXT_ABI_VERSION_1, sizeof(NAFExtAPIv1)), "NAFExt_GetAPI export");
 	}
 
-	void OnNAFMessage(F4SE::MessagingInterface::Message* message)
+	void __cdecl OnNAFMessage(F4SERaw::Message* message)
 	{
 		if (!message || message->type != NAFEXT_DISCOVERY_MESSAGE_TYPE || message->dataLen < sizeof(NAFExtAnnouncement)) return;
 		const auto* announcement = static_cast<const NAFExtAnnouncement*>(message->data);
@@ -229,43 +319,36 @@ namespace
 		Acquire(announcement->api, "F4SE announcement");
 	}
 
-	void OnF4SEMessage(F4SE::MessagingInterface::Message* message)
+	void __cdecl OnF4SEMessage(F4SERaw::Message* message)
 	{
-		if (message && message->type == F4SE::MessagingInterface::kPostLoad) {
+		if (message && message->type == F4SERaw::kPostLoad) {
 			TryDirectAcquisition();
 			if (!api) logger::warn("NAF Extended provider unavailable at PostLoad; announcement listener remains active");
 		}
 	}
 }
 
-F4SE_EXPORT constinit F4SE::PluginVersionData F4SEPlugin_Version = []() constexpr {
-	F4SE::PluginVersionData data{};
-	data.PluginVersion({ 1, 0, 0 });
-	data.PluginName("NAFExtAPITest");
-	data.AuthorName("LZB7 / NAF Extended development");
-	data.UsesAddressLibrary(false);
-	data.UsesSigScanning(false);
-	data.HasNoStructUse(true);
-	data.CompatibleVersions({ F4SE::RUNTIME_1_11_240 });
-	data.MinimumRequiredXSEVersion({ 0, 7, 9 });
+extern "C" __declspec(dllexport) constinit F4SERaw::PluginVersionData F4SEPlugin_Version = []() constexpr {
+	F4SERaw::PluginVersionData data{};
+	data.pluginVersion = F4SERaw::PackVersion(1, 0, 0);
+	constexpr std::string_view name{ "NAFExtAPITest" };
+	constexpr std::string_view author{ "LZB7 / NAF Extended development" };
+	for (std::size_t i = 0; i < name.size(); ++i) data.pluginName[i] = name[i];
+	for (std::size_t i = 0; i < author.size(); ++i) data.author[i] = author[i];
+	data.structureIndependence = 1;  // no game structures
+	data.compatibleVersions[0] = F4SERaw::PackVersion(1, 11, 240);
+	data.xseMinimum = F4SERaw::PackVersion(0, 7, 9);
 	return data;
 }();
 
-extern "C" __declspec(dllexport) bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* f4se)
+extern "C" __declspec(dllexport) bool __cdecl F4SEPlugin_Load(const F4SERaw::Interface* f4se)
 {
-	F4SE::Init(f4se);
-	auto path = logger::log_directory();
-	if (!path) return false;
-	*path /= "NAFExtAPITest.log";
-	auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
-	auto logger = std::make_shared<spdlog::logger>("NAFExtAPITest", std::move(sink));
-	logger->set_level(spdlog::level::info);
-	logger->flush_on(spdlog::level::info);
-	spdlog::set_default_logger(std::move(logger));
-	spdlog::set_pattern("[%m/%d/%Y - %T] [%^%l%$] %v");
-
-	auto messaging = F4SE::GetMessagingInterface();
-	if (!messaging || !messaging->RegisterListener(OnF4SEMessage) || !messaging->RegisterListener(OnNAFMessage, "NAF"sv)) {
+	if (!f4se || !logger::Initialize() || f4se->isEditor || !f4se->QueryInterface || !f4se->GetPluginHandle) return false;
+	const auto messaging = static_cast<F4SERaw::Messaging*>(f4se->QueryInterface(F4SERaw::kMessaging));
+	const auto handle = f4se->GetPluginHandle();
+	if (!messaging || !messaging->RegisterListener ||
+		!messaging->RegisterListener(handle, "F4SE", reinterpret_cast<void*>(OnF4SEMessage)) ||
+		!messaging->RegisterListener(handle, "NAF", reinterpret_cast<void*>(OnNAFMessage))) {
 		logger::critical("Unable to register F4SE message listeners");
 		return false;
 	}

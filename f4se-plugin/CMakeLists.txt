@@ -230,7 +230,7 @@ if (BUILD_NAFEXT_API_TEST)
 	target_compile_features(NAFExtAPITest PRIVATE cxx_std_23)
 	target_compile_definitions(NAFExtAPITest PRIVATE _UNICODE)
 	target_include_directories(NAFExtAPITest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-	target_link_libraries(NAFExtAPITest PRIVATE CommonLibF4::CommonLibF4 spdlog::spdlog)
+	target_link_libraries(NAFExtAPITest PRIVATE Shell32)
 	set_target_properties(NAFExtAPITest PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/api-test"
 		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/api-test")

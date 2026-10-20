@@ -3,8 +3,9 @@
 ## Phase 2B: independent API harness, JSON requirements and cache correctness
 
 `tools/NAFExtAPITest` is a development-only F4SE consumer built as
-`NAFExtAPITest.dll`. It includes only the standalone C header plus documented
-F4SE/CommonLib interfaces. It listens for the NAF announcement and attempts the
+`NAFExtAPITest.dll`. It includes only the standalone C header plus the documented
+raw F4SE interface ABI; it does not link CommonLib, Runtime Database, spdlog, or
+NAF implementation code. It listens for the NAF announcement and attempts the
 exported `NAFExt_GetAPI`, validates ABI/table/capabilities/provider identity,
 logs all lifecycle callbacks, validates caller-owned packed snapshots, and on
 the first started scene deliberately self-unregisters, resubscribes, then

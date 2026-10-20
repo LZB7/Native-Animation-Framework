@@ -22,6 +22,9 @@ def main() -> None:
     ):
         require(harness, token, "API harness")
     require(cmake, "add_library(NAFExtAPITest SHARED", "harness target")
+    if "CommonLibF4::CommonLibF4" in cmake.split("add_library(NAFExtAPITest SHARED", 1)[1]:
+        raise SystemExit("FAIL: independent harness still links CommonLibF4")
+    require(cmake, "target_link_libraries(NAFExtAPITest PRIVATE Shell32)", "raw-F4SE harness linkage")
     require(cache, "currentFiles.size() != primaryCache.files.size()", "cache deletion/addition invalidation")
     require(cache, "currentFiles.contains", "cache exact manifest validation")
     require(global_h, "JSONAnimation::Clear()", "JSON reload invalidation")
