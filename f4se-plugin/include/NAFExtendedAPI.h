@@ -205,6 +205,15 @@ typedef struct NAFExtAPIv1 {
     NAFExtResult (NAFEXT_CALL *copy_scene_snapshot)(NAFExtSceneID, uint64_t, void*, size_t, size_t*);
 } NAFExtAPIv1;
 
+/* Snapshot retention contract:
+   - callback NAFExtSceneSnapshotView pointers expire when the callback returns;
+   - call get_scene_snapshot_size(id, revision), allocate that many bytes, then
+     call copy_scene_snapshot(id, revision, ...);
+   - NAFEXT_E_BUSY means the requested nonzero revision is no longer current;
+     enumerate/query again rather than retaining provider pointers;
+   - a successful NAFExtSceneSnapshotCopy is entirely caller-owned and contains
+     offsets only, so it remains valid after callbacks and later scene changes. */
+
 typedef struct NAFExtAnnouncement {
     uint32_t struct_size;
     uint32_t abi_version;

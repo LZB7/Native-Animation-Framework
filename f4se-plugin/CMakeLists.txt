@@ -7,6 +7,7 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 # ---- Options ----
 
 option(COPY_BUILD "Copy the build output to the Fallout 4 directory." ON)
+option(BUILD_NAFEXT_API_TEST "Build the development-only NAF Extended API consumer harness." ON)
 
 # ---- Cache build vars ----
 
@@ -223,6 +224,21 @@ add_dependencies(
 	create_artifact_naf
 	${PROJECT_NAME}
 )
+
+if (BUILD_NAFEXT_API_TEST)
+	add_library(NAFExtAPITest SHARED ../tools/NAFExtAPITest/NAFExtAPITest.cpp)
+	target_compile_features(NAFExtAPITest PRIVATE cxx_std_23)
+	target_compile_definitions(NAFExtAPITest PRIVATE _UNICODE)
+	target_include_directories(NAFExtAPITest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+	target_link_libraries(NAFExtAPITest PRIVATE CommonLibF4::CommonLibF4 spdlog::spdlog)
+	set_target_properties(NAFExtAPITest PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/api-test"
+		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/api-test")
+	if (MSVC)
+		target_compile_options(NAFExtAPITest PRIVATE /utf-8 /permissive- /Zc:preprocessor /W4 /WX)
+		target_link_options(NAFExtAPITest PRIVATE /WX)
+	endif ()
+endif ()
 
 source_group(
 	TREE ${CMAKE_CURRENT_SOURCE_DIR}

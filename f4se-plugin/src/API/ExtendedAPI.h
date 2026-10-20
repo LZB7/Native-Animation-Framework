@@ -308,7 +308,7 @@ namespace NAFExtended::NativeAPI
 	{
 		if (!output || output->struct_size < sizeof(NAFExtProviderInfo)) return NAFEXT_E_INVALID_ARGUMENT;
 		static constexpr std::string_view provider{ NAFEXT_PROVIDER_ID };
-		static constexpr std::string_view build{ "1.11.240-phase2" };
+		static constexpr std::string_view build{ "1.11.240-phase2b" };
 		*output = { sizeof(NAFExtProviderInfo), NAFEXT_ABI_VERSION_1, 1, NAFEXT_SNAPSHOT_VERSION_1, kCapabilities,
 			{ provider.data(), static_cast<std::uint32_t>(provider.size()) }, { build.data(), static_cast<std::uint32_t>(build.size()) } };
 		return NAFEXT_OK;

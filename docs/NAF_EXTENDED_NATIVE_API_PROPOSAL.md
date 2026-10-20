@@ -1,6 +1,7 @@
 # NAF Extended native API proposal
 
-Status: ABI v1 implemented. The canonical standalone header is
+Status: ABI v1 implemented; an independent loadable Phase 2B harness is included
+for runtime validation. The canonical standalone header is
 `f4se-plugin/include/NAFExtendedAPI.h`; the older draft remains design history.
 
 ## Boundary and discovery
