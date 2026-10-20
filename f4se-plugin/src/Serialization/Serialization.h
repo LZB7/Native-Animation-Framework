@@ -329,6 +329,7 @@ namespace Serialization
 	void RevertCallback(const F4SE::SerializationInterface*)
 	{
 		logger::info("Serialization revert callback entered");
+		NAFExtended::NativeAPI::ResetEpoch();
 		sceneFixupGeneration.fetch_add(1, std::memory_order_acq_rel);
 		Tasks::TimerThread::GetSingleton()->Reset();
 		PackageOverride::Reset();

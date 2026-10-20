@@ -58,6 +58,7 @@ namespace Tasks
 			bool res = OriginalProcessQueues(qintfc, unk01, unk02);
 			Scene::SceneManager::UpdateScenes();
 			Scene::OrderedActionQueue::Update();
+			NAFExtended::NativeAPI::ProcessPending();
 
 			std::unique_lock l{ alignActorsLock };
 			for (const auto& info : alignActors) {

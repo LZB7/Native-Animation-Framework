@@ -1,10 +1,17 @@
 # NAF Extended native API proposal
 
-Status: design only; not implemented. The draft ABI is in `docs/api/NAFExtendedAPI_draft.h`.
+Status: ABI v1 implemented. The canonical standalone header is
+`f4se-plugin/include/NAFExtendedAPI.h`; the older draft remains design history.
 
 ## Boundary and discovery
 
-The API is a versioned C ABI acquired through F4SE messaging. A client registers a listener for `NAF`, broadcasts a query containing `NAFExtAcquireRequest`, and accepts a response only after checking the result, ABI version, table size, required function pointers, and capability bits. NAF Extended also announces availability after load. Clients must support both paths: listen before the announcement and actively query later. Repeated responses are deduplicated by API-table address plus provider identity. Save/revert does not invalidate the function table, but does invalidate scene snapshots and advances the registration epoch.
+The API is a versioned C ABI. NAF Extended broadcasts an F4SE message of type
+`NAFEXT_DISCOVERY_MESSAGE_TYPE` containing `NAFExtAnnouncement` after the API is
+initialized. A consumer loaded later obtains the same table from the exported
+`NAFExt_GetAPI` function. DLL presence alone is not compatibility: every client
+must check ABI version, table size, required functions and capabilities. Save or
+revert does not invalidate the table, but does invalidate snapshots and advance
+the registration epoch.
 
 Capability-based integration is the default: any compatible provider may implement the ABI. Authors who require this implementation can additionally check `provider_id == "LZB7.NAF.Extended"`. The identity check is optional and is not a security boundary.
 
@@ -27,7 +34,10 @@ Callback snapshots are immutable NAF-owned views valid only until the callback r
 
 Queries use a two-call sizing/copy model. `get_scene_snapshot_size` returns the required byte count for a specific revision; `copy_scene_snapshot` returns `BUSY` if that revision changed before copying. The copied buffer is self-contained and caller-owned. This avoids cross-CRT allocation and permits late consumers to retain data.
 
-Late recovery is: enumerate IDs and epoch, copy every current snapshot, then subscribe. If the epoch or any revision changes during recovery, repeat enumeration. Implementations may optimize this with subscribe-first plus revision de-duplication, but the observable rule remains that `(scene_id, revision)` uniquely identifies committed state.
+Late recovery is subscribe first, enumerate IDs and epoch, then copy every current
+snapshot. A client reconciles callback and enumeration results by `(scene_id,
+revision)` and repeats if the epoch changes or a copy reports `BUSY`. This avoids
+the enumeration-before-subscription race.
 
 Resolved metadata belongs in snapshots: ordered actor slots, selected position/group/tree/stage, resolved per-slot animation IDs, tags, and morph directives. Consumers do not repeat XML priority, conditions, tree selection, or actor assignment. Future semantic metadata is added through new capability bits and appended size-versioned structures.
 
@@ -53,4 +63,28 @@ NAF does not become an erection controller. It exposes resolved scene truth; Att
 6. Add F4SE query/announcement handling and a static ABI table.
 7. Add C-ABI conformance tests, hostile size/version tests, late-load race tests, self-unregistration tests, and callback reentrancy tests.
 
-NAF Bridge can consume this boundary instead of private C++ internals. A future official NAF 2.0 can implement the same ABI under its own provider ID. Facial reset and furniture merging are deliberately absent from this proposal.
+The existing NAF Bridge cannot consume this boundary: it distributes a customized
+replacement `NAF.dll` and is mutually exclusive with NAF Extended. A future,
+independent Bridge adapter could consume ABI v1. A future official NAF can also
+implement the ABI under its own provider identity. Facial reset and furniture
+merging remain deliberately absent from Phase 2.
+
+## Implemented execution and ownership contract
+
+Internal NAF events enqueue only scene IDs and reason bits. Snapshot construction
+and external callbacks occur after `SceneManager::UpdateScenes` and the ordered
+action update return to the serialized game-loop hook. NAF scene/event locks are
+not held across client code. No main-thread guarantee is made; clients must marshal
+engine mutations to a proven context.
+
+Callback views are NAF-owned and valid only for the call. Query copies contain no
+provider pointers and use offsets from `NAFExtSceneSnapshotCopy`. Subscriptions
+are token-based; self-unregistration marks the shared registration inactive and
+does not wait on itself. C++ exceptions are contained at the callback boundary.
+Plugin unload still requires cooperative unregistration because F4SE does not
+provide a safe general DLL-unload notification.
+
+Implemented capabilities are lifecycle events, snapshots, active enumeration,
+actor-slot metadata, resolved animation metadata, and namespaced semantic metadata.
+Resolved morph metadata is not advertised yet because the current scene runtime
+applies legacy morphs without retaining a complete resolved immutable list.

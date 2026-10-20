@@ -21,6 +21,7 @@ bool g_gameDataReady = false;
 #include "Scene/SceneManager.h"
 #include "Scene/SceneBase.h"
 #include "FaceAnimation/FaceUpdateHook.h"
+#include "API/ExtendedAPI.h"
 #include "Tasks/GameLoopHook.h"
 #include "Menu/Menu.h"
 #include "Scripts/Papyrus.h"
@@ -69,6 +70,7 @@ namespace
 			}
 			case F4SE::MessagingInterface::kPostLoad:
 			{
+				NAFExtended::NativeAPI::Announce();
 				LooksMenu::Init();
 				logger::info("Post-load LooksMenu/body-morph integration initialized (when supported f4ee.dll is present)");
 				break;
@@ -189,6 +191,8 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		serialization->SetRevertCallback(Serialization::RevertCallback);
 		logger::info("Registered with F4SE serialization interface.");
 	}
+
+	NAFExtended::NativeAPI::Initialize();
 
 	const auto papyrus = F4SE::GetPapyrusInterface();
 	if (!papyrus || !papyrus->Register(Papyrus::RegisterFunctions)) {
