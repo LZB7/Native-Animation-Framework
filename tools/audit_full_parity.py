@@ -58,6 +58,8 @@ def main() -> None:
         "audit_runtime_1_11_240.py",
 		"audit_runtime_database_migration.py",
 		"audit_tes_data_handler.py",
+		"audit_extended_native_api.py",
+		"audit_json_animation.py",
     }
     missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
     if missing_audits:

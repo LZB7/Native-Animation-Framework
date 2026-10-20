@@ -1,5 +1,17 @@
 # NAF Extended port notes
 
+## Phase 2: native API and experimental JSON animation definitions
+
+ABI v1 is implemented in `f4se-plugin/include/NAFExtendedAPI.h`. It exposes a size/version-negotiated C function table, optional provider identity `LZB7.NAF.Extended`, capability bits, token-based subscriptions, immutable scene views, active-scene enumeration, and self-contained caller-buffer snapshot copies. NAF announces the table through F4SE messaging during load and again at PostLoad; late clients can acquire the same verified table through `NAFExt_GetAPI`.
+
+Internal scene events enqueue only stable IDs/reason flags. Snapshot construction and external callback execution occur after scene and ordered-action updates return to the serialized game-loop hook, outside NAF scene/event locks. The bounded queue holds 4096 transition records; overflow requests a full active-scene resynchronization. Subscribe-first enumeration uses scene revisions and a reset epoch. Revert queues tombstone events for later safe delivery and invalidates all old snapshots. Callback views are call-lifetime only; retained data must use the two-call packed-copy API. Actor identity is FormID plus the engine's opaque 32-bit handle, with an optional copied display name. No CommonLib, STL, RTTI, or private NAF type crosses the public header.
+
+The implemented capabilities are lifecycle events, scene query/enumeration, actor-slot metadata, resolved animation IDs/tags, and namespaced semantic metadata. Resolved morph metadata is deliberately not advertised until NAF retains a complete post-resolution morph list rather than only applying it as an action.
+
+Experimental schema v1 discovers `Data/NAF/**/*.naf.json`, validates the document, and constructs the same `Data::Animation` and `Data::Position` objects used by XML. It supports ordered HKX actor slots, skeleton/gender assignment, a basic position, tags, and opaque namespaced extension values. XML loads first and wins ID conflicts; JSON is processed in lexical path order and the first JSON definition wins. Reload clears the parallel metadata registry. Stages, groups, trees, conditions and the final Passion vocabulary remain deferred rather than being speculatively frozen. The development fixture is `tests/fixtures/phase2_solo.naf.json` and requires the existing Dancecyclopedia HKX asset to receive the intended in-game playback test.
+
+The Atten-Hut research corrects the earlier Bridge assumption: the existing NAF Bridge ships a customized replacement `NAF.dll`, so it cannot coexist with or consume this API. A future independent Bridge adapter can be written against ABI v1. The Runtime Database dependency remains mandatory and fail-closed; the loader dialog shown when only Address Library is installed is expected behavior.
+
 ## Runtime Database migration
 
 NAF Extended branches from preservation commit `d39f3225e9a2d91799aa2ccb2a4b6c0e060804b8` on `extended/1.11.240`. The dependency starts from CommonLibF4RD `b092bcc70f690b2c51b980c0b251fa56bf2d3460` and retains the preservation fork's verified RE/F4SE declarations. This hybrid is necessary because upstream CommonLibF4RD does not contain the complete NAF-facing ABI surface or the port's verified Get3D, Papyrus, FaceGen, actor, graph, and singleton corrections.
