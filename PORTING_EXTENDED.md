@@ -34,7 +34,13 @@ The independent harness negotiates both services only after entering a game.
 Its F6-F11 plus Insert controls deliberately exercise play A/B, state query, stop, reset,
 A-to-B supersession, and A-to-reset supersession. It still has no CommonLib or
 Runtime Database dependency and performs no automatic facial mutation on load.
-In-game behavior remains user-test-required.
+The October 20 production run runtime-validated the complete service contract:
+controlled negotiation failures were rejected, stop queried as `Stopped`, reset
+queried as `Completed`, repeated A-to-B replacement left B active, and the Insert
+A-to-reset sequence completed with no animation ID. The final generation state
+proves that an older queued play did not reassert itself after reset. Provider and
+harness remained stable, and the provider continued to write/load only the nine
+historical v5 records with no `FRST` record.
 
 ## Phase 3A: compiled Papyrus extension and facial-reset persistence
 

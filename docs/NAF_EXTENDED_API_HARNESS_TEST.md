@@ -54,6 +54,13 @@ perform automatic playback on load. Successful discovery logs the facial
 service version, table size, capability mask, and four controlled negotiation
 rejections. Query success logs status, generation, flags, and animation ID.
 
+The October 20 Phase 3B run completed this matrix successfully. It verified the
+four facial-service negotiation rejections, play/replace, query, stop, reset,
+A-to-B last-request-wins behavior, and Insert A-to-reset supersession. The final
+A-to-reset query reported `Completed` with an empty animation ID; no stale play
+request reappeared. Repeated accepted messages caused by key repeat are harmless:
+the monotonically increasing generation and final queried state are authoritative.
+
 ## Missing-provider test
 
 In a separate disposable profile, leave the harness installed and omit
