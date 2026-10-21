@@ -59,8 +59,9 @@ GUARDS = {
         "PAPYRUS_BIND(ClearEyeCoordOverride);",
         "PAPYRUS_BIND(PlayFaceAnimation);",
         "PAPYRUS_BIND(StopFaceAnimation);",
-        "PAPYRUS_BIND(ResetFaceExpression);",
-        "Registered all 45 upstream Papyrus natives plus 1 NAF Extended facial-reset native",
+        '"ResetFaceExpression", NAF::ResetFaceExpression, true',
+        "Successfully registered all 45 upstream Papyrus natives",
+        "Successfully registered NAF Extended Papyrus native ResetFaceExpression",
     ),
     "ck/project_files/Scripts/Source/User/NAF.psc": (
         "Function SetEyeCoordOverride(Actor akActor, Float fEyeX, Float fEyeY) Native Global",

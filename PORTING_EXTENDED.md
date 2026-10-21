@@ -1,5 +1,46 @@
 # NAF Extended port notes
 
+## Phase 3A: compiled Papyrus extension and facial-reset persistence diagnostics
+
+The Extended `NAF.psc` preserves the 45 upstream native declarations exactly
+and adds one global native, `Bool Function ResetFaceExpression(Actor akActor)`.
+It compiles with Bethesda Papyrus Compiler 2.8.0.4 using the Fallout 4 vanilla
+source set and `Institute_Papyrus_Flags.flg`; the F4SE `modified` directory is a
+set of patch fragments and is intentionally not an import directory. The
+release/final optimized compiler invocation and disassembly verification are
+recorded with the Phase 3A production artifacts. The resulting PEX identifies
+script `NAF`, extends `ScriptObject`, retains the three upstream structures and
+all non-native helper functions, and exposes 46 native globals. Existing
+callers of the original 45 functions require no recompilation.
+
+Papyrus registration now observes the real return from the VM's native-binding
+operation. The log separately reports the 45 upstream registrations and the
+Extended reset registration; it no longer claims 46 successes after the VM
+rejects a method absent from an installed PEX. This required changing the
+CommonLibF4RD convenience template to return the underlying virtual call's
+existing boolean result without changing the engine ABI.
+
+The October 20 reproduction proves that an `FRST` record exists: saves made
+after reset wrote ten active records and subsequent loads read ten rather than
+the nine historical v5 records. It does not prove that the record contained the
+player marker or that the reset happened after final engine FaceGen state
+reconstruction. A diagnostic build therefore records only bounded lifecycle
+events: reset request/generation, FRST marker count and safe identities,
+post-load resolution/face-data readiness, task completion/consumption, Set3D,
+new external face-animation requests, and at most eight post-reset FaceGen
+samples (ending immediately if a non-neutral `finalExp` reappears). No timer,
+permanent zeroing loop, or second persistence mechanism was added. The nine
+historical v5 records and the independently versioned FRST v1 schema are
+unchanged.
+
+The next controlled run must install the matching DLL and PEX, confirm separate
+45+1 registration success, reset the affected player, save to a new slot, exit
+fully, and reload. The resulting bounded log will distinguish: missing/empty
+FRST data, failed actor/face-data resolution, premature marker consumption,
+an engine FaceGen overwrite after completion, or a new HFE/other Papyrus
+`PlayFaceAnimation` request. Phase 3B and Phase 3C remain deferred until this
+evidence identifies the Phase 3A lifecycle fault.
+
 ## Phase 2C: normalized pack cache, actor semantics, and lifecycle ordering
 
 JSON animation sources now use the independent `Data/NAF/NAFPackCache.bin`.

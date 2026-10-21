@@ -46,13 +46,33 @@ def main() -> None:
             require(face, token, owner)
 
     require(native, "bool ResetFaceExpression(std::monostate, RE::Actor* a_actor)", "Papyrus implementation")
-    require(bindings, "PAPYRUS_BIND(ResetFaceExpression);", "Papyrus binding")
+    require(bindings, '"ResetFaceExpression", NAF::ResetFaceExpression, true', "Papyrus binding")
+    require(bindings, "Successfully registered all 45 upstream Papyrus natives", "upstream registration result")
+    require(bindings, "Successfully registered NAF Extended Papyrus native ResetFaceExpression", "Extended registration result")
     require(script, "Bool Function ResetFaceExpression(Actor akActor) Native Global", "Papyrus source")
     require(settings, '"Reset Player Expression"', "player menu action")
     require(serialization, "SAVE_PERSISTENT_STATE('FRST', 1", "face-reset persistence")
     require(serialization, "case 'FRST':", "face-reset restoration")
     require(serialization, "version >= 5 || (type == 'FRST' && version >= 1)", "face-reset record version gate")
     require(serialization, "FaceUpdateHook::ApplyPendingResetsAfterSerialization()", "world-ready reset fixup")
+
+    native_declarations = [
+        line.strip() for line in script.splitlines()
+        if " Function " in f" {line}" and " Native Global" in line
+    ]
+    if len(native_declarations) != 46:
+        raise SystemExit(f"FAIL: Extended NAF.psc declares {len(native_declarations)} native globals, expected 45 upstream plus reset")
+    if bindings.count("PAPYRUS_BIND(") != 46:  # macro definition plus 45 upstream call sites
+        raise SystemExit("FAIL: upstream Papyrus binding count changed")
+
+    diagnostics = (
+        "Face-reset diagnostic: request",
+        "Face-reset diagnostic: post-load fixup",
+        "Face-reset diagnostic: post-reset FaceGen update",
+        "Face-reset diagnostic: incoming face-animation request",
+    )
+    for token in diagnostics:
+        require(face, token, "bounded Phase 3A diagnostics")
 
     if "std::fill(std::begin(data->baseExp.exp)" in face or "std::fill(std::begin(data->modExp.exp)" in face:
         raise SystemExit("FAIL: reset must not erase engine-owned baseExp/modExp")

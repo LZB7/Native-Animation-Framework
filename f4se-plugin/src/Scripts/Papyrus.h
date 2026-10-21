@@ -3,13 +3,14 @@
 #include "Papyrus/NAF.h"
 #include "Papyrus/EventProxy.h"
 
-#define PAPYRUS_BIND(funcName) a_VM->BindNativeMethod(NAF::SCRIPT_NAME, #funcName, NAF::funcName, true)
-#define PAPYRUS_BIND_LATENT(funcName, retType) a_VM->BindNativeMethod<retType>(NAF::SCRIPT_NAME, #funcName, NAF::funcName, true, true)
+#define PAPYRUS_BIND(funcName) upstreamRegistered = a_VM->BindNativeMethod(NAF::SCRIPT_NAME, #funcName, NAF::funcName, true) && upstreamRegistered
+#define PAPYRUS_BIND_LATENT(funcName, retType) upstreamRegistered = a_VM->BindNativeMethod<retType>(NAF::SCRIPT_NAME, #funcName, NAF::funcName, true, true) && upstreamRegistered
 
 namespace Papyrus
 {
 	bool RegisterFunctions(RE::BSScript::IVirtualMachine* a_VM)
 	{
+		bool upstreamRegistered = true;
 		PAPYRUS_BIND(SetDisableRescaler);
 		PAPYRUS_BIND(GetDisableRescaler);
 		PAPYRUS_BIND(ToggleMenu);
@@ -42,7 +43,8 @@ namespace Papyrus
 		PAPYRUS_BIND(ClearEyeCoordOverride);
 		PAPYRUS_BIND(PlayFaceAnimation);
 		PAPYRUS_BIND(StopFaceAnimation);
-		PAPYRUS_BIND(ResetFaceExpression);
+		const bool resetRegistered = a_VM->BindNativeMethod(
+			NAF::SCRIPT_NAME, "ResetFaceExpression", NAF::ResetFaceExpression, true);
 
 		PAPYRUS_BIND(DrawRectangle);
 		PAPYRUS_BIND(DrawText);
@@ -59,7 +61,16 @@ namespace Papyrus
 		PAPYRUS_BIND(AttachElementTo);
 
 		Papyrus::EventProxy::GetSingleton();
-		logger::info("Registered all 45 upstream Papyrus natives plus 1 NAF Extended facial-reset native");
-		return true;
+		if (upstreamRegistered) {
+			logger::info("Successfully registered all 45 upstream Papyrus natives");
+		} else {
+			logger::error("One or more of the 45 upstream Papyrus natives failed to register");
+		}
+		if (resetRegistered) {
+			logger::info("Successfully registered NAF Extended Papyrus native ResetFaceExpression");
+		} else {
+			logger::error("NAF Extended Papyrus native ResetFaceExpression failed to register; install the matching Extended NAF.pex");
+		}
+		return upstreamRegistered && resetRegistered;
 	}
 }
