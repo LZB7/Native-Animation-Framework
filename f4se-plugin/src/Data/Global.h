@@ -3,6 +3,7 @@
 #include <concurrent_unordered_map.h>
 #include <concurrent_unordered_set.h>
 #include "Misc/Strings.h"
+#include "Data/ExpressionPreset.h"
 
 namespace Data
 {
@@ -301,6 +302,7 @@ namespace Data
 			std::vector<std::pair<const std::string, const std::filesystem::file_time_type>> xmlFiles;
 			std::vector<std::string> nanimFiles;
 			std::vector<std::filesystem::path> jsonFiles;
+			std::vector<std::filesystem::path> expressionFiles;
 
 			try {
 				for (auto& f : std::filesystem::recursive_directory_iterator(USERDATA_DIR)) {
@@ -313,6 +315,8 @@ namespace Data
 							nanimFiles.push_back(p.generic_string());
 						} else if (Utility::StringEndsWith(p.filename().generic_string(), ".naf.json")) {
 							jsonFiles.push_back(p);
+						} else if (Utility::StringEndsWith(p.filename().generic_string(), ".nafexpr.json")) {
+							expressionFiles.push_back(p);
 						}
 					}
 				}
@@ -354,6 +358,8 @@ namespace Data
 			// collision handling still run on every load so XML precedence is unchanged.
 			std::ranges::sort(jsonFiles);
 			JSONAnimation::LoadFiles(jsonFiles, verbose);
+			std::ranges::sort(expressionFiles);
+			ExpressionPreset::LoadFiles(expressionFiles, verbose);
 
 			if (verbose) {
 				auto performanceSeconds = Utility::GetPerformanceCounter();

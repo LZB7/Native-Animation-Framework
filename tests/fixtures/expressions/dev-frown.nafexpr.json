@@ -1,0 +1,10 @@
+{
+  "format": "NAFExtendedExpressionPreset",
+  "schemaVersion": 1,
+  "id": "dev.frown",
+  "displayName": "Development Frown",
+  "channels": [
+    { "morph": 5, "value": 0.45 },
+    { "morph": 28, "value": 0.45 }
+  ]
+}

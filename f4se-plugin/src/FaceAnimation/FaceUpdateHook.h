@@ -11,6 +11,13 @@ namespace FaceAnimation
 
 		struct FaceData
 		{
+			struct DynamicExpression
+			{
+				std::string presetId;
+				std::vector<Data::ExpressionPreset::Channel> channels;
+				float intensity{ 1.0f };
+			};
+
 			struct AnimInfo
 			{
 				std::string animationId = "";
@@ -22,6 +29,7 @@ namespace FaceAnimation
 			std::string animationId = "";
 			std::optional<EyeVector> eyeOverride = std::nullopt;
 			std::optional<AnimInfo> animBackup = std::nullopt;
+			std::optional<DynamicExpression> expression = std::nullopt;  // transient; never serialized
 			GameUtil::GraphTime syncInfoCache;
 
 			template <class Archive>
@@ -101,6 +109,12 @@ namespace FaceAnimation
 			kCanceled,
 			kFailed
 		};
+		enum class RequestSource : std::uint8_t
+		{
+			kNone,
+			kAuthoredAnimation,
+			kDynamicExpression
+		};
 
 		struct RequestState
 		{
@@ -111,6 +125,8 @@ namespace FaceAnimation
 			bool faceDataAvailable{};
 			bool loop{};
 			bool havokSync{};
+			RequestSource source{ RequestSource::kNone };
+			float intensity{};
 		};
 
 		static std::unordered_map<SerializableActorHandle, PendingRequest> loadingAnims;
@@ -176,7 +192,8 @@ namespace FaceAnimation
 						hasAnimation ? RequestStatus::kActive : RequestStatus::kIdle,
 						nextRequestGeneration.fetch_add(1, std::memory_order_relaxed), pair.second.animationId,
 						true, data != nullptr, hasAnimation && pair.second.anim->loop,
-						hasAnimation && pair.second.anim->havokSync });
+						hasAnimation && pair.second.anim->havokSync,
+						hasAnimation ? RequestSource::kAuthoredAnimation : RequestSource::kNone, 0.0f });
 				}
 			}
 		}
@@ -209,7 +226,7 @@ namespace FaceAnimation
 
 		void EraseIfEmpty_NonThreadSafe(RE::ActorHandle targetActor)
 		{
-			if (state->managedAnims[targetActor].anim == nullptr && !state->managedAnims[targetActor].eyeOverride.has_value()) {
+			if (state->managedAnims[targetActor].anim == nullptr && !state->managedAnims[targetActor].expression.has_value() && !state->managedAnims[targetActor].eyeOverride.has_value()) {
 				state->managedAnims.erase(targetActor);
 				for (auto iter = state->managedDatas.begin(); iter != state->managedDatas.end();) {
 					if (iter->second.hash() == targetActor.native_handle()) {
@@ -240,8 +257,13 @@ namespace FaceAnimation
 			std::shared_lock l{ stateLock };
 
 			if (auto h = IsDataManaged(data); h) {
+				const auto managed = state->managedAnims.find(h);
+				const bool dynamicExpression = managed != state->managedAnims.end() && managed->second.expression.has_value();
 				l.unlock();
-				return true;
+				// Dynamic expressions overlay selected expression channels after the vanilla
+				// update and intentionally preserve vanilla lip processing. Authored NAF
+				// timelines retain their historical lip-suppression behavior.
+				return dynamicExpression ? OriginalUpdateLip(data, ptimeDelta) : true;
 			}
 
 			l.unlock();
@@ -278,6 +300,13 @@ namespace FaceAnimation
 					}
 				}
 
+				if (a->second.expression.has_value()) {
+					const auto& expression = *a->second.expression;
+					for (const auto& channel : expression.channels) {
+						data->finalExp.exp[channel.morph] = std::clamp(channel.value * expression.intensity, 0.0f, 0.999f);
+					}
+				}
+
 				if (a->second.eyeOverride.has_value()) {
 					auto& eyes = a->second.eyeOverride.value();
 					GameUtil::SetEyeCoords(eyeGeo, static_cast<float>(eyes.u), static_cast<float>(eyes.v));
@@ -294,7 +323,7 @@ namespace FaceAnimation
 					a->second.anim = nullptr;
 					EraseIfEmpty_NonThreadSafe(a->first);
 					ul.unlock();
-					SetRequestState(formID, { RequestStatus::kCompleted, generation, {}, false, data != nullptr, false, false });
+					SetRequestState(formID, { RequestStatus::kCompleted, generation, {}, false, data != nullptr, false, false, RequestSource::kAuthoredAnimation, 0.0f });
 				}
 			}
 			return result;
@@ -308,12 +337,17 @@ namespace FaceAnimation
 			if (a == nullptr) {
 				return;
 			}
+			if (requestGeneration) {
+				const auto current = GetRequestState(a->formID);
+				if (!current || current->generation != requestGeneration) return;
+			}
 			{
 				std::scoped_lock resetLock{ pendingResetsLock };
 				pendingResets.erase(targetActor);
 			}
 			std::unique_lock l{ stateLock };
 			auto& managedActor = state->managedAnims[targetActor];
+			managedActor.expression.reset();
 			if (managedActor.animBackup.has_value() && !animOverride) {
 				managedActor.animBackup = { id, anim->loop, anim->havokSync };
 				return;
@@ -331,7 +365,49 @@ namespace FaceAnimation
 			l.unlock();
 			SetRequestState(a->formID, { RequestStatus::kActive,
 				requestGeneration ? requestGeneration : nextRequestGeneration.fetch_add(1, std::memory_order_relaxed),
-				std::move(id), true, faceData != nullptr, loop, havokSync });
+				std::move(id), true, faceData != nullptr, loop, havokSync, RequestSource::kAuthoredAnimation, 0.0f });
+		}
+
+		bool ApplyExpression(RE::ActorHandle targetActor, const Data::ExpressionPreset::Preset& preset, float intensity, std::uint64_t generation)
+		{
+			auto actor = targetActor.get();
+			if (!actor || !std::isfinite(intensity) || intensity < 0.0f || intensity > 1.0f) return false;
+			if (const auto current = GetRequestState(actor->formID); !current || current->generation != generation || current->source != RequestSource::kDynamicExpression) return false;
+			{
+				std::scoped_lock resetLock{ pendingResetsLock };
+				pendingResets.erase(targetActor);
+			}
+			{
+				std::unique_lock loadingLock{ loadingAnimsLock };
+				loadingAnims.erase(targetActor);
+			}
+			std::unique_lock lock{ stateLock };
+			auto& managed = state->managedAnims[targetActor];
+			managed.anim.reset();
+			managed.animBackup.reset();
+			managed.animationId.clear();
+			managed.expression = FaceData::DynamicExpression{ preset.id, preset.channels, intensity };
+			auto* faceData = GameUtil::GetFaceAnimData(actor.get());
+			BindManagedData_NonThreadSafe(targetActor, faceData);
+			lock.unlock();
+			SetRequestStateIfCurrent(actor->formID, generation, { RequestStatus::kActive, generation, preset.id,
+				true, faceData != nullptr, false, false, RequestSource::kDynamicExpression, intensity });
+			return true;
+		}
+
+		bool ReleaseExpression(RE::ActorHandle targetActor, std::uint64_t generation)
+		{
+			auto actor = targetActor.get();
+			if (!actor) return false;
+			std::unique_lock lock{ stateLock };
+			if (const auto managed = state->managedAnims.find(targetActor); managed != state->managedAnims.end() && managed->second.expression.has_value()) {
+				managed->second.expression.reset();
+				EraseIfEmpty_NonThreadSafe(targetActor);
+			}
+			lock.unlock();
+			SetRequestStateIfCurrent(actor->formID, generation, { RequestStatus::kCompleted, generation, {}, false,
+				GameUtil::GetFaceAnimData(actor.get()) != nullptr, false, false, RequestSource::kDynamicExpression, 0.0f });
+			return true;
 		}
 
 		bool LoadAndPlayAnimation(RE::ActorHandle targetActor, std::string id, bool loop = false, bool havokSync = false)
@@ -343,7 +419,7 @@ namespace FaceAnimation
 			if (auto targetAnim = Data::GetFaceAnim(id); targetAnim == nullptr) {
 				SetRequestState(actor->formID, { RequestStatus::kFailed,
 					nextRequestGeneration.fetch_add(1, std::memory_order_relaxed), id, false,
-					GameUtil::GetFaceAnimData(actor.get()) != nullptr, loop, havokSync });
+					GameUtil::GetFaceAnimData(actor.get()) != nullptr, loop, havokSync, RequestSource::kAuthoredAnimation, 0.0f });
 				return false;
 			}
 			{
@@ -358,7 +434,7 @@ namespace FaceAnimation
 			const auto generation = nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
 			const auto actorFormID = actor->formID;
 			SetRequestState(actorFormID, { RequestStatus::kPlayPending, generation, id, false,
-				GameUtil::GetFaceAnimData(actor.get()) != nullptr, loop, havokSync });
+				GameUtil::GetFaceAnimData(actor.get()) != nullptr, loop, havokSync, RequestSource::kAuthoredAnimation, 0.0f });
 			std::unique_lock l{ loadingAnimsLock };
 			loadingAnims[targetActor] = PendingRequest{ PendingRequestKind::kLoad, id, generation };
 			l.unlock();
@@ -375,12 +451,12 @@ namespace FaceAnimation
 					if (successful) {
 						StartAnimation(targetActor, std::move(inst), id, false, generation);
 					} else {
-						SetRequestState(actorFormID, { RequestStatus::kFailed, generation, std::move(id), false, false, false, false });
+						SetRequestState(actorFormID, { RequestStatus::kFailed, generation, std::move(id), false, false, false, false, RequestSource::kAuthoredAnimation, 0.0f });
 					}
 				} else {
 					l.unlock();
 					SetRequestStateIfCurrent(actorFormID, generation,
-						{ RequestStatus::kCanceled, generation, std::move(id), false, false, false, false });
+						{ RequestStatus::kCanceled, generation, std::move(id), false, false, false, false, RequestSource::kAuthoredAnimation, 0.0f });
 				}
 			}).detach();
 

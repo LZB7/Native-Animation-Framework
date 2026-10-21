@@ -1,0 +1,10 @@
+{
+  "format": "NAFExtendedExpressionPreset",
+  "schemaVersion": 1,
+  "id": "dev.neutral",
+  "displayName": "Development Near-Neutral Reference",
+  "channels": [
+    { "morph": 17, "value": 0.01 },
+    { "morph": 40, "value": 0.01 }
+  ]
+}
