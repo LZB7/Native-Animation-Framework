@@ -7,7 +7,7 @@ The harness is a development tool and must not be shipped with NAF Extended.
 1. Install Fallout 4 1.11.240, F4SE 0.7.9, Runtime Database, and the current
    `NAF.dll`.
 2. Copy the built `NAFExtAPITest.dll` from
-   `Codex Production Files/build-release/api-test/Release` to
+   `build-release/api-test/Release` (or your chosen build directory) to
    `Data/F4SE/Plugins`.
 3. Do not copy its PDB unless debugging.
 
