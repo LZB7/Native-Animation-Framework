@@ -88,9 +88,11 @@ availability flag. NAF never invokes client callbacks while holding face locks;
 this service has no callbacks.
 
 The historical `FACE` v5 record continues to restore active managed face state.
-The independent Extended `FRST` v1 reset marker remains provisional pending a
-controlled no-HFE A/B runtime comparison. A newer valid face request removes a
-retained reset marker so it cannot unexpectedly override that request.
+Facial-reset deferral is transient: it survives temporarily unavailable
+FaceGen/Set3D state but is not serialized. The controlled no-HFE comparison
+showed that a reset remained neutral after full exit/reload without `FRST`.
+Development saves containing `FRST` remain readable; NAF consumes and ignores
+the obsolete record instead of preserving it into subsequent saves.
 
 ## Minimal consumer
 

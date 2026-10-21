@@ -20,17 +20,18 @@ This remains a one-controller-per-actor, last-valid-request-wins model rather
 than pretending that external plugins have independent ownership. Revert clears
 the transient query/request ledger, and Set3D refreshes face-data availability.
 
-`FRST` remains provisional. The HFE investigation proved that its one-load
-marker saves, resolves, applies, and is consumed, but HFE—not NAF—caused the
-observed post-load replay. Only a controlled no-HFE A/B run can demonstrate
-whether cross-save reset persistence is necessary. Until that run, retaining
-the known-working record is safer than removing it. The transient reset and
-generation invalidation are required independently. A valid newer face request
-now removes an older reset marker at request acceptance, preventing the marker
-from overriding legitimate new work if a save occurs while loading.
+The controlled no-HFE A/B run closed the `FRST` question. The retained build
+wrote/read ten records and stayed neutral; the comparison build safely
+discarded an existing `FRST`, then wrote/read only the nine historical v5
+records and also stayed neutral through full exit/reload. Cross-save reset
+persistence is therefore unnecessary. Production no longer writes or restores
+`FRST`; old development saves remain readable and the obsolete payload is
+consumed without being carried forward. Transient reset deferral, Set3D retry,
+and generation invalidation remain because they protect temporarily unavailable
+FaceGen data and asynchronous ordering within the current session.
 
 The independent harness negotiates both services only after entering a game.
-Its F6-F12 controls deliberately exercise play A/B, state query, stop, reset,
+Its F6-F11 plus Insert controls deliberately exercise play A/B, state query, stop, reset,
 A-to-B supersession, and A-to-reset supersession. It still has no CommonLib or
 Runtime Database dependency and performs no automatic facial mutation on load.
 In-game behavior remains user-test-required.
@@ -66,7 +67,7 @@ call `NAF.StopFaceAnimation(PlayerRef)`, wait 0.5 seconds, then replay a damage
 expression when its stored `Cripple` Boolean is true. The same explicit replay
 also occurred on a load without an `FRST` record.
 
-The persistence mechanism is therefore functioning as designed; the apparent
+The former persistence mechanism was functioning as designed; the apparent
 post-load reset failure is caused by HFE retaining its own `Cripple` script
 state and issuing a fresh request, not by stale NAF ownership, premature marker
 consumption, actor readiness, or asynchronous reinstallation of an old NAF
@@ -77,8 +78,10 @@ flag) before the delayed replay. Nonzero `finalExp` values produced by later
 ordinary engine FaceGen composition are not by themselves evidence that the
 pain animation was restored; engine-owned `baseExp` and `modExp` remain
 untouched intentionally. The bounded diagnostic logging used to establish this
-ordering has been removed from the production source. The nine historical v5
-records and the independently versioned `FRST` v1 schema remain unchanged.
+ordering has been removed from the production source. A later controlled
+no-HFE comparison established that cross-save reset persistence was unnecessary;
+Phase 3B therefore removed `FRST` while retaining safe legacy-record discard.
+The nine historical v5 records remain unchanged.
 
 ## Phase 2C: normalized pack cache, actor semantics, and lifecycle ordering
 

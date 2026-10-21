@@ -68,26 +68,15 @@ namespace FaceAnimation
 			}
 		};
 
-		struct ResetPersistentState
-		{
-			std::unordered_set<SerializableActorHandle> pendingResets;
-
-			template <class Archive>
-			void serialize(Archive& ar, const uint32_t)
-			{
-				ar(pendingResets);
-			}
-		};
-
 		typedef bool(Update)(RE::BSFaceGenAnimationData*, float, bool);
 		typedef bool(UpdateLip)(RE::BSFaceGenAnimationData*, float);
 
 		static REL::Relocation<Update> OriginalUpdate;
 		static REL::Relocation<UpdateLip> OriginalUpdateLip;
 		inline static std::unique_ptr<PersistentState> state = std::make_unique<PersistentState>();
-		inline static std::unique_ptr<ResetPersistentState> resetState = std::make_unique<ResetPersistentState>();
 		static std::shared_mutex stateLock;
-		static std::mutex resetStateLock;
+		inline static std::unordered_set<SerializableActorHandle> pendingResets;
+		static std::mutex pendingResetsLock;
 		enum class PendingRequestKind : std::uint8_t
 		{
 			kLoad,
@@ -320,8 +309,8 @@ namespace FaceAnimation
 				return;
 			}
 			{
-				std::scoped_lock resetLock{ resetStateLock };
-				resetState->pendingResets.erase(targetActor);
+				std::scoped_lock resetLock{ pendingResetsLock };
+				pendingResets.erase(targetActor);
 			}
 			std::unique_lock l{ stateLock };
 			auto& managedActor = state->managedAnims[targetActor];
@@ -358,8 +347,8 @@ namespace FaceAnimation
 				return false;
 			}
 			{
-				std::scoped_lock resetLock{ resetStateLock };
-				resetState->pendingResets.erase(targetActor);
+				std::scoped_lock resetLock{ pendingResetsLock };
+				pendingResets.erase(targetActor);
 			}
 
 			auto newAnim = std::make_unique<FaceAnimation>();
@@ -438,7 +427,7 @@ namespace FaceAnimation
 		// managed-face state for the actor, invalidates pending asynchronous loads, and
 		// clears only the composed expression output. baseExp/modExp remain engine-owned
 		// and are left untouched so the next vanilla update can resume normal composition.
-		bool ResetFaceExpression(RE::ActorHandle targetActor, bool persistAcrossLoad = true)
+		bool ResetFaceExpression(RE::ActorHandle targetActor)
 		{
 			if (!targetActor.get()) {
 				return false;
@@ -466,11 +455,11 @@ namespace FaceAnimation
 				EraseManagedActor_NonThreadSafe(targetActor);
 				eyeGeoCache.erase(targetActor);
 			}
-			if (persistAcrossLoad) {
-				std::scoped_lock l{ resetStateLock };
-				resetState->pendingResets.insert(targetActor);
+			{
+				std::scoped_lock l{ pendingResetsLock };
+				pendingResets.insert(targetActor);
 			}
-			F4SE::GetTaskInterface()->AddTask([targetActor, actorFormID, generation, resetEyes, consumePersistence = !persistAcrossLoad]() {
+			F4SE::GetTaskInterface()->AddTask([targetActor, actorFormID, generation, resetEyes]() {
 				{
 					std::unique_lock l{ loadingAnimsLock };
 					auto pending = loadingAnims.find(targetActor);
@@ -504,27 +493,14 @@ namespace FaceAnimation
 					}
 				}
 
-				if (consumePersistence) {
-					std::scoped_lock l{ resetStateLock };
-					resetState->pendingResets.erase(targetActor);
+				{
+					std::scoped_lock l{ pendingResetsLock };
+					pendingResets.erase(targetActor);
 				}
 				SetRequestState(actorFormID, { RequestStatus::kCompleted, generation, {}, false, true, false, false });
 			});
 
 			return true;
-		}
-
-		void ApplyPendingResetsAfterSerialization()
-		{
-			std::vector<SerializableActorHandle> pending;
-			{
-				std::scoped_lock l{ resetStateLock };
-				pending.reserve(resetState->pendingResets.size());
-				pending.insert(pending.end(), resetState->pendingResets.begin(), resetState->pendingResets.end());
-			}
-			for (const auto& handle : pending) {
-				ResetFaceExpression(handle, false);
-			}
 		}
 
 		//Thread-safe method for modifying an animation object already playing on an actor.
@@ -547,8 +523,8 @@ namespace FaceAnimation
 				return;
 			}
 			{
-				std::scoped_lock resetLock{ resetStateLock };
-				resetState->pendingResets.erase(targetActor);
+				std::scoped_lock resetLock{ pendingResetsLock };
+				pendingResets.erase(targetActor);
 			}
 			std::unique_lock l{ stateLock };
 			state->managedAnims[targetActor].eyeOverride = EyeVector{ u * -0.25, v * 0.2 };
@@ -565,9 +541,9 @@ namespace FaceAnimation
 		}
 
 		void Reset() {
-			std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock, resetStateLock, requestStatesLock };
+			std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock, pendingResetsLock, requestStatesLock };
 			state = std::make_unique<PersistentState>();
-			resetState = std::make_unique<ResetPersistentState>();
+			pendingResets.clear();
 			loadingAnims.clear();
 			eyeGeoCache.clear();
 			requestStates.clear();
@@ -586,9 +562,9 @@ namespace FaceAnimation
 				SetRequestState(actor->formID, std::move(*request));
 			}
 			{
-				std::scoped_lock resetLock{ resetStateLock };
-				if (resetState->pendingResets.contains(handle)) {
-					F4SE::GetTaskInterface()->AddTask([handle]() { ResetFaceExpression(handle, false); });
+				std::scoped_lock resetLock{ pendingResetsLock };
+				if (pendingResets.contains(handle)) {
+					F4SE::GetTaskInterface()->AddTask([handle]() { ResetFaceExpression(handle); });
 				}
 			}
 			std::scoped_lock l{ stateLock, geoCacheLock };

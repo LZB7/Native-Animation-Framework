@@ -130,7 +130,6 @@ namespace Serialization
 			return;
 		}
 		FaceAnimation::FaceUpdateHook::FixupAfterSerialization();
-		FaceAnimation::FaceUpdateHook::ApplyPendingResetsAfterSerialization();
 		BodyAnimation::GraphHook::FixupAfterSerialization();
 		Scene::SceneManager::FixupRestoredScenes();
 		BodyAnimation::GraphHook::FinishSerializationFixup();
@@ -151,7 +150,7 @@ namespace Serialization
 				timer->timerLock,
 				FaceAnimation::FaceUpdateHook::loadingAnimsLock,
 				FaceAnimation::FaceUpdateHook::stateLock,
-				FaceAnimation::FaceUpdateHook::resetStateLock,
+				FaceAnimation::FaceUpdateHook::pendingResetsLock,
 				BodyAnimation::GraphHook::loadingAnimsLock,
 				BodyAnimation::GraphHook::stateLock,
 				Data::Uid::lock,
@@ -170,7 +169,6 @@ namespace Serialization
 			SAVE_PERSISTENT_STATE('EQPT', 5, "equipment", Scene::OrderedActionQueue::state);
 			SAVE_PERSISTENT_STATE('UID', 5, "UID", Data::Uid::state);
 			SAVE_PERSISTENT_STATE('FACE', 5, "face animation", FaceAnimation::FaceUpdateHook::state);
-			SAVE_PERSISTENT_STATE('FRST', 1, "face reset", FaceAnimation::FaceUpdateHook::resetState);
 			SAVE_PERSISTENT_STATE('HUD', 5, "HUD", Menu::HUDManager::state);
 			SAVE_PERSISTENT_STATE('PACK', 5, "package override", PackageOverride::state);
 			SAVE_PERSISTENT_STATE('SHUD', 5, "scene HUD", Menu::SceneHUD::state);
@@ -189,7 +187,7 @@ namespace Serialization
 			}
 
 			Serialization::General::s_intfc = nullptr;
-			logger::info("Serialization save completed: all nine historical v5 records and Extended face-reset record written, {} unknown records preserved", deferredWritten);
+			logger::info("Serialization save completed: all nine historical v5 records written, {} unknown records preserved", deferredWritten);
 		}
 
 		logger::info("Finished serialization in {:.3f}ms", Utility::GetPerformanceCounterMS());
@@ -211,7 +209,7 @@ namespace Serialization
 				timer->timerLock,
 				FaceAnimation::FaceUpdateHook::loadingAnimsLock,
 				FaceAnimation::FaceUpdateHook::stateLock,
-				FaceAnimation::FaceUpdateHook::resetStateLock,
+				FaceAnimation::FaceUpdateHook::pendingResetsLock,
 				BodyAnimation::GraphHook::loadingAnimsLock,
 				BodyAnimation::GraphHook::stateLock,
 				Data::Uid::lock,
@@ -286,11 +284,8 @@ namespace Serialization
 						break;
 					}
 					case 'FRST': {
-						auto value = std::make_unique<FaceAnimation::FaceUpdateHook::ResetPersistentState>();
-						loaded = LoadPayload("face reset", payload, value);
-						if (loaded) {
-							FaceAnimation::FaceUpdateHook::resetState = std::move(value);
-						}
+						loaded = true;
+						logger::info("Ignored obsolete Extended FRST record; facial reset state is transient");
 						break;
 					}
 					case 'HUD': {

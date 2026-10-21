@@ -26,10 +26,9 @@ def main() -> None:
             "pending->second.generation != generation",
             "EraseManagedActor_NonThreadSafe(targetActor)",
             "eyeGeoCache.erase(targetActor)",
-            "resetState->pendingResets.insert(targetActor)",
-            "ApplyPendingResetsAfterSerialization",
-            "consumePersistence = !persistAcrossLoad",
-            "resetState->pendingResets.contains(handle)",
+            "pendingResets.insert(targetActor)",
+            "pendingResets.erase(targetActor)",
+            "pendingResets.contains(handle)",
         ),
         "neutral composition": (
             "std::fill(std::begin(data->finalExp.exp), std::end(data->finalExp.exp), 0.0f)",
@@ -38,7 +37,7 @@ def main() -> None:
         ),
         "legacy stop": (
             "void StopAnimation(RE::ActorHandle targetActor, bool animOverride = false)",
-            "bool ResetFaceExpression(RE::ActorHandle targetActor, bool persistAcrossLoad = true)",
+            "bool ResetFaceExpression(RE::ActorHandle targetActor)",
         ),
     }
     for owner, tokens in guards.items():
@@ -51,10 +50,11 @@ def main() -> None:
     require(bindings, "Successfully registered NAF Extended Papyrus native ResetFaceExpression", "Extended registration result")
     require(script, "Bool Function ResetFaceExpression(Actor akActor) Native Global", "Papyrus source")
     require(settings, '"Reset Player Expression"', "player menu action")
-    require(serialization, "SAVE_PERSISTENT_STATE('FRST', 1", "face-reset persistence")
-    require(serialization, "case 'FRST':", "face-reset restoration")
+    require(serialization, "case 'FRST':", "legacy face-reset compatibility")
     require(serialization, "version >= 5 || (type == 'FRST' && version >= 1)", "face-reset record version gate")
-    require(serialization, "FaceUpdateHook::ApplyPendingResetsAfterSerialization()", "world-ready reset fixup")
+    require(serialization, "Ignored obsolete Extended FRST record", "legacy face-reset discard")
+    if "SAVE_PERSISTENT_STATE('FRST'" in serialization:
+        raise SystemExit("FAIL: obsolete FRST persistence was reintroduced")
 
     native_declarations = [
         line.strip() for line in script.splitlines()
@@ -73,7 +73,7 @@ def main() -> None:
 
     print("PASS: Phase 3A reset invalidates pending loads, removes persistent NAF ownership, "
           "neutralizes only finalExp under the FaceGen lock, preserves legacy stop semantics, "
-          "persists a one-load reset marker, is exposed through Papyrus and the NAF Settings menu, "
+          "defers transiently until FaceGen is ready, safely discards obsolete FRST records, is exposed through Papyrus and the NAF Settings menu, "
           "and contains no bounded diagnostic logging")
 
 
