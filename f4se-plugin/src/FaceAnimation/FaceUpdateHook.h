@@ -253,6 +253,38 @@ namespace FaceAnimation
 			}
 		}
 
+		using SuspendedExpression = std::pair<SerializableActorHandle, FaceData::DynamicExpression>;
+		std::vector<SuspendedExpression> SuspendExpressionsForSerialization_NonThreadSafe()
+		{
+			std::vector<SuspendedExpression> suspended;
+			for (auto iter = state->managedAnims.begin(); iter != state->managedAnims.end();) {
+				if (!iter->second.expression.has_value()) {
+					++iter;
+					continue;
+				}
+				suspended.emplace_back(iter->first, std::move(*iter->second.expression));
+				iter->second.expression.reset();
+				if (!iter->second.anim && !iter->second.eyeOverride.has_value()) {
+					for (auto data = state->managedDatas.begin(); data != state->managedDatas.end();) {
+						if (data->second.hash() == iter->first.hash()) data = state->managedDatas.erase(data); else ++data;
+					}
+					iter = state->managedAnims.erase(iter);
+				} else {
+					++iter;
+				}
+			}
+			return suspended;
+		}
+
+		void RestoreExpressionsAfterSerialization_NonThreadSafe(std::vector<SuspendedExpression> a_suspended)
+		{
+			for (auto& [handle, expression] : a_suspended) {
+				state->managedAnims[handle].expression = std::move(expression);
+				const auto actor = handle.get();
+				BindManagedData_NonThreadSafe(handle, actor ? GameUtil::GetFaceAnimData(actor.get()) : nullptr);
+			}
+		}
+
 		bool HookedUpdateLip(RE::BSFaceGenAnimationData* data, float ptimeDelta) {
 			std::shared_lock l{ stateLock };
 

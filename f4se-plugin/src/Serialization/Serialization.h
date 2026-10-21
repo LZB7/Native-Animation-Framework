@@ -168,7 +168,9 @@ namespace Serialization
 			SAVE_PERSISTENT_STATE('SCNE', 5, "scene", Scene::SceneManager::state);
 			SAVE_PERSISTENT_STATE('EQPT', 5, "equipment", Scene::OrderedActionQueue::state);
 			SAVE_PERSISTENT_STATE('UID', 5, "UID", Data::Uid::state);
+			auto suspendedExpressions = FaceAnimation::FaceUpdateHook::SuspendExpressionsForSerialization_NonThreadSafe();
 			SAVE_PERSISTENT_STATE('FACE', 5, "face animation", FaceAnimation::FaceUpdateHook::state);
+			FaceAnimation::FaceUpdateHook::RestoreExpressionsAfterSerialization_NonThreadSafe(std::move(suspendedExpressions));
 			SAVE_PERSISTENT_STATE('HUD', 5, "HUD", Menu::HUDManager::state);
 			SAVE_PERSISTENT_STATE('PACK', 5, "package override", PackageOverride::state);
 			SAVE_PERSISTENT_STATE('SHUD', 5, "scene HUD", Menu::SceneHUD::state);

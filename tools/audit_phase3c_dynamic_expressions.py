@@ -12,6 +12,7 @@ provider = (ROOT / "f4se-plugin/src/API/ExtendedAPI.h").read_text(encoding="utf-
 face = (ROOT / "f4se-plugin/src/FaceAnimation/FaceUpdateHook.h").read_text(encoding="utf-8")
 presets = (ROOT / "f4se-plugin/src/Data/ExpressionPreset.h").read_text(encoding="utf-8")
 global_h = (ROOT / "f4se-plugin/src/Data/Global.h").read_text(encoding="utf-8")
+serialization = (ROOT / "f4se-plugin/src/Serialization/Serialization.h").read_text(encoding="utf-8")
 harness = (ROOT / "tools/NAFExtAPITest/NAFExtAPITest.cpp").read_text(encoding="utf-8")
 
 for token in ("NAFExtFaceAPIv2", "NAFExt_GetFaceAPIv2", "request_expression", "release_expression", "get_expression_state"):
@@ -25,6 +26,8 @@ for token in ("std::isfinite(intensity)", "intensity < 0.0f", "intensity > 1.0f"
 for token in ("expression = std::nullopt", "channel.value * expression.intensity", "OriginalUpdateLip", "ApplyExpression", "ReleaseExpression", "requestGeneration"):
     require(face, token, "managed FaceGen integration")
 require(face, "expression = std::nullopt;  // transient; never serialized", "transient policy")
+require(face, "SuspendExpressionsForSerialization_NonThreadSafe", "transient FACE filtering")
+require(serialization, "RestoreExpressionsAfterSerialization_NonThreadSafe", "post-save runtime restoration")
 require(global_h, ".nafexpr.json", "preset discovery")
 for token in ("morph >= 54", "value < 0.0f", "value > 1.0f", "used.test(morph)", "keeping the first definition"):
     require(presets, token, "preset validation")
