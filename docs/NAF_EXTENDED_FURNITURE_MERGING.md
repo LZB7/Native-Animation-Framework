@@ -64,8 +64,41 @@ The bundled Phase 4 fixtures use `Phase4SharedFurniture` in three files. Their
 expected normalized result is four Fallout4.esm furniture forms and three
 keyword EditorIDs. They are development fixtures and are not release content.
 
-The available NAF Bridge reference package contains a compiled NAF DLL/PDB and
-scripts but not the corresponding C++ source. Its reported collision fix could
-not be compared line-by-line and was used only as corroborating behavioral
-evidence; NAF Extended has no NAF Bridge dependency.
+## NAF Bridge comparison
+
+The NAF Bridge source is publicly available in the
+[`NoAbleEngles/Native-Animation-Framework`](https://github.com/NoAbleEngles/Native-Animation-Framework)
+fork. Source revision `460e9617755518c06675d73c557b0f1ed181dc91` contains two
+furniture-specific aggregation paths:
+
+- its runtime `Global::IDMap::priority_insert(std::shared_ptr<Data::Furniture>)`
+  sorts both contributors' form lists and combines them with `std::set_union`;
+- its NAFicator parsed-object registry merges furniture entries identified by
+  their exact `source` and `form` strings, adding missing entries and conditionally
+  enriching/replacing duplicates.
+
+This confirms that additive handling of repeated furniture group IDs was an
+intentional Bridge compatibility correction. The Bridge runtime overload only
+combines the `forms` member; it does not combine keyword contributions or define
+deterministic conflict handling for `startAnimation`, `stopAnimation`, and
+equal-priority metadata. NAF Extended therefore uses the same additive behavior
+as its compatibility baseline while retaining its stronger deterministic rules:
+forms and keywords merge, entries are deduplicated before and after linking, and
+one source deterministically supplies the group-level metadata. No Bridge code
+was copied and NAF Extended has no NAF Bridge dependency.
+
+## JSON format boundary
+
+The experimental `NAFExtendedAnimation` JSON schema currently defines one
+animation plus one position. Its loader registers only `Global::Animations` and
+`Global::Positions`; it has no furniture-data object and never writes to
+`Global::Furnitures`. Consequently, the XML duplicate-group failure mode cannot
+occur within the current JSON parser.
+
+A JSON animation/position may eventually refer to an XML-defined furniture group
+when that schema gains location constraints; runtime lookup must continue to use
+the same merged `Global::Furnitures` registry. If a future JSON schema directly
+defines furniture groups, those definitions must be routed through
+`FurnitureMap::merge_insert` and covered by the same deterministic merge/reload
+audits rather than generic ID collision handling.
 
