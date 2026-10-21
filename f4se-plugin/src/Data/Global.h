@@ -111,6 +111,18 @@ namespace Data
 			}
 		};
 
+		class FurnitureMap : public IDMap<Furniture>
+		{
+		public:
+			void merge_insert(std::shared_ptr<Furniture> contribution)
+			{
+				auto& target = this->operator[](contribution->id);
+				RE::BSAutoLock lock{ target.first };
+				if (!target.second) target.second = std::move(contribution);
+				else target.second->MergeFrom(std::move(*contribution));
+			}
+		};
+
 		inline static ThreadSafeAccessor<SkeletonMapType> RaceLinkMap;
 
 		inline static IDMap<Race> Races;
@@ -121,7 +133,7 @@ namespace Data
 		inline static IDMap<EquipmentSet> EquipmentSets;
 		inline static IDMap<Action> Actions;
 		inline static IDMap<AnimationGroup> AnimationGroups;
-		inline static IDMap<Furniture> Furnitures;
+		inline static FurnitureMap Furnitures;
 		inline static IDMap<PositionTree> PositionTrees;
 		inline static IDMap<GraphInfo> GraphInfos;
 
@@ -344,6 +356,15 @@ namespace Data
 				}
 			});
 
+			for (auto& entry : Furnitures) {
+				entry.second.second->FinalizeEntries();
+				if (verbose && entry.second.second->contributorCount > 1) {
+					logger::info("Merged furniture group '{}': {} definitions, {} forms, {} keywords; metadata from '{}' (priority {})",
+						entry.first, entry.second.second->contributorCount, entry.second.second->forms.size(), entry.second.second->keywords.size(),
+						entry.second.second->sourceFile, entry.second.second->loadPriority);
+				}
+			}
+
 			XMLCache::primaryCache.nextFaceAnimId = FaceAnim::nextFileId;
 			XMLCache::Flush();
 
@@ -443,7 +464,10 @@ namespace Data
 			{ "equipmentSet", [](auto& m) { ParseXMLType<EquipmentSet>(EquipmentSets, m); } },
 			{ "action", [](auto& m) { ParseXMLType<Action>(Actions, m); } },
 			{ "animationGroup", [](auto& m) { ParseXMLType<AnimationGroup>(AnimationGroups, m); } },
-			{ "group", [](auto& m) { ParseXMLType<Furniture>(Furnitures, m); } },
+			{ "group", [](auto& m) {
+				auto obj = std::make_shared<Furniture>();
+				if (Furniture::Parse(m, *obj)) Furnitures.merge_insert(std::move(obj));
+			} },
 			{ "tree", [](auto& m) { ParseXMLType<PositionTree>(PositionTrees, m); } },
 			{ "tag", [](auto& m) { TagData::Parse(m); } },
 			{ "graph", [](auto& m) { ParseXMLType<GraphInfo>(GraphInfos, m); } }
@@ -594,9 +618,7 @@ namespace Data
 			//Link any LinkableForms
 
 			for (auto& f : Furnitures) {
-				for (auto& form : f.second.second->forms) {
-					form.get(verbose);
-				}
+				f.second.second->LinkAndDedupe(verbose);
 			}
 
 			//Link Animation information.

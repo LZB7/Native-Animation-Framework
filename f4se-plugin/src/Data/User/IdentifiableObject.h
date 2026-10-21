@@ -91,10 +91,22 @@ namespace Data
 			info->second = _form;
 		}
 
-		LinkableForm(LinkableForm<T>&& other) {
+		LinkableForm(const LinkableForm&) = delete;
+		LinkableForm& operator=(const LinkableForm&) = delete;
+
+		LinkableForm(LinkableForm<T>&& other) noexcept {
 			isLinked = other.isLinked;
 			info = std::move(other.info);
 			form = other.form;
+		}
+
+		LinkableForm& operator=(LinkableForm<T>&& other) noexcept {
+			if (this != std::addressof(other)) {
+				isLinked = other.isLinked;
+				info = std::move(other.info);
+				form = other.form;
+			}
+			return *this;
 		}
 
 		~LinkableForm() {}
@@ -116,6 +128,18 @@ namespace Data
 			}
 
 			return form;
+		}
+
+		std::string RawIdentity() const
+		{
+			if (!info) return {};
+			std::string source = info->first;
+			std::ranges::transform(source, source.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			std::uint32_t formID = 0;
+			if (IdentifiableObject::StringToFormId(info->second, formID)) return std::format("{}:{:08X}", source, formID);
+			std::string formText = info->second;
+			std::ranges::transform(formText, formText.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return std::format("{}:{}", source, formText);
 		}
 	};
 }
