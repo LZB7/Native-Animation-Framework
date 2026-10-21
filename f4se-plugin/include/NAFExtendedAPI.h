@@ -22,6 +22,8 @@ extern "C" {
 
 #define NAFEXT_ABI_VERSION_1 1u
 #define NAFEXT_SNAPSHOT_VERSION_1 1u
+#define NAFEXT_FACE_API_VERSION_1 1u
+#define NAFEXT_FACE_STATE_VERSION_1 1u
 #define NAFEXT_DISCOVERY_MESSAGE_TYPE UINT32_C(0x5846414E) /* 'NAFX' */
 #define NAFEXT_PROVIDER_ID "LZB7.NAF.Extended"
 
@@ -46,8 +48,30 @@ typedef enum NAFExtCapability {
     NAFEXT_CAP_ACTOR_SLOT_METADATA = UINT64_C(1) << 3,
     NAFEXT_CAP_RESOLVED_ANIMATION_METADATA = UINT64_C(1) << 4,
     NAFEXT_CAP_RESOLVED_MORPHS = UINT64_C(1) << 5,
-    NAFEXT_CAP_SEMANTIC_METADATA = UINT64_C(1) << 6
+    NAFEXT_CAP_SEMANTIC_METADATA = UINT64_C(1) << 6,
+    NAFEXT_CAP_FACE_PLAYBACK = UINT64_C(1) << 7,
+    NAFEXT_CAP_FACE_STOP = UINT64_C(1) << 8,
+    NAFEXT_CAP_FACE_RESET = UINT64_C(1) << 9,
+    NAFEXT_CAP_FACE_QUERY = UINT64_C(1) << 10
 } NAFExtCapability;
+
+typedef enum NAFExtFaceStatus {
+    NAFEXT_FACE_IDLE = 0,
+    NAFEXT_FACE_PLAY_PENDING = 1,
+    NAFEXT_FACE_ACTIVE = 2,
+    NAFEXT_FACE_RESET_PENDING = 3,
+    NAFEXT_FACE_STOPPED = 4,
+    NAFEXT_FACE_COMPLETED = 5,
+    NAFEXT_FACE_CANCELED = 6,
+    NAFEXT_FACE_FAILED = 7
+} NAFExtFaceStatus;
+
+typedef enum NAFExtFaceStateFlag {
+    NAFEXT_FACE_FLAG_MANAGED = 1u << 0,
+    NAFEXT_FACE_FLAG_FACE_DATA_AVAILABLE = 1u << 1,
+    NAFEXT_FACE_FLAG_LOOP = 1u << 2,
+    NAFEXT_FACE_FLAG_HAVOK_SYNC = 1u << 3
+} NAFExtFaceStateFlag;
 
 typedef enum NAFExtScenePhase {
     NAFEXT_SCENE_ACTIVE = 1,
@@ -205,6 +229,29 @@ typedef struct NAFExtAPIv1 {
     NAFExtResult (NAFEXT_CALL *copy_scene_snapshot)(NAFExtSceneID, uint64_t, void*, size_t, size_t*);
 } NAFExtAPIv1;
 
+/* Actor identities are load-order-resolved FormIDs in the current game session.
+   Calls enqueue work onto NAF's engine-safe task path. NAFEXT_OK means accepted,
+   not that asynchronous loading or playback has already completed. */
+typedef struct NAFExtFaceState {
+    uint32_t struct_size;
+    uint32_t state_version;
+    uint32_t actor_form_id;
+    uint32_t status;
+    uint64_t request_generation;
+    uint32_t flags;
+    uint32_t animation_id_length;
+} NAFExtFaceState;
+
+typedef struct NAFExtFaceAPIv1 {
+    uint32_t struct_size;
+    uint32_t service_version;
+    uint64_t capabilities;
+    NAFExtResult (NAFEXT_CALL *play_face_animation)(uint32_t, NAFExtStringView, uint32_t, uint32_t);
+    NAFExtResult (NAFEXT_CALL *stop_face_animation)(uint32_t);
+    NAFExtResult (NAFEXT_CALL *reset_face_expression)(uint32_t);
+    NAFExtResult (NAFEXT_CALL *get_face_animation_state)(uint32_t, NAFExtFaceState*, char*, uint32_t, uint32_t*);
+} NAFExtFaceAPIv1;
+
 /* Snapshot retention contract:
    - callback NAFExtSceneSnapshotView pointers expire when the callback returns;
    - call get_scene_snapshot_size(id, revision), allocate that many bytes, then
@@ -221,7 +268,9 @@ typedef struct NAFExtAnnouncement {
 } NAFExtAnnouncement;
 
 typedef const NAFExtAPIv1* (NAFEXT_CALL *NAFExtGetAPIFn)(uint32_t requested_abi, uint32_t caller_table_size);
+typedef const NAFExtFaceAPIv1* (NAFEXT_CALL *NAFExtGetFaceAPIFn)(uint32_t requested_version, uint32_t caller_table_size);
 NAFEXT_EXPORT const NAFExtAPIv1* NAFEXT_CALL NAFExt_GetAPI(uint32_t requested_abi, uint32_t caller_table_size);
+NAFEXT_EXPORT const NAFExtFaceAPIv1* NAFEXT_CALL NAFExt_GetFaceAPI(uint32_t requested_version, uint32_t caller_table_size);
 
 #ifdef __cplusplus
 }

@@ -12,7 +12,17 @@ namespace NAFExtended::NativeAPI
 		NAFEXT_CAP_ACTIVE_ENUMERATION |
 		NAFEXT_CAP_ACTOR_SLOT_METADATA |
 		NAFEXT_CAP_RESOLVED_ANIMATION_METADATA |
-		NAFEXT_CAP_SEMANTIC_METADATA;
+		NAFEXT_CAP_SEMANTIC_METADATA |
+		NAFEXT_CAP_FACE_PLAYBACK |
+		NAFEXT_CAP_FACE_STOP |
+		NAFEXT_CAP_FACE_RESET |
+		NAFEXT_CAP_FACE_QUERY;
+
+	constexpr std::uint64_t kFaceCapabilities =
+		NAFEXT_CAP_FACE_PLAYBACK |
+		NAFEXT_CAP_FACE_STOP |
+		NAFEXT_CAP_FACE_RESET |
+		NAFEXT_CAP_FACE_QUERY;
 
 	struct OwnedActor
 	{
@@ -329,7 +339,7 @@ namespace NAFExtended::NativeAPI
 	{
 		if (!output || output->struct_size < sizeof(NAFExtProviderInfo)) return NAFEXT_E_INVALID_ARGUMENT;
 		static constexpr std::string_view provider{ NAFEXT_PROVIDER_ID };
-		static constexpr std::string_view build{ "1.11.240-phase2c" };
+		static constexpr std::string_view build{ "1.11.240-phase3b" };
 		*output = { sizeof(NAFExtProviderInfo), NAFEXT_ABI_VERSION_1, 1, NAFEXT_SNAPSHOT_VERSION_1, kCapabilities,
 			{ provider.data(), static_cast<std::uint32_t>(provider.size()) }, { build.data(), static_cast<std::uint32_t>(build.size()) } };
 		return NAFEXT_OK;
@@ -456,8 +466,96 @@ namespace NAFExtended::NativeAPI
 		return NAFEXT_OK;
 	}
 
+	inline RE::Actor* ResolveActor(std::uint32_t formID)
+	{
+		return formID ? RE::TESForm::GetFormByID<RE::Actor>(formID) : nullptr;
+	}
+
+	inline NAFExtResult ValidateFaceRequest(std::uint32_t actorFormID)
+	{
+		if (!actorFormID) return NAFEXT_E_INVALID_ARGUMENT;
+		if (!g_gameDataReady || !F4SE::GetTaskInterface()) return NAFEXT_E_PROVIDER_UNAVAILABLE;
+		return NAFEXT_OK;
+	}
+
+	inline NAFExtResult NAFEXT_CALL PlayFace(std::uint32_t actorFormID, NAFExtStringView animationID, std::uint32_t loop, std::uint32_t havokSync)
+	{
+		if (const auto validation = ValidateFaceRequest(actorFormID); validation != NAFEXT_OK) return validation;
+		if (!animationID.data || !animationID.length_bytes || animationID.length_bytes > 4096) return NAFEXT_E_INVALID_ARGUMENT;
+		std::string id{ animationID.data, animationID.length_bytes };
+		FaceAnimation::FaceUpdateHook::SetRequestState(actorFormID, {
+			FaceAnimation::FaceUpdateHook::RequestStatus::kPlayPending,
+			FaceAnimation::FaceUpdateHook::nextRequestGeneration.fetch_add(1, std::memory_order_relaxed), id,
+			false, false, loop != 0, havokSync != 0 });
+		F4SE::GetTaskInterface()->AddTask([actorFormID, id = std::move(id), loop = loop != 0, havokSync = havokSync != 0]() mutable {
+			if (auto actor = ResolveActor(actorFormID); actor) {
+				FaceAnimation::FaceUpdateHook::LoadAndPlayAnimation(actor->GetActorHandle(), std::move(id), loop, havokSync);
+			} else {
+				FaceAnimation::FaceUpdateHook::SetRequestState(actorFormID, {
+					FaceAnimation::FaceUpdateHook::RequestStatus::kFailed,
+					FaceAnimation::FaceUpdateHook::nextRequestGeneration.fetch_add(1, std::memory_order_relaxed), std::move(id), false, false, loop, havokSync });
+			}
+		});
+		return NAFEXT_OK;
+	}
+
+	inline NAFExtResult NAFEXT_CALL StopFace(std::uint32_t actorFormID)
+	{
+		if (const auto validation = ValidateFaceRequest(actorFormID); validation != NAFEXT_OK) return validation;
+		F4SE::GetTaskInterface()->AddTask([actorFormID]() {
+			if (auto actor = ResolveActor(actorFormID); actor) {
+				FaceAnimation::FaceUpdateHook::StopAnimation(actor->GetActorHandle());
+			} else {
+				FaceAnimation::FaceUpdateHook::SetRequestState(actorFormID, {
+					FaceAnimation::FaceUpdateHook::RequestStatus::kFailed,
+					FaceAnimation::FaceUpdateHook::nextRequestGeneration.fetch_add(1, std::memory_order_relaxed), {}, false, false, false, false });
+			}
+		});
+		return NAFEXT_OK;
+	}
+
+	inline NAFExtResult NAFEXT_CALL ResetFace(std::uint32_t actorFormID)
+	{
+		if (const auto validation = ValidateFaceRequest(actorFormID); validation != NAFEXT_OK) return validation;
+		F4SE::GetTaskInterface()->AddTask([actorFormID]() {
+			if (auto actor = ResolveActor(actorFormID); actor) {
+				FaceAnimation::FaceUpdateHook::ResetFaceExpression(actor->GetActorHandle());
+			} else {
+				FaceAnimation::FaceUpdateHook::SetRequestState(actorFormID, {
+					FaceAnimation::FaceUpdateHook::RequestStatus::kFailed,
+					FaceAnimation::FaceUpdateHook::nextRequestGeneration.fetch_add(1, std::memory_order_relaxed), {}, false, false, false, false });
+			}
+		});
+		return NAFEXT_OK;
+	}
+
+	inline NAFExtResult NAFEXT_CALL GetFaceState(std::uint32_t actorFormID, NAFExtFaceState* output,
+		char* animationBuffer, std::uint32_t animationBufferSize, std::uint32_t* requiredSize)
+	{
+		if (!actorFormID || !output || output->struct_size < sizeof(NAFExtFaceState) || !requiredSize) return NAFEXT_E_INVALID_ARGUMENT;
+		const auto state = FaceAnimation::FaceUpdateHook::GetRequestState(actorFormID);
+		if (!state) return NAFEXT_E_NOT_FOUND;
+		*requiredSize = static_cast<std::uint32_t>(state->animationId.size());
+		*output = { sizeof(NAFExtFaceState), NAFEXT_FACE_STATE_VERSION_1, actorFormID,
+			static_cast<std::uint32_t>(state->status), state->generation,
+			(state->managed ? NAFEXT_FACE_FLAG_MANAGED : 0u) |
+				(state->faceDataAvailable ? NAFEXT_FACE_FLAG_FACE_DATA_AVAILABLE : 0u) |
+				(state->loop ? NAFEXT_FACE_FLAG_LOOP : 0u) |
+				(state->havokSync ? NAFEXT_FACE_FLAG_HAVOK_SYNC : 0u),
+			static_cast<std::uint32_t>(state->animationId.size()) };
+		if (state->animationId.empty()) return NAFEXT_OK;
+		if (!animationBuffer || animationBufferSize < state->animationId.size()) return NAFEXT_E_BUFFER_TOO_SMALL;
+		std::memcpy(animationBuffer, state->animationId.data(), state->animationId.size());
+		return NAFEXT_OK;
+	}
+
 	inline const NAFExtAPIv1 api{
 		sizeof(NAFExtAPIv1), NAFEXT_ABI_VERSION_1, kCapabilities, &GetProviderInfo, &Subscribe, &Unsubscribe, &Enumerate, &GetSnapshotSize, &CopySnapshot
+	};
+
+	inline const NAFExtFaceAPIv1 faceAPI{
+		sizeof(NAFExtFaceAPIv1), NAFEXT_FACE_API_VERSION_1, kFaceCapabilities,
+		&PlayFace, &StopFace, &ResetFace, &GetFaceState
 	};
 
 	inline void Announce()
@@ -486,4 +584,10 @@ extern "C" __declspec(dllexport) const NAFExtAPIv1* NAFEXT_CALL NAFExt_GetAPI(st
 {
 	if (requestedABI != NAFEXT_ABI_VERSION_1 || callerTableSize < sizeof(NAFExtAPIv1)) return nullptr;
 	return &NAFExtended::NativeAPI::api;
+}
+
+extern "C" __declspec(dllexport) const NAFExtFaceAPIv1* NAFEXT_CALL NAFExt_GetFaceAPI(std::uint32_t requestedVersion, std::uint32_t callerTableSize)
+{
+	if (requestedVersion != NAFEXT_FACE_API_VERSION_1 || callerTableSize < sizeof(NAFExtFaceAPIv1)) return nullptr;
+	return &NAFExtended::NativeAPI::faceAPI;
 }
