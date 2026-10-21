@@ -63,6 +63,8 @@ def main() -> None:
 		"audit_phase2b.py",
 		"audit_phase2c.py",
 		"audit_phase3a_face_reset.py",
+		"audit_phase3b_facial_api.py",
+		"audit_phase3c_dynamic_expressions.py",
     }
     missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
     if missing_audits:

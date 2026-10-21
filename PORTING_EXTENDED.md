@@ -1,5 +1,24 @@
 # NAF Extended port notes
 
+## Phase 3C: reusable dynamic expressions
+
+Phase 3C adds cached `.nafexpr.json` expression presets and an additive
+`NAFExtFaceAPIv2`. Presets contain validated Face Creator morph indices and
+bounded authored weights; callers select a preset and a normalized intensity.
+The existing FaceGen hook applies only those channels after vanilla composition,
+while vanilla lip updates remain enabled. Dynamic expressions, authored facial
+animations, release, and hard reset share the Phase 3B actor ownership and
+generation mechanism, so the last valid request wins and stale work cannot
+reappear.
+
+Release removes only the dynamic contribution; Phase 3A reset remains the
+strong neutralization operation. Requests are transient across load/revert and
+add no serialization record. `NAFExtFaceAPIv1` and the scene API are unchanged.
+Immediate replacement is implemented; timed blending is deliberately deferred.
+See `docs/NAF_EXTENDED_DYNAMIC_EXPRESSIONS.md`. Compilation and static audits do
+not constitute visual runtime validation; the development smile/frown fixtures
+still require in-game appearance, intensity, lip/eye, scene, and save/load tests.
+
 ## Phase 3B: independent native managed-face service
 
 The established `NAFExtAPIv1` scene table remains byte-for-byte additive-safe:
