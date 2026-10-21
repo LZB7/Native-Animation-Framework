@@ -53,7 +53,17 @@ namespace Data
 				return nullptr;
 			}
 
-			auto rForm = RE::TESDataHandler::GetSingleton()->LookupForm<T>(formId, source);
+			auto* dataHandler = RE::TESDataHandler::GetSingleton();
+			T* rForm = nullptr;
+			if constexpr (std::is_same_v<T, RE::TESBoundObject>) {
+				// TESBoundObject is an abstract record base whose FORM_ID is kNONE.
+				// The typed helper performs an exact FORM_ID check, so resolve the
+				// plugin-local ID untyped and use CommonLib's validated RTTI conversion.
+				auto* untyped = dataHandler->LookupForm(formId, source);
+				rForm = untyped ? untyped->As<T>() : nullptr;
+			} else {
+				rForm = dataHandler->LookupForm<T>(formId, source);
+			}
 			if (rForm == nullptr) {
 				if (verbose)
 					logger::warn("'{}'->'{:08X}' does not point to a valid {}.", source, formId, typeid(T).name());

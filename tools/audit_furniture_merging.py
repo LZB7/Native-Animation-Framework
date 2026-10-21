@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GLOBAL = (ROOT / "f4se-plugin/src/Data/Global.h").read_text(encoding="utf-8")
 FURNITURE = (ROOT / "f4se-plugin/src/Data/User/Furniture.h").read_text(encoding="utf-8")
 FORMS = (ROOT / "f4se-plugin/src/Data/User/IdentifiableObject.h").read_text(encoding="utf-8")
+TES_DATA = (ROOT / "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESDataHandler.h").read_text(encoding="utf-8")
+BOUND_OBJECTS = (ROOT / "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESBoundObjects.h").read_text(encoding="utf-8")
 CACHE = (ROOT / "f4se-plugin/src/Data/Cache/XMLCache.h").read_text(encoding="utf-8")
 FIXTURES = ROOT / "tests/fixtures/furniture"
 
@@ -46,6 +48,15 @@ for token in (
 
 require(FORMS, "std::string RawIdentity() const", "canonical pre-link form identity")
 require(FORMS, 'std::format("{}:{:08X}", source, formID)', "plugin-qualified numeric form identity")
+for token in (
+    "if constexpr (std::is_same_v<T, RE::TESBoundObject>)",
+    "auto* untyped = dataHandler->LookupForm(formId, source)",
+    "rForm = untyped ? untyped->As<T>() : nullptr",
+    "rForm = dataHandler->LookupForm<T>(formId, source)",
+):
+    require(FORMS, token, "targeted abstract-base form lookup")
+require(TES_DATA, "form->Is(T::FORM_ID) ? form->As<T>() : nullptr", "concrete typed lookup remains unchanged")
+require(BOUND_OBJECTS, "static constexpr auto FORM_ID{ ENUM_FORM_ID::kNONE };", "TESBoundObject abstract FORM_ID evidence")
 for token in ("currentFiles.size() != primaryCache.files.size()", "primaryCache.files", "cached.filename"):
     require(CACHE, token, "source-set-aware XML cache")
 for token in ("Furnitures.clear()", "XMLCache::Delete()", "Init(false)", "LinkDataReferences(false)"):
@@ -135,6 +146,22 @@ assert position.get("id") == "Phase4 Furniture Merge Test"
 assert position.get("animation") == "RBBelly1"
 assert position.get("location") == "Phase4SharedFurniture"
 
+explicit = parse(FIXTURES / "explicit-furniture-only.xml")
+assert explicit["id"] == "Phase4ExplicitFurnitureOnly"
+assert explicit["forms"] == [("fallout4.esm", 0x0006F9DC)]
+assert explicit["keywords"] == []
+explicit_position_root = ET.parse(FIXTURES / "phase4-explicit-position.xml").getroot()
+explicit_position = explicit_position_root.find("position")
+assert explicit_position is not None
+assert explicit_position.get("id") == "Phase4 Explicit Furniture Test"
+assert explicit_position.get("animation") == "RBBelly1"
+assert explicit_position.get("location") == "Phase4ExplicitFurnitureOnly"
+
+invalid = parse(FIXTURES / "invalid-nonbound-form.xml")
+assert invalid["id"] == "Phase4InvalidNonBoundForm"
+assert invalid["forms"] == [("fallout4.esm", 0x00000007)]
+assert invalid["keywords"] == []
+
 try:
     ET.fromstring("<furnitureData><group")
 except ET.ParseError:
@@ -142,5 +169,5 @@ except ET.ParseError:
 else:
     raise SystemExit("FAIL: malformed contributor was accepted")
 
-print("PASS: furniture groups merge only in the furniture registry; three contributors normalize to four forms and three keywords with duplicate removal, deterministic priority/path metadata selection, source-set cache invalidation, and clean reload reconstruction")
+print("PASS: furniture groups retain deterministic merge/cache/reload behavior; TESBoundObject alone uses untyped plugin-local resolution plus validated As<T> conversion, concrete typed lookup remains unchanged, and explicit-only/invalid-form fixtures are internally consistent (engine-backed resolution remains runtime-test-required)")
 

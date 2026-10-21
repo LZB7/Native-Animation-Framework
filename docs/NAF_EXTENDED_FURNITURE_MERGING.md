@@ -73,22 +73,29 @@ contributions. The resulting `Phase4 Furniture Merge Test` position was started
 and stopped successfully three times, including after a normal save reload, and
 the in-game furniture selector exposed every intended chair category.
 
-## Explicit-form verification limitation
+## Explicit-form lookup correction
 
 The five Phase 4 explicit fixture IDs are genuine `FURN` base records in the
 Fallout 4 1.11.240 `Fallout4.esm`; they are not placed references. Their runtime
-warnings expose an inherited typed-lookup incompatibility rather than a merge
-error. Current CommonLibF4RD `TESDataHandler::LookupForm<T>` first compares the
-record type with `T::FORM_ID`. NAF requests the common base
-`TESBoundObject`, whose `FORM_ID` is `kNONE`, so every valid derived `FURN`
-record is rejected before `As<TESBoundObject>()`. Historical Deweh CommonLib
-performed the RTTI cast directly and accepted derived bound objects.
+warnings exposed an inherited typed-lookup incompatibility rather than a merge
+error. CommonLibF4RD `TESDataHandler::LookupForm<T>` first compares the record
+type with `T::FORM_ID`. NAF requests the common base `TESBoundObject`, whose
+`FORM_ID` is `kNONE`, so valid derived `FURN` records were rejected before the
+base-class conversion. Historical Deweh CommonLib performed the conversion
+directly and accepted derived bound objects.
 
-Consequently, the runtime test validated deterministic group aggregation,
-keyword matching, and safe isolation of rejected explicit entries, but it did
-not validate explicit-form matching. Phase 4 did not alter local FormID parsing
-or the typed resolver. Correcting the CommonLib/NAF lookup boundary and retesting
-one explicit fixture requires a separately approved Phase 4 follow-up.
+NAF now handles only this abstract-base case at its form-link boundary: it
+resolves the plugin-local FormID through the untyped `TESDataHandler` overload,
+then calls CommonLib's `TESForm::As<TESBoundObject>()`. That conversion switches
+on the concrete record type and returns a pointer only when the concrete class
+is convertible to `TESBoundObject`. Unrelated forms therefore remain rejected,
+while concrete typed lookups such as `TESRace` retain their exact-type path.
+CommonLibF4RD itself and its published revision are unchanged.
+
+Static audits cover the targeted branch, unchanged concrete lookup, deterministic
+merging, and explicit-only/invalid-form fixture identities. Engine-backed
+explicit `FURN` resolution remains runtime-test-required until the corrected DLL
+is exercised with `Phase4ExplicitFurnitureOnly`.
 
 The observed chair coverage therefore directly validates additive keyword
 contributions and safe handling of rejected form contributions. Runtime coverage

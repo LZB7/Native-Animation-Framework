@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<furnitureData>
+  <group id="Phase4InvalidNonBoundForm" loadPriority="0">
+    <furniture source="Fallout4.esm" form="00000007" />
+  </group>
+</furnitureData>
