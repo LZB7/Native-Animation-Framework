@@ -68,13 +68,26 @@ namespace FaceAnimation
 			}
 		};
 
+		struct ResetPersistentState
+		{
+			std::unordered_set<SerializableActorHandle> pendingResets;
+
+			template <class Archive>
+			void serialize(Archive& ar, const uint32_t)
+			{
+				ar(pendingResets);
+			}
+		};
+
 		typedef bool(Update)(RE::BSFaceGenAnimationData*, float, bool);
 		typedef bool(UpdateLip)(RE::BSFaceGenAnimationData*, float);
 
 		static REL::Relocation<Update> OriginalUpdate;
 		static REL::Relocation<UpdateLip> OriginalUpdateLip;
 		inline static std::unique_ptr<PersistentState> state = std::make_unique<PersistentState>();
+		inline static std::unique_ptr<ResetPersistentState> resetState = std::make_unique<ResetPersistentState>();
 		static std::shared_mutex stateLock;
+		static std::mutex resetStateLock;
 		enum class PendingRequestKind : std::uint8_t
 		{
 			kLoad,
@@ -244,6 +257,10 @@ namespace FaceAnimation
 			if (a == nullptr) {
 				return;
 			}
+			{
+				std::scoped_lock resetLock{ resetStateLock };
+				resetState->pendingResets.erase(targetActor);
+			}
 			std::unique_lock l{ stateLock };
 			auto& managedActor = state->managedAnims[targetActor];
 			if (managedActor.animBackup.has_value() && !animOverride) {
@@ -323,7 +340,7 @@ namespace FaceAnimation
 		// managed-face state for the actor, invalidates pending asynchronous loads, and
 		// clears only the composed expression output. baseExp/modExp remain engine-owned
 		// and are left untouched so the next vanilla update can resume normal composition.
-		bool ResetFaceExpression(RE::ActorHandle targetActor)
+		bool ResetFaceExpression(RE::ActorHandle targetActor, bool persistAcrossLoad = true)
 		{
 			if (!targetActor.get()) {
 				return false;
@@ -348,8 +365,12 @@ namespace FaceAnimation
 				EraseManagedActor_NonThreadSafe(targetActor);
 				eyeGeoCache.erase(targetActor);
 			}
+			if (persistAcrossLoad) {
+				std::scoped_lock l{ resetStateLock };
+				resetState->pendingResets.insert(targetActor);
+			}
 
-			F4SE::GetTaskInterface()->AddTask([targetActor, generation, resetEyes]() {
+			F4SE::GetTaskInterface()->AddTask([targetActor, generation, resetEyes, consumePersistence = !persistAcrossLoad]() {
 				{
 					std::unique_lock l{ loadingAnimsLock };
 					auto pending = loadingAnims.find(targetActor);
@@ -380,9 +401,27 @@ namespace FaceAnimation
 						GameUtil::SetEyeCoords(eyeGeo, 0.0f, 0.0f);
 					}
 				}
+
+				if (consumePersistence) {
+					std::scoped_lock l{ resetStateLock };
+					resetState->pendingResets.erase(targetActor);
+				}
 			});
 
 			return true;
+		}
+
+		void ApplyPendingResetsAfterSerialization()
+		{
+			std::vector<SerializableActorHandle> pending;
+			{
+				std::scoped_lock l{ resetStateLock };
+				pending.reserve(resetState->pendingResets.size());
+				pending.insert(pending.end(), resetState->pendingResets.begin(), resetState->pendingResets.end());
+			}
+			for (const auto& handle : pending) {
+				ResetFaceExpression(handle, false);
+			}
 		}
 
 		//Thread-safe method for modifying an animation object already playing on an actor.
@@ -404,6 +443,10 @@ namespace FaceAnimation
 			if (!actor) {
 				return;
 			}
+			{
+				std::scoped_lock resetLock{ resetStateLock };
+				resetState->pendingResets.erase(targetActor);
+			}
 			std::unique_lock l{ stateLock };
 			state->managedAnims[targetActor].eyeOverride = EyeVector{ u * -0.25, v * 0.2 };
 			BindManagedData_NonThreadSafe(targetActor, GameUtil::GetFaceAnimData(actor.get()));
@@ -419,8 +462,9 @@ namespace FaceAnimation
 		}
 
 		void Reset() {
-			std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock };
+			std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock, resetStateLock };
 			state = std::make_unique<PersistentState>();
+			resetState = std::make_unique<ResetPersistentState>();
 			loadingAnims.clear();
 			eyeGeoCache.clear();
 		}
@@ -432,6 +476,12 @@ namespace FaceAnimation
 				return;
 			}
 			const auto handle = actor->GetActorHandle();
+			{
+				std::scoped_lock resetLock{ resetStateLock };
+				if (resetState->pendingResets.contains(handle)) {
+					F4SE::GetTaskInterface()->AddTask([handle]() { ResetFaceExpression(handle, false); });
+				}
+			}
 			std::scoped_lock l{ stateLock, geoCacheLock };
 			if (!state->managedAnims.contains(handle)) {
 				return;

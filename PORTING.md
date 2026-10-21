@@ -5829,3 +5829,27 @@ Papyrus compiler is present in the current development workspace.
    NAF `FACE` restoration.
 
 Stage 3B remains blocked on user runtime validation of this gate.
+
+### Gate 3A persistence correction after runtime test
+
+The first Gate 3A build neutralized the visible composed expression correctly,
+but the user's save/load test showed that Fallout reconstructed the older face
+state after loading even when HFE's persistent `Cripple` condition was false.
+The log also showed no active scene restoration and no failed co-save records,
+so this was not an HFE replay or malformed historical `FACE` payload. The
+one-session `finalExp` write was insufficient to survive engine reconstruction.
+
+The correction adds a separate version-1 `FRST` Extended record containing only
+stable actor handles for accepted reset requests. It does not modify any of the
+nine historical v5 record IDs, versions, field widths, or ordering. On the next
+world-ready load fixup, NAF consumes the marker and issues the same game-thread
+neutralization after face data is available. The marker is then removed from
+live state, so a later save does not perpetually force neutrality. Starting a
+new managed face animation or eye override also supersedes and removes the
+marker. Old saves without `FRST` remain valid.
+
+The runtime log additionally reports that registration of the new Papyrus
+native failed because the installed upstream `NAF.pex` does not declare it.
+This does not affect the C++ Settings-menu action used by the reset test. An
+Extended `NAF.pex` compiled from the updated source remains a packaging
+requirement before Papyrus access can be runtime-tested.

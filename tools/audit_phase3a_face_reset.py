@@ -18,6 +18,7 @@ def main() -> None:
     bindings = (ROOT / "f4se-plugin/src/Scripts/Papyrus.h").read_text(encoding="utf-8")
     script = (ROOT / "ck/project_files/Scripts/Source/User/NAF.psc").read_text(encoding="utf-8")
     settings = (ROOT / "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/SettingsMenuHandler.h").read_text(encoding="utf-8")
+    serialization = (ROOT / "f4se-plugin/src/Serialization/Serialization.h").read_text(encoding="utf-8")
 
     guards = {
         "face ownership": (
@@ -25,6 +26,10 @@ def main() -> None:
             "pending->second.generation != generation",
             "EraseManagedActor_NonThreadSafe(targetActor)",
             "eyeGeoCache.erase(targetActor)",
+            "resetState->pendingResets.insert(targetActor)",
+            "ApplyPendingResetsAfterSerialization",
+            "consumePersistence = !persistAcrossLoad",
+            "resetState->pendingResets.contains(handle)",
         ),
         "neutral composition": (
             "std::fill(std::begin(data->finalExp.exp), std::end(data->finalExp.exp), 0.0f)",
@@ -33,7 +38,7 @@ def main() -> None:
         ),
         "legacy stop": (
             "void StopAnimation(RE::ActorHandle targetActor, bool animOverride = false)",
-            "bool ResetFaceExpression(RE::ActorHandle targetActor)",
+            "bool ResetFaceExpression(RE::ActorHandle targetActor, bool persistAcrossLoad = true)",
         ),
     }
     for owner, tokens in guards.items():
@@ -44,13 +49,17 @@ def main() -> None:
     require(bindings, "PAPYRUS_BIND(ResetFaceExpression);", "Papyrus binding")
     require(script, "Bool Function ResetFaceExpression(Actor akActor) Native Global", "Papyrus source")
     require(settings, '"Reset Player Expression"', "player menu action")
+    require(serialization, "SAVE_PERSISTENT_STATE('FRST', 1", "face-reset persistence")
+    require(serialization, "case 'FRST':", "face-reset restoration")
+    require(serialization, "version >= 5 || (type == 'FRST' && version >= 1)", "face-reset record version gate")
+    require(serialization, "FaceUpdateHook::ApplyPendingResetsAfterSerialization()", "world-ready reset fixup")
 
     if "std::fill(std::begin(data->baseExp.exp)" in face or "std::fill(std::begin(data->modExp.exp)" in face:
         raise SystemExit("FAIL: reset must not erase engine-owned baseExp/modExp")
 
     print("PASS: Phase 3A reset invalidates pending loads, removes persistent NAF ownership, "
           "neutralizes only finalExp under the FaceGen lock, preserves legacy stop semantics, "
-          "and is exposed through Papyrus and the NAF Settings menu")
+          "persists a one-load reset marker, and is exposed through Papyrus and the NAF Settings menu")
 
 
 if __name__ == "__main__":
