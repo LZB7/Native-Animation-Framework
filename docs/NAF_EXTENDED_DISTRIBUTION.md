@@ -33,12 +33,26 @@ assets. Do not duplicate those unchanged assets in an Extended DLL update.
 
 LooksMenu and MCM remain optional. OCBP is not required.
 
+## Project provenance
+
+NAF Extended is a community-maintained continuation and expansion of the
+GPLv3-licensed Native Animation Framework created by Snapdragon/Deweh. Snapdragon
+acknowledged the compatibility port and confirmed GPLv3 distribution of modified
+versions. Extended is independently maintained and does not claim official
+upstream status.
+
+## Separate developer example
+
+`NAFExtSceneExample` is an optional, source-included scene-listener plugin for
+API developers. Distribute it as a separate developer resource; neither its DLL
+nor its source belongs in the required NAF Extended runtime package.
+
 ## Exclusions
 
 Do not ship `NAFExtAPITest.dll`, test fixtures, development expression presets,
 benchmarks, PDB files in the ordinary user package, `NAFPackCache.bin`, Runtime
 Database binaries, reference executables/databases, build directories, logs,
-crash reports, or converted third-party animation packs.
+crash reports, converted third-party animation packs, or `NAFExtSceneExample`.
 
 ## Release checks
 

@@ -132,3 +132,9 @@ Complete examples are in [`docs/api`](api), with lifecycle testing guidance in
 [`NAF_EXTENDED_API_HARNESS_TEST.md`](NAF_EXTENDED_API_HARNESS_TEST.md). The
 detailed ABI and metadata contract is documented in
 [`NAF_EXTENDED_NATIVE_API_PROPOSAL.md`](NAF_EXTENDED_NATIVE_API_PROPOSAL.md).
+
+An optional, source-included `NAFExtSceneExample` F4SE plugin is prepared as a
+separate developer download. It demonstrates deferred API discovery, capability
+negotiation, scene subscription, borrowed callback snapshots, late enumeration,
+and safe unregistration. It is an example only and is not required by NAF
+Extended. A download URL will be added when that separate package is published.

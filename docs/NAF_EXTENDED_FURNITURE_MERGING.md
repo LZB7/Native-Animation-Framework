@@ -73,14 +73,28 @@ contributions. The resulting `Phase4 Furniture Merge Test` position was started
 and stopped successfully three times, including after a normal save reload, and
 the in-game furniture selector exposed every intended chair category.
 
-The explicit FormIDs in this development fixture did not resolve as
-`TESBoundObject` records in that test installation and were rejected by the
-existing link validation. The observed chair coverage therefore directly
-validates additive keyword contributions and safe handling of invalid form
-contributions. Runtime coverage of two distinct, valid explicit-form
-contributions and the dedicated configuration hot-reload command remains
-separate from this successful production test; neither gap changes the verified
-startup merge behavior.
+## Explicit-form verification limitation
+
+The five Phase 4 explicit fixture IDs are genuine `FURN` base records in the
+Fallout 4 1.11.240 `Fallout4.esm`; they are not placed references. Their runtime
+warnings expose an inherited typed-lookup incompatibility rather than a merge
+error. Current CommonLibF4RD `TESDataHandler::LookupForm<T>` first compares the
+record type with `T::FORM_ID`. NAF requests the common base
+`TESBoundObject`, whose `FORM_ID` is `kNONE`, so every valid derived `FURN`
+record is rejected before `As<TESBoundObject>()`. Historical Deweh CommonLib
+performed the RTTI cast directly and accepted derived bound objects.
+
+Consequently, the runtime test validated deterministic group aggregation,
+keyword matching, and safe isolation of rejected explicit entries, but it did
+not validate explicit-form matching. Phase 4 did not alter local FormID parsing
+or the typed resolver. Correcting the CommonLib/NAF lookup boundary and retesting
+one explicit fixture requires a separately approved Phase 4 follow-up.
+
+The observed chair coverage therefore directly validates additive keyword
+contributions and safe handling of rejected form contributions. Runtime coverage
+of explicit-form contributions and the dedicated configuration hot-reload
+command remains separate from this successful production test; neither gap
+changes the verified startup merge behavior.
 
 ## NAF Bridge comparison
 

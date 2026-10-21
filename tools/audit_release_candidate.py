@@ -86,9 +86,9 @@ def main() -> int:
 
     readme = read("README.md")
     for token in (
-        "unofficial extension", 'cgf "NAF.ToggleMenu"',
+        "community-maintained continuation and expansion", 'cgf "NAF.ToggleMenu"',
         "Install the Extended `NAF.dll` and `NAF.pex`", "LookAt Cam",
-        "Original NAF was created by Snapdragon/Deweh", "GPL-3.0",
+        "Original NAF was created by Snapdragon/Deweh", "independently maintained", "GPL-3.0",
     ):
         if token not in readme:
             failures.append(f"public source/distribution documentation missing: {token}")

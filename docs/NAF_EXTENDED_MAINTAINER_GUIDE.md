@@ -2,10 +2,13 @@
 
 ## Purpose and lineage
 
-NAF Extended is built on the complete NAF 1.0.14 preservation port for Fallout
-4 1.11.240. The preservation branch remains the behavioral reference. Extended
-adds maintainable address resolution and opt-in integration surfaces without
-replacing the original scene, authoring, Papyrus, or serialization architecture.
+NAF Extended is a community-maintained continuation and expansion built on the
+complete NAF 1.0.14 preservation port for Fallout 4 1.11.240. Original author
+Snapdragon acknowledged the compatibility port and confirmed GPLv3 distribution
+of modified versions. Extended remains independently maintained. The
+preservation branch is the behavioral reference; Extended adds maintainable
+address resolution and opt-in integration surfaces without replacing the
+original scene, authoring, Papyrus, or serialization architecture.
 
 Read `PORTING.md` for the preservation evidence ledger and
 `PORTING_EXTENDED.md` for phase history. This guide is the subsystem map.

@@ -1,13 +1,16 @@
 # NAF Extended for Fallout 4 1.11.240
 
-NAF Extended is an unofficial extension of Native Animation Framework (NAF)
-1.0.14 for Fallout 4 `1.11.240.0` and F4SE `0.7.9`. It preserves the complete
-framework restored by the `port/1.11.240` branch and adds Runtime Database
-resolution, an optional native C API, JSON HKX registration and caching,
-managed facial services, and deterministic furniture-group aggregation.
+NAF Extended is a community-maintained continuation and expansion of Native
+Animation Framework (NAF-F4), based on the original GPLv3-licensed source. It
+targets Fallout 4 `1.11.240.0` and F4SE `0.7.9`, preserves the complete framework
+restored by the `port/1.11.240` branch, and adds Runtime Database resolution, an
+optional native C API, JSON HKX registration and caching, managed facial
+services, and deterministic furniture-group aggregation.
 
-Original NAF was created by Snapdragon/Deweh. This project preserves that
-lineage and is not an official upstream continuation.
+Original NAF was created by Snapdragon/Deweh. Snapdragon acknowledged the
+compatibility port and confirmed that modified versions may be distributed
+under GPLv3. NAF Extended is independently maintained; this acknowledgment does
+not imply that Snapdragon develops or officially maintains Extended.
 
 ## Installation model
 
@@ -111,8 +114,8 @@ Detailed port evidence remains in `PORTING.md` and `PORTING_EXTENDED.md`.
 ## Credits and license
 
 Native Animation Framework was created by Snapdragon/Deweh. Upstream and
-third-party contributors remain credited in `COPYRIGHT.txt`. NAF Extended is
-an unofficial extension of that work.
+third-party contributors remain credited in `COPYRIGHT.txt`. NAF Extended is a
+community-maintained, independently developed continuation of that work.
 
 The source remains GPL-3.0 under `LICENSE.txt`. CommonLibF4RD, ik, pugixml, and
 other third-party components retain their own licenses and attribution.
