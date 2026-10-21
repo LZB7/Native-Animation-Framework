@@ -84,5 +84,17 @@ no CommonLib, STL, engine pointer, or cross-CRT ownership crosses the ABI.
 The initial implementation intentionally has immediate replacement/release and
 no timed duration or cross-source blending. Presets address expression morphs
 only; eye-coordinate animation remains the existing managed-face facility.
-Actual appearance, lip/eye coexistence, and intensity response require the
-Phase 3C in-game acceptance procedure before runtime validation can be claimed.
+Actual appearance and intensity response now have initial production coverage;
+uncommon lip/eye combinations and full-exit save/load cleanup remain on the
+runtime coverage list.
+
+## Runtime coverage
+
+The October 21 harness run loaded three presets and exercised them visibly both
+outside NAF scenes and during the JSON-only `J1` HKX scene. Requests returned
+`NAFEXT_OK`; queries reported `Active` for `dev.smile` at both `1.00` and `0.35`,
+and release reported `Completed` with no preset ID. Scene playback, snapshots,
+and cleanup remained healthy. The familiar MFG-like results are expected because
+NAF Face Creator and MFG expose the same engine FaceGen morph channels; NAF does
+not call or depend on MFG. Save followed by full exit/reload was not demonstrated
+by that log and remains pending before the transient lifecycle is runtime-closed.

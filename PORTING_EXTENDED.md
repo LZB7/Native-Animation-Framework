@@ -16,8 +16,14 @@ strong neutralization operation. Requests are transient across load/revert and
 add no serialization record. `NAFExtFaceAPIv1` and the scene API are unchanged.
 Immediate replacement is implemented; timed blending is deliberately deferred.
 See `docs/NAF_EXTENDED_DYNAMIC_EXPRESSIONS.md`. Compilation and static audits do
-not constitute visual runtime validation; the development smile/frown fixtures
-still require in-game appearance, intensity, lip/eye, scene, and save/load tests.
+not by themselves constitute visual validation. The October 21 production run
+loaded all three development presets and visibly exercised the expression API
+both outside a scene and during JSON-only HKX playback. Full and 0.35 intensity
+requests queried `Active`, replacement requests were accepted, release queried
+`Completed`, and the body scene completed normally. The matching MFG appearance
+comes from both tools addressing Fallout 4's underlying FaceGen morph channel
+indices; NAF Face Creator has no source dependency on MFG. A full exit/reload
+with an active expression remains the outstanding transient-lifecycle check.
 
 ## Phase 3B: independent native managed-face service
 
