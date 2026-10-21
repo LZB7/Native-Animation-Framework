@@ -24,7 +24,7 @@ def main() -> None:
 
     if "REL::RelocationID" in sources:
         raise SystemExit("FAIL: legacy RelocationID remains in NAF source")
-    require(modules, "Zzyxz/CommonLibF4RD.git", "CommonLibF4RD submodule")
+    require(modules, "LZB7/CommonLibF4RD.git", "public CommonLibF4RD submodule")
     require(main_cpp, "UsesSigScanning(true)", "signature-independent metadata")
     require(main_cpp, "UsesAddressLibrary(false)", "Address Library opt-out")
     require(main_cpp, "IsLayoutDependent(true)", "layout-dependent metadata")
