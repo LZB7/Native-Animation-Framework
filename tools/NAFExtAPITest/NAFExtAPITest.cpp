@@ -235,7 +235,7 @@ namespace
 	void FacialControlLoop()
 	{
 		LoadFaceFixture();
-		logger::WriteRaw("INFO", "Facial controls ready: F6=play A, F7=play B, F8=query, F9=stop, F10=reset, F11=A then B, F12=A then reset");
+		logger::WriteRaw("INFO", "Facial controls ready: F6=play A, F7=play B, F8=query, F9=stop, F10=reset, F11=A then B, Insert=A then reset");
 		while (!controlsStop.load(std::memory_order_acquire)) {
 			if (GetAsyncKeyState(VK_F6) & 1) PlayFace(faceAnimationA);
 			if (GetAsyncKeyState(VK_F7) & 1) PlayFace(faceAnimationB);
@@ -243,7 +243,7 @@ namespace
 			if (GetAsyncKeyState(VK_F9) & 1) logger::info("Face stop accepted result={}", static_cast<unsigned>(faceAPI->stop_face_animation(kPlayerFormID)));
 			if (GetAsyncKeyState(VK_F10) & 1) logger::info("Face reset accepted result={}", static_cast<unsigned>(faceAPI->reset_face_expression(kPlayerFormID)));
 			if (GetAsyncKeyState(VK_F11) & 1) { PlayFace(faceAnimationA); PlayFace(faceAnimationB); }
-			if (GetAsyncKeyState(VK_F12) & 1) { PlayFace(faceAnimationA); faceAPI->reset_face_expression(kPlayerFormID); }
+			if (GetAsyncKeyState(VK_INSERT) & 1) { PlayFace(faceAnimationA); faceAPI->reset_face_expression(kPlayerFormID); }
 			Sleep(50);
 		}
 	}

@@ -45,7 +45,7 @@ a key is pressed:
 - F9: legacy stop
 - F10: strong expression reset
 - F11: request A and B immediately (B must win)
-- F12: request A and immediately reset (A must not reappear)
+- Insert: request A and immediately reset (A must not reappear; avoids Steam's F12 screenshot binding)
 
 The harness uses a small independent polling thread intentionally: this tests
 the service's documented arbitrary-caller-thread queueing contract. It does not

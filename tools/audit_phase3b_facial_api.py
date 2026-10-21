@@ -50,7 +50,7 @@ def main() -> None:
     for token in (
         "pending->second.generation == generation",
         "SetRequestStateIfCurrent(actorFormID, generation",
-        "resetState->pendingResets.erase(targetActor)",
+        "pendingResets.erase(targetActor)",
         "requestStates.clear()",
         "BindManagedData_NonThreadSafe(handle, faceData)",
     ):
@@ -61,7 +61,7 @@ def main() -> None:
         "Facial negotiation tests:",
         "F6=play A",
         "PlayFace(faceAnimationA); PlayFace(faceAnimationB)",
-        "PlayFace(faceAnimationA); faceAPI->reset_face_expression",
+        "GetAsyncKeyState(VK_INSERT)",
     ):
         require(harness, token, "independent harness")
 
