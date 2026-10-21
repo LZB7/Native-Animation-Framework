@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <bitset>
 
 namespace Data::ExpressionPreset
@@ -17,6 +18,62 @@ namespace Data::ExpressionPreset
 	};
 
 	inline constexpr std::uint32_t kSchemaVersion = 1;
+	inline constexpr std::array<std::string_view, 54> kMorphNames{
+		"Brow Squeeze",
+		"Jaw Forward",
+		"Jaw Open",
+		"Left Outer Brow Up",
+		"Left Cheek Up",
+		"Left Frown",
+		"Jaw Left",
+		"Left Corner In",
+		"Left Corner Out",
+		"Left Lower Lid Down",
+		"Left Lower Lid Up",
+		"Left Lower Lip Down",
+		"Left Lower Lip Up",
+		"Left Middle Brow Down",
+		"Left Middle Brow Up",
+		"Left Nose Up",
+		"Left Outer Brow Down",
+		"Left Smile",
+		"Left Upper Lid Down",
+		"Left Upper Lid Up",
+		"Left Upper Lip Down",
+		"Left Upper Lip Up",
+		"Lower Funnel",
+		"Lower Roll In",
+		"Lower Roll Out",
+		"Pucker",
+		"Right Outer Brow Up",
+		"Right Cheek Up",
+		"Right Frown",
+		"Jaw Right",
+		"Right Corner In",
+		"Right Corner Out",
+		"Right Lower Lid Down",
+		"Right Lower Lid Up",
+		"Right Lower Lip Down",
+		"Right Lower Lip Up",
+		"Right Middle Brow Down",
+		"Right Middle Brow Up",
+		"Right Nose Up",
+		"Right Outer Brow Down",
+		"Right Smile",
+		"Right Upper Lid Down",
+		"Right Upper Lid Up",
+		"Right Upper Lip Down",
+		"Right Upper Lip Up",
+		"Sticky",
+		"Upper Funnel",
+		"Upper Roll In",
+		"Upper Roll Out",
+		"Tongue",
+		"Extra 1",
+		"Extra 2",
+		"Extra 3",
+		"Extra 4"
+	};
 	inline std::shared_mutex presetLock;
 	inline std::unordered_map<std::string, Preset, CaseInsensitiveStringHash, CaseInsensitiveStringEqual> presets;
 
@@ -24,6 +81,22 @@ namespace Data::ExpressionPreset
 	{
 		std::shared_lock lock{ presetLock };
 		if (const auto found = presets.find(std::string{ a_id }); found != presets.end()) return found->second;
+		return std::nullopt;
+	}
+
+	inline std::optional<std::uint8_t> ResolveMorph(const nlohmann::json& a_identifier)
+	{
+		if (a_identifier.is_number_unsigned()) {
+			const auto value = a_identifier.get<std::uint32_t>();
+			if (value < kMorphNames.size()) return static_cast<std::uint8_t>(value);
+			return std::nullopt;
+		}
+		if (a_identifier.is_string()) {
+			const auto name = a_identifier.get<std::string>();
+			for (std::size_t i = 0; i < kMorphNames.size(); ++i) {
+				if (name == kMorphNames[i]) return static_cast<std::uint8_t>(i);
+			}
+		}
 		return std::nullopt;
 	}
 
@@ -47,12 +120,17 @@ namespace Data::ExpressionPreset
 			if (!root.contains("channels") || !root["channels"].is_array() || root["channels"].empty() || root["channels"].size() > 54) return fail("requires 1-54 channels");
 			std::bitset<54> used;
 			for (const auto& item : root["channels"]) {
-				if (!item.is_object() || !item.contains("morph") || !item["morph"].is_number_unsigned() || !item.contains("value") || !item["value"].is_number()) return fail("contains an invalid channel");
-				const auto morph = item["morph"].get<std::uint32_t>();
+				if (!item.is_object() || !item.contains("morph") || !item.contains("value") || !item["value"].is_number()) return fail(std::format("preset '{}' contains an invalid channel", preset.id));
+				const auto morph = ResolveMorph(item["morph"]);
+				if (!morph) {
+					if (item["morph"].is_string()) return fail(std::format("preset '{}' contains unknown FaceGen morph '{}'", preset.id, item["morph"].get<std::string>()));
+					return fail(std::format("preset '{}' contains an invalid FaceGen morph identifier", preset.id));
+				}
 				const auto value = item["value"].get<float>();
-				if (morph >= 54 || !std::isfinite(value) || value < 0.0f || value > 1.0f || used.test(morph)) return fail("contains an out-of-range or duplicate channel");
-				used.set(morph);
-				preset.channels.push_back({ static_cast<std::uint8_t>(morph), value });
+				if (!std::isfinite(value) || value < 0.0f || value > 1.0f) return fail(std::format("preset '{}' contains an invalid channel value", preset.id));
+				if (used.test(*morph)) return fail(std::format("preset '{}' duplicates FaceGen morph {} ('{}')", preset.id, *morph, kMorphNames[*morph]));
+				used.set(*morph);
+				preset.channels.push_back({ *morph, value });
 			}
 			std::unique_lock lock{ presetLock };
 			if (presets.contains(preset.id)) return fail("duplicates an existing preset ID; keeping the first definition");
