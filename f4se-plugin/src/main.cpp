@@ -199,7 +199,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		logger::critical("Failed to register Papyrus functions!");
 		return false;
 	} else {
-		logger::info("Registered the production Papyrus callback with F4SE 0.7.8.");
+		logger::info("Registered the production Papyrus callback with F4SE 0.7.9.");
 	}
 
 	Data::Global::Init();

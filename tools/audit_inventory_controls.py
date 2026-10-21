@@ -25,7 +25,7 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/RE/ContainerMenu.h": (
-        "REL::RelocationID(1105206, 2248608)",
+        "REL::ID(1105206, 2248608)",
         "1.10.163-only",
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/InventoryMenuHandler.h": (
@@ -52,7 +52,7 @@ SOURCE_GUARDS = {
 
 FORBIDDEN = (
     "REL::ID(1105206)",
-    "REL::RelocationID(1105206, 2193197)",
+    "REL::ID(1105206, 2193197)",
 )
 
 

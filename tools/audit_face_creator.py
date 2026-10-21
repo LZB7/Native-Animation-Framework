@@ -18,7 +18,7 @@ EXPECTED = {
 
 GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESBoundAnimObjects.h": (
-        "REL::RelocationID(1306546, 2662368)",
+        "REL::ID(1306546, 2662368)",
         "GetAlternateHeadPartListMap",
         "GetHeadParts(bool a_alternate = true)",
     ),
@@ -28,8 +28,8 @@ GUARDS = {
         "FaceUpdateHook::VisitAnimation", "Console::GetPickRef", "pickedHandle.get().get()",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/IMenu.h": (
-        "REL::RelocationID(170742, 2701395)",
-        "REL::RelocationID(875116, 2701391)",
+        "REL::ID(170742, 2701395)",
+        "REL::ID(875116, 2701391)",
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/CreatorMenuHandler.h": (
         '"[+] New Face Animation"', '"[->] Open in Face Animator"',

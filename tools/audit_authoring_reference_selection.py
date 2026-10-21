@@ -31,10 +31,10 @@ def main() -> int:
     header = (args.source_root / "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/IMenu.h").read_text(errors="replace")
     face = (args.source_root / "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/FaceAnimCreatorHandler.h").read_text(errors="replace")
     required = (
-        (header, "REL::RelocationID(1407033, 2701382)"),
-        (header, "REL::RelocationID(875116, 2701391)"),
-        (header, "REL::RelocationID(170742, 2701395)"),
-        (header, "REL::RelocationID(79066, 2248551)"),
+        (header, "REL::ID(1407033, 2701382)"),
+        (header, "REL::ID(875116, 2701391)"),
+        (header, "REL::ID(170742, 2701395)"),
+        (header, "REL::ID(79066, 2248551)"),
         (face, "Console::GetPickRef()"),
         (face, "pickedHandle.get().get()"),
         (face, "ref->As<RE::Actor>()"),

@@ -9,7 +9,7 @@ raise SystemExit(audit("LookAt Cam", {
         "lookAtBase->GetObjectByName", "lookAtNode->world.translate",
         "GetLookAtRotation(s->translation", "OriginalUpdate(s, a_nextState)",
         "s->translation.z += 1.0f", "s->translation.z -= 1.0f",
-        "REL::RelocationID(0, 2270336)", "Main::WorldRootCamera",
+        "REL::ID(0, 2270336)", "Main::WorldRootCamera",
         "PointRenderedCameraAt"),
 }, forbidden=(
     "camNode->local.rotate.FromEulerAnglesZXY(r.x, r.y, 0.0f);",

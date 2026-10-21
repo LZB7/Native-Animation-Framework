@@ -116,6 +116,9 @@ namespace Data
 		public:
 			void merge_insert(std::shared_ptr<Furniture> contribution)
 			{
+				// Furniture group IDs are extension points shared by independent packs.
+				// Unlike replaceable definitions, every contributor is retained; only
+				// group metadata chooses one deterministic priority/source winner.
 				auto& target = this->operator[](contribution->id);
 				RE::BSAutoLock lock{ target.first };
 				if (!target.second) target.second = std::move(contribution);

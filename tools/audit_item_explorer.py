@@ -22,13 +22,13 @@ EXPECTED = {
 
 GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(1095748, 2197563)",
+        "REL::ID(1095748, 2197563)",
         "BGSObjectInstance(TESForm* a_object, TBO_InstanceData* a_instanceData)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESForms.h": (
         "GetFilledSlots() const;",
         "GetPlayable([[maybe_unused]] const TBO_InstanceData* a_data) const",
-        "REL::RelocationID(1376557, 2193103)",
+        "REL::ID(1376557, 2193103)",
     ),
     "f4se-plugin/src/Menu/NAFMenu/MenuHandlers/ItemExplorerHandler.h": (
         "GetFormArray<RE::TESObjectARMO>", "GetPlayable", "GetFormRace", "if (!filename.empty())",

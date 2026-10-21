@@ -54,11 +54,13 @@ EXPECTED = {
 SOURCE_GUARDS = {
     "f4se-plugin/src/Tasks/GameLoopHook.h": (
         "Scene::SceneManager::UpdateScenes()",
-        "REL::RelocationID(338354, 2228937)",
+        "REL::ID owner{ 338354, 2228937 }",
+        "REL::AUTO_CALLSITE(target)",
+        ".or_offset(0x1E, REL::Version{ 1, 11, 221, 0 }, REL::Version{ 1, 11, 240, 0 })",
     ),
     "f4se-plugin/src/RE/BGSAnimationSystemUtils.h": (
-        "REL::RelocationID(639576, 2214309)",
-        "REL::RelocationID(390914, 2234273)",
+        "REL::ID(639576, 2214309)",
+        "REL::ID(390914, 2234273)",
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
         "static void UnEquip",
@@ -67,18 +69,18 @@ SOURCE_GUARDS = {
     ),
     "f4se-plugin/src/Scene/SceneManager.h": ("IsBasicSceneCompatible()",),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESForms.h": (
-        "REL::RelocationID(422985, 4796465)",
-        "REL::RelocationID(691815, 4796476)",
+        "REL::ID(422985, 4796465)",
+        "REL::ID(691815, 4796476)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESDataHandler.h": (
-        "REL::RelocationID(711558, 4796135)",
+        "REL::ID(711558, 4796135)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(192840, 2202684)",
+        "REL::ID(192840, 2202684)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/ControlMap.h": (
-        "REL::RelocationID(325206, 4799307)",
-        "REL::RelocationID(1270079, 4491359)",
+        "REL::ID(325206, 4799307)",
+        "REL::ID(1270079, 4491359)",
     ),
     "f4se-plugin/src/Scripts/Papyrus.h": (
         "PAPYRUS_BIND(ToggleMenu)",
@@ -95,10 +97,10 @@ FORBIDDEN = (
     "REL::ID(686648)",
     "REL::ID(22408)",
     "REL::ID(639576)",
-    "REL::RelocationID(422985, 2689178)",
-    "REL::RelocationID(691815, 2689189)",
-    "REL::RelocationID(711558, 2688883)",
-    "REL::RelocationID(325206, 2692014)",
+    "REL::ID(422985, 2689178)",
+    "REL::ID(691815, 2689189)",
+    "REL::ID(711558, 2688883)",
+    "REL::ID(325206, 2692014)",
     "REL::ID(192840)",
 )
 

@@ -32,14 +32,14 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/GameScript.h": (
-        "REL::RelocationID(996227, 4796420)",
+        "REL::ID(996227, 4796420)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/BSScript/NF_util/NativeFunctionBase.h": (
-        "REL::RelocationID(571037, 2314780)",
+        "REL::ID(571037, 2314780)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESForms.h": (
-		"REL::RelocationID(422985, 4796465)",
-		"REL::RelocationID(691815, 4796476)",
+		"REL::ID(422985, 4796465)",
+		"REL::ID(691815, 4796476)",
     ),
 }
 

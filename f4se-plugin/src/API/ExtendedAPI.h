@@ -6,6 +6,9 @@
 
 namespace NAFExtended::NativeAPI
 {
+	// The exported C ABI deliberately owns no consumer memory and exposes no
+	// private NAF/CommonLib types. Capability bits, structure sizes, and service
+	// versions are the compatibility contract; consumers must negotiate them.
 	constexpr std::uint64_t kCapabilities =
 		NAFEXT_CAP_SCENE_EVENTS |
 		NAFEXT_CAP_SCENE_QUERY |
@@ -78,6 +81,8 @@ namespace NAFExtended::NativeAPI
 
 		void FinalizeViews()
 		{
+			// Views point into this snapshot's owned strings/vectors. They are valid
+			// only while the shared snapshot is retained (for callbacks, until return).
 			actorViews.clear();
 			actorViews.reserve(actors.size());
 			for (auto& actor : actors) {
@@ -134,6 +139,9 @@ namespace NAFExtended::NativeAPI
 	inline std::atomic_uint64_t registrationEpoch{ 1 };
 	inline std::atomic_uint64_t nextSubscription{ 1 };
 	inline std::vector<std::pair<Data::Events::event_type, Data::Events::EventRegistration>> internalRegistrations;
+	// Internal NAF events may originate outside the game-loop drain. Queue only
+	// stable scene IDs here; snapshot construction and consumer callbacks occur
+	// later from ProcessPending, never while holding NAF scene-event locks.
 
 	inline std::uint64_t EventSceneID(Data::Events::event_type type, Data::Events::EventData& data)
 	{
@@ -349,7 +357,7 @@ namespace NAFExtended::NativeAPI
 	{
 		if (!output || output->struct_size < sizeof(NAFExtProviderInfo)) return NAFEXT_E_INVALID_ARGUMENT;
 		static constexpr std::string_view provider{ NAFEXT_PROVIDER_ID };
-		static constexpr std::string_view build{ "1.11.240-phase3b" };
+		static constexpr std::string_view build{ "1.11.240-extended" };
 		*output = { sizeof(NAFExtProviderInfo), NAFEXT_ABI_VERSION_1, 1, NAFEXT_SNAPSHOT_VERSION_1, kCapabilities,
 			{ provider.data(), static_cast<std::uint32_t>(provider.size()) }, { build.data(), static_cast<std::uint32_t>(build.size()) } };
 		return NAFEXT_OK;
@@ -372,6 +380,9 @@ namespace NAFExtended::NativeAPI
 
 	inline NAFExtResult NAFEXT_CALL Unsubscribe(NAFExtSubscription id)
 	{
+		// A Dispatch already holding a shared Subscription may finish its current
+		// callback. active prevents subsequent delivery; consumers must still keep
+		// userData alive until their own callback has returned.
 		std::scoped_lock lock{ stateLock };
 		const auto it = subscriptions.find(id);
 		if (it == subscriptions.end()) return NAFEXT_E_NOT_FOUND;

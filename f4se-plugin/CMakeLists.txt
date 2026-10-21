@@ -188,7 +188,7 @@ endif ()
 
 # ---- File copying ----
 
-if (DEFINED Fallout4Path)
+if (COPY_BUILD AND DEFINED Fallout4Path)
 	add_custom_command(
 		TARGET ${PROJECT_NAME}
 		POST_BUILD
@@ -199,7 +199,7 @@ if (DEFINED Fallout4Path)
 else ()
 	message(
 		WARNING
-		"Variable Fallout4Path is not defined. Skipping post-build copy command."
+		"COPY_BUILD is OFF or Fallout4Path is not defined. Skipping post-build copy command."
 	)
 endif ()
 

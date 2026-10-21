@@ -25,15 +25,15 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/PackageOverride/EvalHook.h": (
-        "REL::RelocationID(1395257, 2229805)",
-        "REL::RelocationID(609985, 2231539)",
+        "REL::ID(1395257, 2229805)",
+        "REL::ID(609985, 2231539)",
     ),
     "f4se-plugin/src/RE/TESObjectREFR_Events.h": (
-        "REL::RelocationID(1448133, 2201672)",
-        "REL::RelocationID(1182113, 2201673)",
+        "REL::ID(1448133, 2201672)",
+        "REL::ID(1182113, 2201673)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/Actor.h": (
-        "REL::RelocationID(1145222, 2229894)",
+        "REL::ID(1145222, 2229894)",
     ),
 }
 

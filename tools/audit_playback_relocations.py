@@ -24,29 +24,29 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/BSScript/ArrayWrapper.h": (
-        "REL::RelocationID(445184, 2250435)",
+        "REL::ID(445184, 2250435)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/Utilities.h": (
-        "REL::RelocationID(672857, 2236393)",
-        "REL::RelocationID(839650, 2214305)",
+        "REL::ID(672857, 2236393)",
+        "REL::ID(839650, 2214305)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/Actor.h": (
-        "REL::RelocationID(1446774, 2231704)",
+        "REL::ID(1446774, 2231704)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(1437197, 2214543)",
+        "REL::ID(1437197, 2214543)",
     ),
     "f4se-plugin/src/RE/BGSAnimationSystemUtils.h": (
-        "REL::RelocationID(639576, 2214309)",
-        "REL::RelocationID(390914, 2234273)",
+        "REL::ID(639576, 2214309)",
+        "REL::ID(390914, 2234273)",
     ),
     "f4se-plugin/src/RE/BSAnimationGraphManager.h": (
-        "REL::RelocationID(1381136, 2258328)",
-        "REL::RelocationID(144578, 2258329)",
+        "REL::ID(1381136, 2258328)",
+        "REL::ID(144578, 2258329)",
     ),
     "f4se-plugin/src/RE/hk.h": (
-        "REL::RelocationID(992878, 2260451)",
-        "REL::RelocationID(326555, 2260454)",
+        "REL::ID(992878, 2260451)",
+        "REL::ID(326555, 2260454)",
     ),
 }
 

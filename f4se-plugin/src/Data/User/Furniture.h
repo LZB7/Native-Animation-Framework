@@ -66,6 +66,9 @@ namespace Data
 
 		void FinalizeEntries()
 		{
+			// Parallel XML parsing makes arrival order nondeterministic. Normalize and
+			// deduplicate textual identities before game-data linking so cold/cache/
+			// reload paths all produce the same contribution set.
 			std::ranges::sort(forms, {}, [](const auto& entry) { return entry.RawIdentity(); });
 			std::vector<LinkableForm<RE::TESBoundObject>> uniqueForms;
 			std::string previous;
@@ -84,6 +87,9 @@ namespace Data
 
 		void LinkAndDedupe(bool verbose)
 		{
+			// Textually different aliases may resolve to the same engine object. The
+			// second pass deduplicates by pointer while preserving ordinary diagnostics
+			// and dropping invalid explicit forms without discarding valid contributors.
 			std::vector<LinkableForm<RE::TESBoundObject>> linkedForms;
 			std::unordered_set<RE::TESBoundObject*> seenForms;
 			for (auto& entry : forms) {

@@ -48,9 +48,9 @@ def main() -> int:
     scene = (args.source_root / "f4se-plugin/src/Scene/SceneBase.h").read_text(errors="replace")
 
     guards = (
-        (object_header, "REL::RelocationID(541793, 2314437)", "AE DecRef selector"),
-        (object_header, "REL::RelocationID(1452752, 2314431)", "AE GetHandle selector"),
-        (object_header, "REL::RelocationID(461710, 2314436)", "AE IncRef selector"),
+        (object_header, "REL::ID(541793, 2314437)", "AE DecRef selector"),
+        (object_header, "REL::ID(1452752, 2314431)", "AE GetHandle selector"),
+        (object_header, "REL::ID(461710, 2314436)", "AE IncRef selector"),
         (events_header, "static_assert(sizeof(DamageImpactData) == 0x40)", "DamageImpactData layout"),
         (events_header, "static_assert(sizeof(HitData) == 0xE0)", "HitData layout"),
         (events_header, "static_assert(sizeof(TESHitEvent) == 0x110)", "TESHitEvent layout"),

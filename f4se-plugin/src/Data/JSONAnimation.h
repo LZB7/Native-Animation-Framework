@@ -2,6 +2,10 @@
 
 namespace JSONAnimation
 {
+	// Extended JSON is normalized into the original Animation/Position model so
+	// XML and JSON content share one playback path. The cache stores normalized,
+	// pointer-free JSON only; engine forms and runtime objects are resolved after
+	// registration just as they are for XML content.
 	struct MetadataRecord { std::string nameSpace; std::string key; std::string jsonValue; };
 	struct SourceRecord { std::string path; std::uint64_t size{}; std::int64_t modified{}; std::uint64_t fingerprint{}; };
 
@@ -52,6 +56,8 @@ namespace JSONAnimation
 		return hash;
 	}
 	inline bool BuildManifest(const std::vector<std::filesystem::path>& a_files, std::vector<SourceRecord>& a_result) {
+		// Size/time make the common path cheap to diagnose, while the fingerprint
+		// prevents a same-size/same-timestamp edit from reusing stale content.
 		a_result.clear(); a_result.reserve(a_files.size());
 		try { for (const auto& path : a_files) { const auto fingerprint = HashFile(path); if (!fingerprint) return false;
 			a_result.push_back({ std::filesystem::relative(path, USERDATA_DIR).lexically_normal().generic_string(), std::filesystem::file_size(path),
@@ -93,6 +99,9 @@ namespace JSONAnimation
 	inline bool Register(const nlohmann::json& a_definition, bool a_verbose) {
 		const auto source = a_definition.value("source", std::string{ "<cache>" }); const auto animationID = a_definition.value("animationID", std::string{}); const auto positionID = a_definition.value("positionID", std::string{});
 		if (animationID.empty() || positionID.empty() || !a_definition.contains("actors") || !a_definition["actors"].is_array()) return false;
+		// JSON never overrides an existing XML or JSON identity. This keeps mixed
+		// installations deterministic and avoids partially replacing an animation
+		// while retaining a position (or vice versa).
 		if (Global::Animations.get_ptr(animationID) || Global::Positions.get_ptr(positionID)) { if (a_verbose) logger::warn("JSON animation definition '{}' conflicts with existing animation/position ID '{}'/'{}'; keeping the first loaded definition", source, animationID, positionID); return false; }
 		auto animation = std::make_shared<Animation>(); animation->id = animationID; animation->loadPriority = a_definition.value("loadPriority", 0);
 		std::vector<MetadataRecord> records; std::uint32_t slotIndex = 0;
@@ -128,6 +137,8 @@ namespace JSONAnimation
 		nlohmann::json result = nlohmann::json::array(); for (const auto& source : a_manifest) result.push_back({ { "path", source.path }, { "size", source.size }, { "modified", source.modified }, { "fingerprint", source.fingerprint } }); return result;
 	}
 	inline bool LoadCache(const std::vector<SourceRecord>& a_manifest, std::vector<nlohmann::json>& a_definitions) {
+		// Any header, schema, manifest, size, checksum, or CBOR error rejects the
+		// entire cache. LoadFiles then rebuilds it from authoritative source files.
 		try { if (!std::filesystem::exists(cachePath)) return false; const auto fileSize = std::filesystem::file_size(cachePath); if (fileSize < sizeof(CacheHeader) || fileSize > kMaxCacheBytes) return false;
 			std::ifstream stream{ cachePath, std::ios::binary }; CacheHeader header{}; stream.read(reinterpret_cast<char*>(&header), sizeof(header));
 			if (!stream || std::memcmp(header.magic, "NAFPACK", 7) != 0 || header.cacheVersion != kCacheVersion || header.schemaVersion != kSchemaVersion || header.payloadSize != fileSize - sizeof(CacheHeader)) return false;

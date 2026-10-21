@@ -46,7 +46,7 @@ def main() -> None:
     ):
         require(LOADER, token, "JSON/cache implementation")
     require(GLOBAL, "JSONAnimation::LoadFiles(jsonFiles, verbose)", "global load path")
-    for token in ("std::stable_partition", "queuedStarts", "last committed resolved metadata", '"1.11.240-phase'):
+    for token in ("std::stable_partition", "queuedStarts", "last committed resolved metadata", '"1.11.240-extended"'):
         require(API, token, "API lifecycle")
     for token in ("omission supplies", "slot.N.erection", "ABI-v1", "NAFPackCache.bin"):
         require(DOC, token, "Phase 2C documentation")

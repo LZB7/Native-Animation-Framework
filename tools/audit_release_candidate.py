@@ -40,7 +40,7 @@ def main() -> int:
             failures.append(f"LooksMenu soft-dependency guard missing: {token}")
 
     main = read("f4se-plugin/src/main.cpp")
-    for token in ("RUNTIME_1_11_240", "ValidateFreeUpAllMarkers", "UsesSigScanning(false)"):
+    for token in ("RUNTIME_1_11_240", "ValidateFreeUpAllMarkers", "UsesSigScanning(true)", "UsesAddressLibrary(false)"):
         if token not in main:
             failures.append(f"startup fail-closed guard missing: {token}")
     if "spdlog::level::trace" in main or "flush_on(spdlog::level::trace)" in main:
@@ -73,10 +73,10 @@ def main() -> int:
         if noisy in cam:
             failures.append(f"development LookAt diagnostic remains: {noisy}")
 
-    # FreeUpAllMarkers must use its exact Address Library identity on 1.11.240;
-    # the retired 1.11.221 raw-RVA fallback must not return.
+    # FreeUpAllMarkers must use its exact Runtime Database identity; the retired
+    # preservation raw-RVA fallback must not return.
     engine = read("f4se-plugin/src/Compat/Engine.h")
-    if "REL::RelocationID(1324833, 2202575)" not in engine:
+    if "REL::ID(1324833, 2202575)" not in engine:
         failures.append("FreeUpAllMarkers exact relocation selector is missing")
     for path in source_root.rglob("*.h"):
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -86,8 +86,8 @@ def main() -> int:
 
     readme = read("README.md")
     for token in (
-        "unofficial compatibility/source port", 'cgf "NAF.ToggleMenu"',
-        "Replace only `Data/F4SE/Plugins/NAF.dll`", "LookAt Cam",
+        "unofficial extension", 'cgf "NAF.ToggleMenu"',
+        "Install the Extended `NAF.dll` and `NAF.pex`", "LookAt Cam",
         "Original NAF was created by Snapdragon/Deweh", "GPL-3.0",
     ):
         if token not in readme:
@@ -97,7 +97,7 @@ def main() -> int:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
-    print("PASS: RC gates, optional integration, startup guards, 45 natives, nine v5 records, UI parity, logging, and exact FreeUpAllMarkers relocation")
+    print("PASS: Extended RC gates, optional integration, Runtime Database startup guards, 45 natives, nine v5 records, UI parity, logging, and exact FreeUpAllMarkers relocation")
     return 0
 
 

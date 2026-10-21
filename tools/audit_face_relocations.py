@@ -15,10 +15,13 @@ EXPECTED = {
 }
 
 SOURCE_GUARDS = {
-    "face update containing function": "REL::RelocationID(317245, 2209487), 0xBD",
-    "face update target": "REL::RelocationID(3139, 2209139)",
-    "lip update containing function": "REL::RelocationID(3139, 2209139), 0x14B",
-    "lip update target": "REL::RelocationID(1550953, 2209124)",
+    "face update containing function": "REL::ID faceOwner{ 317245, 2209487 }",
+    "face update target": "REL::ID faceTarget{ 3139, 2209139 }",
+    "face update automatic callsite": "REL::AUTO_CALLSITE(faceTarget)",
+    "face update tested fallback": ".or_offset(0xBD, REL::Version{ 1, 11, 221, 0 }, REL::Version{ 1, 11, 240, 0 })",
+    "lip update target": "REL::ID lipTarget{ 1550953, 2209124 }",
+    "lip update automatic callsite": "REL::AUTO_CALLSITE(lipTarget)",
+    "lip update tested fallback": ".or_offset(0x14B, REL::Version{ 1, 11, 221, 0 }, REL::Version{ 1, 11, 240, 0 })",
 }
 
 

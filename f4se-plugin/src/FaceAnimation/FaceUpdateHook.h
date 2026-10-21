@@ -84,6 +84,9 @@ namespace FaceAnimation
 		inline static std::unique_ptr<PersistentState> state = std::make_unique<PersistentState>();
 		static std::shared_mutex stateLock;
 		inline static std::unordered_set<SerializableActorHandle> pendingResets;
+		// Reset deferral is deliberately transient. A save records authored managed
+		// face state through FACE, but never a one-shot reset request or a dynamic
+		// expression; reload must not resurrect or replay either operation.
 		static std::mutex pendingResetsLock;
 		enum class PendingRequestKind : std::uint8_t
 		{
@@ -131,6 +134,9 @@ namespace FaceAnimation
 
 		static std::unordered_map<SerializableActorHandle, PendingRequest> loadingAnims;
 		inline static std::atomic<std::uint64_t> nextRequestGeneration{ 1 };
+		// Generations make asynchronous loads replaceable: a late completion may
+		// publish only if it still owns the actor's current generation. Stop/reset or
+		// a newer play request therefore cannot be undone by stale worker completion.
 		static std::mutex loadingAnimsLock;
 		inline static std::unordered_map<std::uint32_t, RequestState> requestStates;
 		static std::shared_mutex requestStatesLock;

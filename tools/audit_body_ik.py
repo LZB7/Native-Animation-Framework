@@ -30,8 +30,8 @@ GUARDS = {
         "h->Update();",
     ),
     "f4se-plugin/src/BodyAnimation/GraphHook.h": (
-        "REL::RelocationID(1492656, 2214536)",
-        "REL::RelocationID(1216262, 2201055)",
+        "REL::ID(1492656, 2214536)",
+        "REL::ID(1216262, 2201055)",
         "EngineCompat::GetAnimationGraphProjectName",
     ),
 }

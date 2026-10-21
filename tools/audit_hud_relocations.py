@@ -83,14 +83,14 @@ EXPECTED = {
 # record also happens to be listed above.
 SOURCE_GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Scaleform/GFx/GFx_Loader.h": (
-        "REL::RelocationID(912291, 2284723)",
+        "REL::ID(912291, 2284723)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Scaleform/GFx/GFx_Player.h": (
-        "REL::RelocationID(788691, 2286078)",
-        "REL::RelocationID(1517430, 4494126)",
+        "REL::ID(788691, 2286078)",
+        "REL::ID(1517430, 4494126)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/MemoryManager.h": (
-        "REL::RelocationID(343176, 4471522)",
+        "REL::ID(343176, 4471522)",
     ),
 }
 

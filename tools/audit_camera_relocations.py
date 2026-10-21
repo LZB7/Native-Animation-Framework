@@ -24,18 +24,18 @@ EXPECTED = {
 SOURCE_GUARDS = {
     "f4se-plugin/src/CamHook/CamHook.h": (
         "using UpdateSig = void(RE::FreeCameraState*, RE::BSTSmartPointer<RE::TESCameraState>&)",
-        "REL::RelocationID(541110, 2248280)",
-        "REL::RelocationID(0, 2270336)",
+        "REL::ID(541110, 2248280)",
+        "REL::ID(0, 2270336)",
         "RE::Main::WorldRootCamera()",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESCamera.h": (
-        "REL::RelocationID(1171980, 4796065)",
-        "REL::RelocationID(224913, 2248368)",
-        "REL::RelocationID(858847, 2214742)",
+        "REL::ID(1171980, 4796065)",
+        "REL::ID(224913, 2248368)",
+        "REL::ID(858847, 2214742)",
         "bool stateActive;  // 24",
     ),
     "f4se-plugin/src/Compat/Engine.h": (
-        "REL::RelocationID(162201, 2248348)",
+        "REL::ID(162201, 2248348)",
     ),
     "f4se-plugin/src/Misc/GameUtil.h": (
         "camera->GetState(RE::CameraState::kFree)",

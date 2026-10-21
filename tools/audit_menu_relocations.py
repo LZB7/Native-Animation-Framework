@@ -38,18 +38,18 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/BSScript/Stack.h": (
-        "REL::RelocationID(1429302, 2314680)",
-        "REL::RelocationID(897539, 2314681)",
+        "REL::ID(1429302, 2314680)",
+        "REL::ID(897539, 2314681)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/ControlMap.h": (
-        "REL::RelocationID(325206, 4799307)",
-        "REL::RelocationID(1270079, 4491359)",
+        "REL::ID(325206, 4799307)",
+        "REL::ID(1270079, 4491359)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/PlayerControls.h": (
-        "REL::RelocationID(544871, 4799306)",
+        "REL::ID(544871, 4799306)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(192840, 2202684)",
+        "REL::ID(192840, 2202684)",
     ),
     "f4se-plugin/src/Menu/HighlightedObjectsContainer.h": (
         "EngineCompat::PlayEffectShader",
@@ -59,13 +59,13 @@ SOURCE_GUARDS = {
         '{ "Active Scenes", BindGoto(kManageScenes) }',
     ),
     "f4se-plugin/src/Scripts/Papyrus.h": ("PAPYRUS_BIND(ToggleMenu)",),
-    "f4se-plugin/src/RE/ContainerMenu.h": ("REL::RelocationID(1105206, 2248608)",),
+    "f4se-plugin/src/RE/ContainerMenu.h": ("REL::ID(1105206, 2248608)",),
 }
 
 FORBIDDEN = (
     "REL::ID(1429302)",
-    "REL::RelocationID(544871, 2692013)",
-    "REL::RelocationID(325206, 2692014)",
+    "REL::ID(544871, 2692013)",
+    "REL::ID(325206, 2692014)",
     "REL::ID(192840)",
     "REL::ID(1105206)",
 )

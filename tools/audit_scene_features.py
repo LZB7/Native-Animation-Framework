@@ -19,13 +19,13 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/Actor.h": (
-        "REL::RelocationID(1174340, 4798287)",
-        "REL::RelocationID(988029, 2231392)",
-        "REL::RelocationID(1292493, 2231395)",
+        "REL::ID(1174340, 4798287)",
+        "REL::ID(988029, 2231392)",
+        "REL::ID(1292493, 2231395)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(78185, 2200949)",
-        "REL::RelocationID(333415, 2200939)",
+        "REL::ID(78185, 2200949)",
+        "REL::ID(333415, 2200939)",
     ),
     "f4se-plugin/src/Scene/OrderedActionQueue.h": (
         "static void UnEquip",

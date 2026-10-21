@@ -3,3 +3,5 @@ build/
 .vs/
 /ck/package/
 *.pex
+__pycache__/
+*.pyc

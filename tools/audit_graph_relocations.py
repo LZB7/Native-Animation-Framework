@@ -29,21 +29,21 @@ EXPECTED = {
 
 SOURCE_GUARDS = {
     "f4se-plugin/src/BodyAnimation/GraphHook.h": (
-        "REL::RelocationID(1492656, 2214536)",
-        "REL::RelocationID(1216262, 2201055)",
+        "REL::ID(1492656, 2214536)",
+        "REL::ID(1216262, 2201055)",
     ),
     "f4se-plugin/src/Compat/Engine.h": (
-        "REL::RelocationID(190119, 2214534)",
+        "REL::ID(190119, 2214534)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/Utilities.h": (
-        "REL::RelocationID(672857, 2236393)",
-        "REL::RelocationID(839650, 2214305)",
+        "REL::ID(672857, 2236393)",
+        "REL::ID(839650, 2214305)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(1437197, 2214543)",
-        "REL::RelocationID(27400, 2214545)",
-        "REL::RelocationID(732926, 2214544)",
-        "REL::RelocationID(41382, 2214541)",
+        "REL::ID(1437197, 2214543)",
+        "REL::ID(27400, 2214545)",
+        "REL::ID(732926, 2214544)",
+        "REL::ID(41382, 2214541)",
     ),
 }
 

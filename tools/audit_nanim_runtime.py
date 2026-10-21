@@ -31,13 +31,13 @@ GUARDS = {
         "PAPYRUS_BIND(PlayNANIM);", "PAPYRUS_BIND(StopNANIM);",
     ),
     "f4se-plugin/src/RE/BSAnimationGraphManager.h": (
-        "REL::RelocationID(1381136, 2258328)",
-        "REL::RelocationID(144578, 2258329)",
+        "REL::ID(1381136, 2258328)",
+        "REL::ID(144578, 2258329)",
         "static_assert(sizeof(hkbContext) == 0x68)",
     ),
     "f4se-plugin/src/RE/hk.h": (
-        "REL::RelocationID(992878, 2260451)",
-        "REL::RelocationID(326555, 2260454)",
+        "REL::ID(992878, 2260451)",
+        "REL::ID(326555, 2260454)",
         "sizeof(hkbGeneratorSyncInfo) == 0xA4",
         "offsetof(hkbCharacter, hkbCharacter::behaviorGraph) == 0x80",
         "offsetof(hkbBehaviorGraph, hkbBehaviorGraph::rootGenerator) == 0xC0",

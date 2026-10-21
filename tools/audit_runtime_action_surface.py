@@ -40,10 +40,10 @@ SOURCE_GUARDS = {
         "EngineCompat::StopEffectShader",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/TESObjectREFRs.h": (
-        "REL::RelocationID(652173, 2205201)",
+        "REL::ID(652173, 2205201)",
     ),
     "f4se-plugin/extern/CommonLibF4/CommonLibF4/include/RE/Bethesda/ProcessLists.h": (
-        "REL::RelocationID(1569706, 4796160)",
+        "REL::ID(1569706, 4796160)",
     ),
 }
 
