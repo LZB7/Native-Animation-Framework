@@ -1,5 +1,23 @@
 # NAF Extended port notes
 
+## Finalization baseline
+
+Phases 1–4 are implementation-complete on Fallout 4 1.11.240/F4SE 0.7.9.
+Runtime coverage includes Runtime Database-only startup, scene/API lifecycle,
+cold and warm JSON cache loads, facial reset/authored/dynamic-expression APIs,
+and keyword-based aggregation of duplicate furniture groups. The Phase 4 run
+merged three `Phase4SharedFurniture` contributors (four textual forms and three
+keywords), exposed every intended chair category, and completed repeated scenes
+including after save reload. The fixture's explicit FormIDs were rejected as
+non-`TESBoundObject` records, so valid explicit-form aggregation remains
+statically covered rather than runtime-demonstrated.
+
+Public maintenance documentation now begins at
+`docs/NAF_EXTENDED_MAINTAINER_GUIDE.md`; the short third-party integration guide
+is `docs/NAF_EXTENDED_NEXUS_API_GUIDE.md`, and release contents are constrained
+by `docs/NAF_EXTENDED_DISTRIBUTION.md`. Runtime Database remains mandatory and
+separately installed. No Address Library fallback is supported.
+
 ## Phase 4: deterministic furniture-group merging
 
 Furniture definitions sharing a case-insensitive group ID now aggregate through
