@@ -16,23 +16,53 @@ Preset files live anywhere below `Data/NAF` and end in `.nafexpr.json`:
   "id": "example.smile",
   "displayName": "Example Smile",
   "channels": [
+    { "morph": "Left Smile", "value": 0.55 },
+    { "morph": "Right Smile", "value": 0.55 }
+  ]
+}
+```
+
+The `morph` field accepts either an integer Face Creator channel index in
+`0..53`, or its exact, case-sensitive canonical name. Named channels are the
+recommended syntax for manually authored files; numeric identifiers remain
+fully supported for existing and machine-generated content. For example,
+`"Left Smile"` and `17` normalize to the same internal channel. Numeric strings
+such as `"17"`, unknown or empty names, non-integer numbers, and controls 100,
+254, and 255 are rejected. The full canonical table is maintained in the shared
+`Fallout 4 FaceGen Morph Channels.md` knowledge-bank document.
+
+Values must be finite and in `[0,1]`. Duplicate channels are detected after
+name resolution, so mixing `17` and `"Left Smile"` in one preset is also an
+error. Duplicate preset IDs, unknown schemas, empty channel lists, and malformed
+files are rejected; one malformed preset does not prevent unrelated valid files
+from loading, and the first lexically loaded duplicate ID wins. Presets are
+resolved once during NAF data initialization and cached in their existing
+numeric representation. No string matching occurs during FaceGen updates. This
+format remains schema version 1 and is deliberately separate from `.naf.json`
+animation packs.
+
+The equivalent numeric representation remains valid:
+
+```json
+{
+  "format": "NAFExtendedExpressionPreset",
+  "schemaVersion": 1,
+  "id": "example.smile.numeric",
+  "displayName": "Example Smile (Numeric)",
+  "channels": [
     { "morph": 17, "value": 0.55 },
     { "morph": 40, "value": 0.55 }
   ]
 }
 ```
 
-Morph indices are the same validated 0-53 Face Creator expression channels.
-Values must be finite and in `[0,1]`. Duplicate channel indices, duplicate
-preset IDs, unknown schemas, empty channel lists, and malformed files are
-rejected; the first lexically loaded duplicate ID wins. Presets are parsed once
-during NAF data initialization and cached in memory. This format is deliberately
-separate from `.naf.json` animation packs.
+For an asymmetric expression, specify only the desired side—for example,
+`"Left Smile"` without `"Right Smile"`. Channels omitted from a preset remain
+under their normal engine/NAF ownership.
 
 The checked-in `tests/fixtures/expressions` files are development fixtures, not
-mandatory framework content. Their conservative smile/frown channel identities
-come directly from Face Creator (`17/40` and `5/28`) and still require visual
-acceptance in game.
+mandatory framework content. Numeric and named smile fixtures intentionally use
+distinct preset IDs and normalize to identical `17/40` channel/value data.
 
 ## Runtime semantics
 

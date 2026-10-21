@@ -27,6 +27,12 @@ production test saved with an active expression, fully exited, relaunched, and
 loaded the save without resurrecting the expression. The transient expression
 lifecycle is therefore runtime-validated through save/load and process restart.
 
+The final Phase 3C authoring polish extends schema version 1 so the existing
+`morph` field accepts either an integer channel `0..53` or an exact canonical
+FaceGen name such as `"Left Smile"`. Names resolve once at preset load time into
+the same numeric representation. Numeric presets remain compatible, and
+post-normalization duplicate detection rejects mixed aliases of one channel.
+
 ## Phase 3B: independent native managed-face service
 
 The established `NAFExtAPIv1` scene table remains byte-for-byte additive-safe:
