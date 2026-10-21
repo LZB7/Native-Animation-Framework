@@ -16,13 +16,23 @@ namespace NAFExtended::NativeAPI
 		NAFEXT_CAP_FACE_PLAYBACK |
 		NAFEXT_CAP_FACE_STOP |
 		NAFEXT_CAP_FACE_RESET |
-		NAFEXT_CAP_FACE_QUERY;
+		NAFEXT_CAP_FACE_QUERY |
+		NAFEXT_CAP_EXPRESSION_PRESETS |
+		NAFEXT_CAP_EXPRESSION_INTENSITY |
+		NAFEXT_CAP_EXPRESSION_RELEASE |
+		NAFEXT_CAP_EXPRESSION_QUERY;
 
 	constexpr std::uint64_t kFaceCapabilities =
 		NAFEXT_CAP_FACE_PLAYBACK |
 		NAFEXT_CAP_FACE_STOP |
 		NAFEXT_CAP_FACE_RESET |
 		NAFEXT_CAP_FACE_QUERY;
+
+	constexpr std::uint64_t kFaceCapabilitiesV2 = kFaceCapabilities |
+		NAFEXT_CAP_EXPRESSION_PRESETS |
+		NAFEXT_CAP_EXPRESSION_INTENSITY |
+		NAFEXT_CAP_EXPRESSION_RELEASE |
+		NAFEXT_CAP_EXPRESSION_QUERY;
 
 	struct OwnedActor
 	{
@@ -549,6 +559,77 @@ namespace NAFExtended::NativeAPI
 		return NAFEXT_OK;
 	}
 
+	inline NAFExtResult NAFEXT_CALL RequestExpression(std::uint32_t actorFormID, NAFExtStringView presetID, float intensity, std::uint32_t options)
+	{
+		if (const auto validation = ValidateFaceRequest(actorFormID); validation != NAFEXT_OK) return validation;
+		if (options != 0) return NAFEXT_E_UNSUPPORTED;
+		if (!presetID.data || !presetID.length_bytes || presetID.length_bytes > 256 || !std::isfinite(intensity) || intensity < 0.0f || intensity > 1.0f) return NAFEXT_E_INVALID_ARGUMENT;
+		std::string id{ presetID.data, presetID.length_bytes };
+		const auto preset = Data::ExpressionPreset::Get(id);
+		if (!preset) return NAFEXT_E_NOT_FOUND;
+		const auto generation = FaceAnimation::FaceUpdateHook::nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
+		FaceAnimation::FaceUpdateHook::SetRequestState(actorFormID, {
+			FaceAnimation::FaceUpdateHook::RequestStatus::kPlayPending, generation, id, false, false, false, false,
+			FaceAnimation::FaceUpdateHook::RequestSource::kDynamicExpression, intensity });
+		F4SE::GetTaskInterface()->AddTask([actorFormID, preset = std::move(*preset), intensity, generation]() mutable {
+			if (auto actor = ResolveActor(actorFormID); actor) {
+				if (!FaceAnimation::FaceUpdateHook::ApplyExpression(actor->GetActorHandle(), preset, intensity, generation)) {
+					FaceAnimation::FaceUpdateHook::SetRequestStateIfCurrent(actorFormID, generation, {
+						FaceAnimation::FaceUpdateHook::RequestStatus::kCanceled, generation, preset.id, false, false, false, false,
+						FaceAnimation::FaceUpdateHook::RequestSource::kDynamicExpression, intensity });
+				}
+			} else {
+				FaceAnimation::FaceUpdateHook::SetRequestStateIfCurrent(actorFormID, generation, {
+					FaceAnimation::FaceUpdateHook::RequestStatus::kFailed, generation, preset.id, false, false, false, false,
+					FaceAnimation::FaceUpdateHook::RequestSource::kDynamicExpression, intensity });
+			}
+		});
+		return NAFEXT_OK;
+	}
+
+	inline NAFExtResult NAFEXT_CALL ReleaseExpression(std::uint32_t actorFormID, std::uint32_t options)
+	{
+		if (const auto validation = ValidateFaceRequest(actorFormID); validation != NAFEXT_OK) return validation;
+		if (options != 0) return NAFEXT_E_UNSUPPORTED;
+		const auto generation = FaceAnimation::FaceUpdateHook::nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
+		FaceAnimation::FaceUpdateHook::SetRequestState(actorFormID, {
+			FaceAnimation::FaceUpdateHook::RequestStatus::kResetPending, generation, {}, false, false, false, false,
+			FaceAnimation::FaceUpdateHook::RequestSource::kDynamicExpression, 0.0f });
+		F4SE::GetTaskInterface()->AddTask([actorFormID, generation]() {
+			if (auto actor = ResolveActor(actorFormID); actor) {
+				FaceAnimation::FaceUpdateHook::ReleaseExpression(actor->GetActorHandle(), generation);
+			} else {
+				FaceAnimation::FaceUpdateHook::SetRequestStateIfCurrent(actorFormID, generation, {
+					FaceAnimation::FaceUpdateHook::RequestStatus::kFailed, generation, {}, false, false, false, false,
+					FaceAnimation::FaceUpdateHook::RequestSource::kDynamicExpression, 0.0f });
+			}
+		});
+		return NAFEXT_OK;
+	}
+
+	inline NAFExtResult NAFEXT_CALL GetExpressionState(std::uint32_t actorFormID, NAFExtExpressionState* output,
+		char* presetBuffer, std::uint32_t presetBufferSize, std::uint32_t* requiredSize)
+	{
+		if (!actorFormID || !output || output->struct_size < sizeof(NAFExtExpressionState) || !requiredSize) return NAFEXT_E_INVALID_ARGUMENT;
+		const auto state = FaceAnimation::FaceUpdateHook::GetRequestState(actorFormID);
+		if (!state) return NAFEXT_E_NOT_FOUND;
+		const bool dynamic = state->source == FaceAnimation::FaceUpdateHook::RequestSource::kDynamicExpression;
+		const bool authored = state->source == FaceAnimation::FaceUpdateHook::RequestSource::kAuthoredAnimation;
+		const std::string id = dynamic ? state->animationId : std::string{};
+		*requiredSize = static_cast<std::uint32_t>(id.size());
+		*output = { sizeof(NAFExtExpressionState), NAFEXT_EXPRESSION_STATE_VERSION_1, actorFormID,
+			authored ? NAFEXT_FACE_CANCELED : static_cast<std::uint32_t>(state->status), state->generation,
+			dynamic ? state->intensity : 0.0f,
+			(state->managed && dynamic ? NAFEXT_FACE_FLAG_MANAGED : 0u) |
+				(state->faceDataAvailable ? NAFEXT_FACE_FLAG_FACE_DATA_AVAILABLE : 0u) |
+				(authored ? NAFEXT_FACE_FLAG_AUTHORED_SOURCE : 0u),
+			static_cast<std::uint32_t>(id.size()), 0 };
+		if (id.empty()) return NAFEXT_OK;
+		if (!presetBuffer || presetBufferSize < id.size()) return NAFEXT_E_BUFFER_TOO_SMALL;
+		std::memcpy(presetBuffer, id.data(), id.size());
+		return NAFEXT_OK;
+	}
+
 	inline const NAFExtAPIv1 api{
 		sizeof(NAFExtAPIv1), NAFEXT_ABI_VERSION_1, kCapabilities, &GetProviderInfo, &Subscribe, &Unsubscribe, &Enumerate, &GetSnapshotSize, &CopySnapshot
 	};
@@ -556,6 +637,12 @@ namespace NAFExtended::NativeAPI
 	inline const NAFExtFaceAPIv1 faceAPI{
 		sizeof(NAFExtFaceAPIv1), NAFEXT_FACE_API_VERSION_1, kFaceCapabilities,
 		&PlayFace, &StopFace, &ResetFace, &GetFaceState
+	};
+
+	inline const NAFExtFaceAPIv2 faceAPIv2{
+		sizeof(NAFExtFaceAPIv2), NAFEXT_FACE_API_VERSION_2, kFaceCapabilitiesV2,
+		&PlayFace, &StopFace, &ResetFace, &GetFaceState,
+		&RequestExpression, &ReleaseExpression, &GetExpressionState
 	};
 
 	inline void Announce()
@@ -590,4 +677,10 @@ extern "C" __declspec(dllexport) const NAFExtFaceAPIv1* NAFEXT_CALL NAFExt_GetFa
 {
 	if (requestedVersion != NAFEXT_FACE_API_VERSION_1 || callerTableSize < sizeof(NAFExtFaceAPIv1)) return nullptr;
 	return &NAFExtended::NativeAPI::faceAPI;
+}
+
+extern "C" __declspec(dllexport) const NAFExtFaceAPIv2* NAFEXT_CALL NAFExt_GetFaceAPIv2(std::uint32_t requestedVersion, std::uint32_t callerTableSize)
+{
+	if (requestedVersion != NAFEXT_FACE_API_VERSION_2 || callerTableSize < sizeof(NAFExtFaceAPIv2)) return nullptr;
+	return &NAFExtended::NativeAPI::faceAPIv2;
 }

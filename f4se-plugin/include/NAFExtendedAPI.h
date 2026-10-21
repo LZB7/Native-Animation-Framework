@@ -23,7 +23,9 @@ extern "C" {
 #define NAFEXT_ABI_VERSION_1 1u
 #define NAFEXT_SNAPSHOT_VERSION_1 1u
 #define NAFEXT_FACE_API_VERSION_1 1u
+#define NAFEXT_FACE_API_VERSION_2 2u
 #define NAFEXT_FACE_STATE_VERSION_1 1u
+#define NAFEXT_EXPRESSION_STATE_VERSION_1 1u
 #define NAFEXT_DISCOVERY_MESSAGE_TYPE UINT32_C(0x5846414E) /* 'NAFX' */
 #define NAFEXT_PROVIDER_ID "LZB7.NAF.Extended"
 
@@ -52,7 +54,11 @@ typedef enum NAFExtCapability {
     NAFEXT_CAP_FACE_PLAYBACK = UINT64_C(1) << 7,
     NAFEXT_CAP_FACE_STOP = UINT64_C(1) << 8,
     NAFEXT_CAP_FACE_RESET = UINT64_C(1) << 9,
-    NAFEXT_CAP_FACE_QUERY = UINT64_C(1) << 10
+    NAFEXT_CAP_FACE_QUERY = UINT64_C(1) << 10,
+    NAFEXT_CAP_EXPRESSION_PRESETS = UINT64_C(1) << 11,
+    NAFEXT_CAP_EXPRESSION_INTENSITY = UINT64_C(1) << 12,
+    NAFEXT_CAP_EXPRESSION_RELEASE = UINT64_C(1) << 13,
+    NAFEXT_CAP_EXPRESSION_QUERY = UINT64_C(1) << 14
 } NAFExtCapability;
 
 typedef enum NAFExtFaceStatus {
@@ -70,7 +76,8 @@ typedef enum NAFExtFaceStateFlag {
     NAFEXT_FACE_FLAG_MANAGED = 1u << 0,
     NAFEXT_FACE_FLAG_FACE_DATA_AVAILABLE = 1u << 1,
     NAFEXT_FACE_FLAG_LOOP = 1u << 2,
-    NAFEXT_FACE_FLAG_HAVOK_SYNC = 1u << 3
+    NAFEXT_FACE_FLAG_HAVOK_SYNC = 1u << 3,
+    NAFEXT_FACE_FLAG_AUTHORED_SOURCE = 1u << 4
 } NAFExtFaceStateFlag;
 
 typedef enum NAFExtScenePhase {
@@ -252,6 +259,33 @@ typedef struct NAFExtFaceAPIv1 {
     NAFExtResult (NAFEXT_CALL *get_face_animation_state)(uint32_t, NAFExtFaceState*, char*, uint32_t, uint32_t*);
 } NAFExtFaceAPIv1;
 
+typedef struct NAFExtExpressionState {
+    uint32_t struct_size;
+    uint32_t state_version;
+    uint32_t actor_form_id;
+    uint32_t status; /* NAFExtFaceStatus */
+    uint64_t request_generation;
+    float requested_intensity;
+    uint32_t flags; /* NAFExtFaceStateFlag */
+    uint32_t preset_id_length;
+    uint32_t reserved;
+} NAFExtExpressionState;
+
+/* v2 repeats the v1 prefix so consumers can validate it independently without
+   relying on C structure inheritance. options must be zero in this version. */
+typedef struct NAFExtFaceAPIv2 {
+    uint32_t struct_size;
+    uint32_t service_version;
+    uint64_t capabilities;
+    NAFExtResult (NAFEXT_CALL *play_face_animation)(uint32_t, NAFExtStringView, uint32_t, uint32_t);
+    NAFExtResult (NAFEXT_CALL *stop_face_animation)(uint32_t);
+    NAFExtResult (NAFEXT_CALL *reset_face_expression)(uint32_t);
+    NAFExtResult (NAFEXT_CALL *get_face_animation_state)(uint32_t, NAFExtFaceState*, char*, uint32_t, uint32_t*);
+    NAFExtResult (NAFEXT_CALL *request_expression)(uint32_t, NAFExtStringView, float, uint32_t);
+    NAFExtResult (NAFEXT_CALL *release_expression)(uint32_t, uint32_t);
+    NAFExtResult (NAFEXT_CALL *get_expression_state)(uint32_t, NAFExtExpressionState*, char*, uint32_t, uint32_t*);
+} NAFExtFaceAPIv2;
+
 /* Snapshot retention contract:
    - callback NAFExtSceneSnapshotView pointers expire when the callback returns;
    - call get_scene_snapshot_size(id, revision), allocate that many bytes, then
@@ -269,8 +303,10 @@ typedef struct NAFExtAnnouncement {
 
 typedef const NAFExtAPIv1* (NAFEXT_CALL *NAFExtGetAPIFn)(uint32_t requested_abi, uint32_t caller_table_size);
 typedef const NAFExtFaceAPIv1* (NAFEXT_CALL *NAFExtGetFaceAPIFn)(uint32_t requested_version, uint32_t caller_table_size);
+typedef const NAFExtFaceAPIv2* (NAFEXT_CALL *NAFExtGetFaceAPIv2Fn)(uint32_t requested_version, uint32_t caller_table_size);
 NAFEXT_EXPORT const NAFExtAPIv1* NAFEXT_CALL NAFExt_GetAPI(uint32_t requested_abi, uint32_t caller_table_size);
 NAFEXT_EXPORT const NAFExtFaceAPIv1* NAFEXT_CALL NAFExt_GetFaceAPI(uint32_t requested_version, uint32_t caller_table_size);
+NAFEXT_EXPORT const NAFExtFaceAPIv2* NAFEXT_CALL NAFExt_GetFaceAPIv2(uint32_t requested_version, uint32_t caller_table_size);
 
 #ifdef __cplusplus
 }
