@@ -1,5 +1,40 @@
 # NAF Extended port notes
 
+## Phase 3B: independent native managed-face service
+
+The established `NAFExtAPIv1` scene table remains byte-for-byte additive-safe:
+no field or offset changed. Four new capability bits advertise a separately
+negotiated `NAFExtFaceAPIv1`, acquired through `NAFExt_GetFaceAPI`. The service
+uses only fixed-width C types, `NAFExtStringView`, caller-owned query buffers,
+and current-session actor FormIDs. It exposes authored face play, legacy stop,
+the shared Phase-3A reset, and synchronized managed-state queries without
+requiring scene subscriptions, Papyrus, CommonLibF4RD linkage, or private NAF
+headers.
+
+Mutations copy arguments and enter through the F4SE task interface; authored
+data loading remains asynchronous. Actor-level generation tracking prevents a
+late A load from overwriting B or a later reset. Query results distinguish
+pending play, active ownership, pending reset, stop, completion, cancellation,
+and detectable failure, and report the selected ID and known face-data state.
+This remains a one-controller-per-actor, last-valid-request-wins model rather
+than pretending that external plugins have independent ownership. Revert clears
+the transient query/request ledger, and Set3D refreshes face-data availability.
+
+`FRST` remains provisional. The HFE investigation proved that its one-load
+marker saves, resolves, applies, and is consumed, but HFE—not NAF—caused the
+observed post-load replay. Only a controlled no-HFE A/B run can demonstrate
+whether cross-save reset persistence is necessary. Until that run, retaining
+the known-working record is safer than removing it. The transient reset and
+generation invalidation are required independently. A valid newer face request
+now removes an older reset marker at request acceptance, preventing the marker
+from overriding legitimate new work if a save occurs while loading.
+
+The independent harness negotiates both services only after entering a game.
+Its F6-F12 controls deliberately exercise play A/B, state query, stop, reset,
+A-to-B supersession, and A-to-reset supersession. It still has no CommonLib or
+Runtime Database dependency and performs no automatic facial mutation on load.
+In-game behavior remains user-test-required.
+
 ## Phase 3A: compiled Papyrus extension and facial-reset persistence
 
 The Extended `NAF.psc` preserves the 45 upstream native declarations exactly
