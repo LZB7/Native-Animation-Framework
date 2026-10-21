@@ -1,5 +1,20 @@
 # NAF Extended port notes
 
+## Phase 4: deterministic furniture-group merging
+
+Furniture definitions sharing a case-insensitive group ID now aggregate through
+a furniture-specific registry instead of generic whole-object
+`priority_insert`. Forms and keywords merge additively and deduplicate first by
+canonical source identity, then by resolved form/keyword pointer. Higher
+`loadPriority` selects the complete start/stop metadata pair; equal priority is
+resolved by normalized lexical source path. Finalized entry ordering is stable
+regardless of parallel XML parse completion.
+
+The XML cache continues to store filename/source text, so cold and warm loads
+run the same merge. Hot reload clears and reconstructs the registry, preventing
+stale or cumulative contributions. Other ID registries retain original
+replacement semantics. See `docs/NAF_EXTENDED_FURNITURE_MERGING.md`.
+
 ## Phase 3C: reusable dynamic expressions
 
 Phase 3C adds cached `.nafexpr.json` expression presets and an additive
