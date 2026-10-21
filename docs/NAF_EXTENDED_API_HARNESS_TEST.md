@@ -31,6 +31,29 @@ The harness is a development tool and must not be shipped with NAF Extended.
    successful final unregistration.
 8. Remove `NAFExtAPITest.dll` after testing.
 
+## Phase 3B facial-service controls
+
+Copy `NAFExtAPITest.face.txt` beside the harness at
+`Data/F4SE/Plugins/NAFExtAPITest.face.txt` and replace its two placeholder
+lines with two valid authored face-animation IDs. After loading a save, the
+harness acquires the optional facial table but performs no facial action until
+a key is pressed:
+
+- F6: play animation A on PlayerCharacter (`0x14`)
+- F7: play animation B
+- F8: query and log managed state
+- F9: legacy stop
+- F10: strong expression reset
+- F11: request A and B immediately (B must win)
+- F12: request A and immediately reset (A must not reappear)
+
+The harness uses a small independent polling thread intentionally: this tests
+the service's documented arbitrary-caller-thread queueing contract. It does not
+link CommonLibF4RD, initialize Runtime Database, resolve engine pointers, or
+perform automatic playback on load. Successful discovery logs the facial
+service version, table size, capability mask, and four controlled negotiation
+rejections. Query success logs status, generation, flags, and animation ID.
+
 ## Missing-provider test
 
 In a separate disposable profile, leave the harness installed and omit

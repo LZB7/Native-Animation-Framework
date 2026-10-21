@@ -7,9 +7,11 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -124,11 +126,17 @@ namespace logger
 namespace
 {
 	const NAFExtAPIv1* api{};
+	const NAFExtFaceAPIv1* faceAPI{};
 	NAFExtSubscription subscription{};
 	std::mutex stateLock;
 	std::mutex retainedLock;
 	std::vector<std::byte> retainedSnapshot;
 	std::atomic_bool deliberatelyUnregistered{};
+	std::atomic_bool controlsStarted{};
+	std::atomic_bool controlsStop{};
+	std::string faceAnimationA;
+	std::string faceAnimationB;
+	constexpr std::uint32_t kPlayerFormID = 0x14;
 
 	std::string ToString(NAFExtStringView value)
 	{
@@ -158,6 +166,86 @@ namespace
 		NAFExtProviderInfo info{ sizeof(info) };
 		if (candidate->get_provider_info(&info) != NAFEXT_OK || info.abi_version != NAFEXT_ABI_VERSION_1) return false;
 		return !strictProvider || ToString(info.provider_id) == NAFEXT_PROVIDER_ID;
+	}
+
+	bool ValidateFace(const NAFExtFaceAPIv1* candidate)
+	{
+		constexpr auto required = NAFEXT_CAP_FACE_PLAYBACK | NAFEXT_CAP_FACE_STOP | NAFEXT_CAP_FACE_RESET | NAFEXT_CAP_FACE_QUERY;
+		return candidate && candidate->struct_size >= sizeof(NAFExtFaceAPIv1) &&
+			candidate->service_version == NAFEXT_FACE_API_VERSION_1 && (candidate->capabilities & required) == required &&
+			candidate->play_face_animation && candidate->stop_face_animation && candidate->reset_face_expression &&
+			candidate->get_face_animation_state;
+	}
+
+	const char* FaceStatusName(std::uint32_t status)
+	{
+		switch (status) {
+		case NAFEXT_FACE_IDLE: return "Idle";
+		case NAFEXT_FACE_PLAY_PENDING: return "PlayPending";
+		case NAFEXT_FACE_ACTIVE: return "Active";
+		case NAFEXT_FACE_RESET_PENDING: return "ResetPending";
+		case NAFEXT_FACE_STOPPED: return "Stopped";
+		case NAFEXT_FACE_COMPLETED: return "Completed";
+		case NAFEXT_FACE_CANCELED: return "Canceled";
+		case NAFEXT_FACE_FAILED: return "Failed";
+		default: return "Unknown";
+		}
+	}
+
+	void QueryFaceState()
+	{
+		if (!faceAPI) return;
+		NAFExtFaceState state{ sizeof(state) };
+		std::uint32_t required{};
+		auto result = faceAPI->get_face_animation_state(kPlayerFormID, &state, nullptr, 0, &required);
+		std::vector<char> animation(required);
+		if (result == NAFEXT_E_BUFFER_TOO_SMALL) {
+			state.struct_size = sizeof(state);
+			result = faceAPI->get_face_animation_state(kPlayerFormID, &state, animation.data(), required, &required);
+		}
+		const std::string id(animation.begin(), animation.end());
+		logger::info("Face query result={} status={} generation={} flags=0x{:X} animation='{}'",
+			static_cast<unsigned>(result), FaceStatusName(state.status), state.request_generation, state.flags, id);
+	}
+
+	void PlayFace(const std::string& id)
+	{
+		if (!faceAPI || id.empty()) {
+			logger::warn("Face play skipped: facial service or configured animation ID is unavailable");
+			return;
+		}
+		const NAFExtStringView view{ id.data(), static_cast<std::uint32_t>(id.size()) };
+		logger::info("Face play '{}' accepted result={}", id,
+			static_cast<unsigned>(faceAPI->play_face_animation(kPlayerFormID, view, 1, 0)));
+	}
+
+	void LoadFaceFixture()
+	{
+		std::ifstream input("Data/F4SE/Plugins/NAFExtAPITest.face.txt");
+		auto nextID = [&]() {
+			std::string value;
+			while (std::getline(input, value)) if (!value.empty() && value.front() != '#') return value;
+			return std::string{};
+		};
+		faceAnimationA = nextID();
+		faceAnimationB = nextID();
+		logger::info("Facial test fixture loaded: animationA='{}' animationB='{}'", faceAnimationA, faceAnimationB);
+	}
+
+	void FacialControlLoop()
+	{
+		LoadFaceFixture();
+		logger::WriteRaw("INFO", "Facial controls ready: F6=play A, F7=play B, F8=query, F9=stop, F10=reset, F11=A then B, F12=A then reset");
+		while (!controlsStop.load(std::memory_order_acquire)) {
+			if (GetAsyncKeyState(VK_F6) & 1) PlayFace(faceAnimationA);
+			if (GetAsyncKeyState(VK_F7) & 1) PlayFace(faceAnimationB);
+			if (GetAsyncKeyState(VK_F8) & 1) QueryFaceState();
+			if (GetAsyncKeyState(VK_F9) & 1) logger::info("Face stop accepted result={}", static_cast<unsigned>(faceAPI->stop_face_animation(kPlayerFormID)));
+			if (GetAsyncKeyState(VK_F10) & 1) logger::info("Face reset accepted result={}", static_cast<unsigned>(faceAPI->reset_face_expression(kPlayerFormID)));
+			if (GetAsyncKeyState(VK_F11) & 1) { PlayFace(faceAnimationA); PlayFace(faceAnimationB); }
+			if (GetAsyncKeyState(VK_F12) & 1) { PlayFace(faceAnimationA); faceAPI->reset_face_expression(kPlayerFormID); }
+			Sleep(50);
+		}
 	}
 
 	bool ValidatePacked(const std::vector<std::byte>& bytes)
@@ -313,6 +401,26 @@ namespace
 			return;
 		}
 		Acquire(getAPI(NAFEXT_ABI_VERSION_1, sizeof(NAFExtAPIv1)), "NAFExt_GetAPI export");
+		const auto getFaceAPI = reinterpret_cast<NAFExtGetFaceAPIFn>(GetProcAddress(module, "NAFExt_GetFaceAPI"));
+		if (!getFaceAPI || !ValidateFace(getFaceAPI(NAFEXT_FACE_API_VERSION_1, sizeof(NAFExtFaceAPIv1)))) {
+			logger::warn("Optional facial service is unavailable or incompatible");
+			return;
+		}
+		faceAPI = getFaceAPI(NAFEXT_FACE_API_VERSION_1, sizeof(NAFExtFaceAPIv1));
+		auto incompatibleFace = *faceAPI;
+		incompatibleFace.service_version = NAFEXT_FACE_API_VERSION_1 + 1;
+		const bool faceVersionRejected = !ValidateFace(&incompatibleFace);
+		incompatibleFace = *faceAPI;
+		incompatibleFace.struct_size = sizeof(NAFExtFaceAPIv1) - 1;
+		const bool faceSizeRejected = !ValidateFace(&incompatibleFace);
+		incompatibleFace = *faceAPI;
+		incompatibleFace.capabilities &= ~NAFEXT_CAP_FACE_RESET;
+		const bool faceCapabilityRejected = !ValidateFace(&incompatibleFace);
+		logger::info("Facial negotiation tests: unavailable={} unsupportedVersion={} undersized={} missingCapability={}",
+			!ValidateFace(nullptr), faceVersionRejected, faceSizeRejected, faceCapabilityRejected);
+		logger::info("Acquired facial service v{} tableSize={} capabilities=0x{:X}", faceAPI->service_version,
+			faceAPI->struct_size, faceAPI->capabilities);
+		if (!controlsStarted.exchange(true)) std::thread(FacialControlLoop).detach();
 	}
 
 	void __cdecl OnF4SEMessage(F4SERaw::Message* message)
@@ -357,6 +465,7 @@ extern "C" __declspec(dllexport) bool __cdecl F4SEPlugin_Load(const F4SERaw::Int
 
 extern "C" __declspec(dllexport) void NAFEXT_CALL NAFExtAPITest_Shutdown()
 {
+	controlsStop.store(true, std::memory_order_release);
 	std::scoped_lock lock{ stateLock };
 	if (api && subscription) api->unsubscribe_scene_events(subscription);
 	subscription = 0;

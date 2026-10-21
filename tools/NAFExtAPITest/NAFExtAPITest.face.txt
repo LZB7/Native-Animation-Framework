@@ -1,0 +1,3 @@
+# Replace the two lines below with authored face-animation IDs present in your NAF data.
+FaceAnimationA
+FaceAnimationB
