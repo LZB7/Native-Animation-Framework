@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<furnitureData>
+  <group id="Phase4SharedFurniture" loadPriority="10" stopAnimation="ChairSitExit">
+    <furniture source="Fallout4.esm" form="0006F9DC" />
+    <furniture source="Fallout4.esm" form="0023C9C4" />
+    <furniture keyword="AnimFurnChairSitAnims" />
+    <furniture keyword="IsSleepFurniture" />
+  </group>
+</furnitureData>

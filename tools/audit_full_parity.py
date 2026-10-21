@@ -65,6 +65,7 @@ def main() -> None:
 		"audit_phase3a_face_reset.py",
 		"audit_phase3b_facial_api.py",
 		"audit_phase3c_dynamic_expressions.py",
+		"audit_furniture_merging.py",
     }
     missing_audits = sorted(name for name in phase_d_audits if not (ROOT / "tools" / name).is_file())
     if missing_audits:
@@ -73,7 +74,7 @@ def main() -> None:
     print(
         "PASS: full-parity ledger tracks restored Phase-B surfaces, all 45 Papyrus bindings, "
         "managed-face lifecycle, active BODY/FACE v5 restoration, Phase-D menu accessibility, "
-        "all nine authoring audits, and release-candidate invariants"
+        "all authoring/Extended subsystem audits including deterministic furniture merging, and release-candidate invariants"
     )
 
 

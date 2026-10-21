@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<furnitureData>
+  <group id="Phase4UniqueFurniture" loadPriority="0">
+    <furniture source="Fallout4.esm" form="0023C9C5" />
+  </group>
+</furnitureData>

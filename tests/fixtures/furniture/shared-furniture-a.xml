@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<furnitureData>
+  <group id="Phase4SharedFurniture" loadPriority="0" startAnimation="ChairSitEnter">
+    <furniture source="Fallout4.esm" form="0006F9DC" />
+    <furniture source="Fallout4.esm" form="001340D3" />
+    <furniture keyword="AnimFurnChairSitAnims" />
+  </group>
+</furnitureData>

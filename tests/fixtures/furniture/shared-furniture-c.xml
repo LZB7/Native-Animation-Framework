@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<furnitureData>
+  <group id="Phase4SharedFurniture" loadPriority="10" startAnimation="Phase4LexicalWinner">
+    <furniture source="Fallout4.esm" form="000AB568" />
+    <furniture keyword="AnimFurnChairWithRadio" />
+  </group>
+</furnitureData>
