@@ -1,6 +1,6 @@
 # NAF Extended port notes
 
-## Phase 3A: compiled Papyrus extension and facial-reset persistence diagnostics
+## Phase 3A: compiled Papyrus extension and facial-reset persistence
 
 The Extended `NAF.psc` preserves the 45 upstream native declarations exactly
 and adds one global native, `Bool Function ResetFaceExpression(Actor akActor)`.
@@ -20,26 +20,30 @@ rejects a method absent from an installed PEX. This required changing the
 CommonLibF4RD convenience template to return the underlying virtual call's
 existing boolean result without changing the engine ABI.
 
-The October 20 reproduction proves that an `FRST` record exists: saves made
-after reset wrote ten active records and subsequent loads read ten rather than
-the nine historical v5 records. It does not prove that the record contained the
-player marker or that the reset happened after final engine FaceGen state
-reconstruction. A diagnostic build therefore records only bounded lifecycle
-events: reset request/generation, FRST marker count and safe identities,
-post-load resolution/face-data readiness, task completion/consumption, Set3D,
-new external face-animation requests, and at most eight post-reset FaceGen
-samples (ending immediately if a non-neutral `finalExp` reappears). No timer,
-permanent zeroing loop, or second persistence mechanism was added. The nine
-historical v5 records and the independently versioned FRST v1 schema are
-unchanged.
+The October 20 controlled reproduction verified the complete `FRST` lifecycle:
+the save contained one player marker, load resolved that actor and its face
+data, the world-ready task cleared `finalExp`, and the one-load marker was
+consumed. The first post-reset FaceGen samples were effectively neutral. About
+2.4 seconds after fixup, Hit Facial Expression explicitly requested a new
+`PlayFaceAnimation` (`DEP01` in the first recorded cycle and `DEP03` in the
+second). This matches HFE's `LoadGame()` script sequence: wait 2.0 seconds,
+call `NAF.StopFaceAnimation(PlayerRef)`, wait 0.5 seconds, then replay a damage
+expression when its stored `Cripple` Boolean is true. The same explicit replay
+also occurred on a load without an `FRST` record.
 
-The next controlled run must install the matching DLL and PEX, confirm separate
-45+1 registration success, reset the affected player, save to a new slot, exit
-fully, and reload. The resulting bounded log will distinguish: missing/empty
-FRST data, failed actor/face-data resolution, premature marker consumption,
-an engine FaceGen overwrite after completion, or a new HFE/other Papyrus
-`PlayFaceAnimation` request. Phase 3B and Phase 3C remain deferred until this
-evidence identifies the Phase 3A lifecycle fault.
+The persistence mechanism is therefore functioning as designed; the apparent
+post-load reset failure is caused by HFE retaining its own `Cripple` script
+state and issuing a fresh request, not by stale NAF ownership, premature marker
+consumption, actor readiness, or asynchronous reinstallation of an old NAF
+request. NAF must accept a new explicit `PlayFaceAnimation` call, so suppressing
+it after reset would break public API semantics and other consumers. HFE should
+revalidate the player's current cripple/damage condition (or clear its stored
+flag) before the delayed replay. Nonzero `finalExp` values produced by later
+ordinary engine FaceGen composition are not by themselves evidence that the
+pain animation was restored; engine-owned `baseExp` and `modExp` remain
+untouched intentionally. The bounded diagnostic logging used to establish this
+ordering has been removed from the production source. The nine historical v5
+records and the independently versioned `FRST` v1 schema remain unchanged.
 
 ## Phase 2C: normalized pack cache, actor semantics, and lifecycle ordering
 

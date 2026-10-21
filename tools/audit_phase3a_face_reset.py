@@ -65,21 +65,16 @@ def main() -> None:
     if bindings.count("PAPYRUS_BIND(") != 46:  # macro definition plus 45 upstream call sites
         raise SystemExit("FAIL: upstream Papyrus binding count changed")
 
-    diagnostics = (
-        "Face-reset diagnostic: request",
-        "Face-reset diagnostic: post-load fixup",
-        "Face-reset diagnostic: post-reset FaceGen update",
-        "Face-reset diagnostic: incoming face-animation request",
-    )
-    for token in diagnostics:
-        require(face, token, "bounded Phase 3A diagnostics")
+    if "Face-reset diagnostic:" in face or "Face-reset diagnostic:" in serialization:
+        raise SystemExit("FAIL: bounded Phase 3A diagnostic logging remains in production source")
 
     if "std::fill(std::begin(data->baseExp.exp)" in face or "std::fill(std::begin(data->modExp.exp)" in face:
         raise SystemExit("FAIL: reset must not erase engine-owned baseExp/modExp")
 
     print("PASS: Phase 3A reset invalidates pending loads, removes persistent NAF ownership, "
           "neutralizes only finalExp under the FaceGen lock, preserves legacy stop semantics, "
-          "persists a one-load reset marker, and is exposed through Papyrus and the NAF Settings menu")
+          "persists a one-load reset marker, is exposed through Papyrus and the NAF Settings menu, "
+          "and contains no bounded diagnostic logging")
 
 
 if __name__ == "__main__":

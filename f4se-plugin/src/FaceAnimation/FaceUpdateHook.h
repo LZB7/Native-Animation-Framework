@@ -104,14 +104,6 @@ namespace FaceAnimation
 		static std::unordered_map<SerializableActorHandle, PendingRequest> loadingAnims;
 		inline static std::atomic<std::uint64_t> nextRequestGeneration{ 1 };
 		static std::mutex loadingAnimsLock;
-		struct ResetObservation
-		{
-			SerializableActorHandle actor;
-			std::uint64_t generation{ 0 };
-			std::uint8_t samplesRemaining{ 8 };
-		};
-		inline static std::unordered_map<RE::BSFaceGenAnimationData*, ResetObservation> resetObservations;
-		static std::mutex resetObservationsLock;
 		static std::unordered_map<SerializableActorHandle, RE::NiPointer<RE::BSGeometry>> eyeGeoCache;
 		static std::shared_mutex geoCacheLock;
 
@@ -214,26 +206,6 @@ namespace FaceAnimation
 		bool HookedUpdate(RE::BSFaceGenAnimationData* data, float timeDelta, bool force)
 		{
 			bool result = OriginalUpdate(data, timeDelta, force);
-			{
-				std::scoped_lock diagnosticLock{ resetObservationsLock };
-				auto observation = resetObservations.find(data);
-				if (observation != resetObservations.end()) {
-					float maxMagnitude = 0.0f;
-					{
-						RE::BSAutoLock faceLock{ data->instanceData.lock };
-						for (const auto value : data->finalExp.exp) {
-							maxMagnitude = (std::max)(maxMagnitude, std::abs(value));
-						}
-					}
-					auto actor = observation->second.actor.get();
-					logger::info("Face-reset diagnostic: post-reset FaceGen update actor={:08X} generation={} maxFinalExp={:.6f} samplesRemaining={}",
-						actor ? actor->formID : 0, observation->second.generation, maxMagnitude,
-						observation->second.samplesRemaining);
-					if (maxMagnitude > 0.0001f || --observation->second.samplesRemaining == 0) {
-						resetObservations.erase(observation);
-					}
-				}
-			}
 			std::shared_lock l{ stateLock };
 
 			if (auto h = IsDataManaged(data); h) {
@@ -315,14 +287,6 @@ namespace FaceAnimation
 			newAnim->havokSync = havokSync;
 
 			const auto generation = nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
-			const auto actor = targetActor.get();
-			bool pendingReset = false;
-			{
-				std::scoped_lock resetLock{ resetStateLock };
-				pendingReset = resetState->pendingResets.contains(targetActor);
-			}
-			logger::info("Face-reset diagnostic: incoming face-animation request actor={:08X} animation='{}' generation={} pendingReset={}",
-				actor ? actor->formID : 0, id, generation, pendingReset);
 			std::unique_lock l{ loadingAnimsLock };
 			loadingAnims[targetActor] = PendingRequest{ PendingRequestKind::kLoad, id, generation };
 			l.unlock();
@@ -378,24 +342,18 @@ namespace FaceAnimation
 		// and are left untouched so the next vanilla update can resume normal composition.
 		bool ResetFaceExpression(RE::ActorHandle targetActor, bool persistAcrossLoad = true)
 		{
-			auto requestedActor = targetActor.get();
-			if (!requestedActor) {
+			if (!targetActor.get()) {
 				return false;
 			}
 
 			const auto generation = nextRequestGeneration.fetch_add(1, std::memory_order_relaxed);
 			bool resetEyes = false;
-			bool hadManagedState = false;
-			bool replacedPendingRequest = false;
-			bool hadFaceData = false;
 			{
 				std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock };
-				replacedPendingRequest = loadingAnims.contains(targetActor);
 				loadingAnims[targetActor] = PendingRequest{ PendingRequestKind::kReset, {}, generation };
 
 				auto managed = state->managedAnims.find(targetActor);
 				if (managed != state->managedAnims.end()) {
-					hadManagedState = true;
 					resetEyes = managed->second.eyeOverride.has_value();
 					if (managed->second.anim) {
 						for (const auto& timeline : managed->second.anim->data.timelines) {
@@ -406,24 +364,18 @@ namespace FaceAnimation
 
 				EraseManagedActor_NonThreadSafe(targetActor);
 				eyeGeoCache.erase(targetActor);
-				hadFaceData = GameUtil::GetFaceAnimData(requestedActor.get()) != nullptr;
 			}
 			if (persistAcrossLoad) {
 				std::scoped_lock l{ resetStateLock };
 				resetState->pendingResets.insert(targetActor);
 			}
-			logger::info("Face-reset diagnostic: request actor={:08X} generation={} persist={} managed={} replacedPending={} eyeOverride={} faceData={}",
-				requestedActor->formID, generation, persistAcrossLoad, hadManagedState,
-				replacedPendingRequest, resetEyes, hadFaceData);
-
-			F4SE::GetTaskInterface()->AddTask([targetActor, generation, resetEyes, consumePersistence = !persistAcrossLoad]() mutable {
+			F4SE::GetTaskInterface()->AddTask([targetActor, generation, resetEyes, consumePersistence = !persistAcrossLoad]() {
 				{
 					std::unique_lock l{ loadingAnimsLock };
 					auto pending = loadingAnims.find(targetActor);
 					if (pending == loadingAnims.end() ||
 						pending->second.kind != PendingRequestKind::kReset ||
 						pending->second.generation != generation) {
-						logger::info("Face-reset diagnostic: task cancelled actorHandle={:08X} generation={}", targetActor.native_handle(), generation);
 						return;
 					}
 					loadingAnims.erase(pending);
@@ -431,26 +383,16 @@ namespace FaceAnimation
 
 				auto actor = targetActor.get();
 				if (!actor) {
-					logger::info("Face-reset diagnostic: task deferred actorHandle={:08X} generation={} reason=actor-unresolved", targetActor.native_handle(), generation);
 					return;
 				}
 				auto data = GameUtil::GetFaceAnimData(actor.get());
 				if (!data) {
-					logger::info("Face-reset diagnostic: task deferred actor={:08X} generation={} reason=face-data-unavailable", actor->formID, generation);
 					return;
 				}
 
-				float beforeMagnitude = 0.0f;
 				{
 					RE::BSAutoLock l{ data->instanceData.lock };
-					for (const auto value : data->finalExp.exp) {
-						beforeMagnitude = (std::max)(beforeMagnitude, std::abs(value));
-					}
 					std::fill(std::begin(data->finalExp.exp), std::end(data->finalExp.exp), 0.0f);
-				}
-				{
-					std::scoped_lock diagnosticLock{ resetObservationsLock };
-					resetObservations[data] = ResetObservation{ targetActor, generation, 8 };
 				}
 
 				if (resetEyes) {
@@ -461,12 +403,7 @@ namespace FaceAnimation
 
 				if (consumePersistence) {
 					std::scoped_lock l{ resetStateLock };
-					const auto consumed = resetState->pendingResets.erase(targetActor) > 0;
-					logger::info("Face-reset diagnostic: task completed actor={:08X} generation={} beforeMaxFinalExp={:.6f} markerConsumed={}",
-						actor->formID, generation, beforeMagnitude, consumed);
-				} else {
-					logger::info("Face-reset diagnostic: task completed actor={:08X} generation={} beforeMaxFinalExp={:.6f} markerRetained=true",
-						actor->formID, generation, beforeMagnitude);
+					resetState->pendingResets.erase(targetActor);
 				}
 			});
 
@@ -481,12 +418,7 @@ namespace FaceAnimation
 				pending.reserve(resetState->pendingResets.size());
 				pending.insert(pending.end(), resetState->pendingResets.begin(), resetState->pendingResets.end());
 			}
-			logger::info("Face-reset diagnostic: post-load fixup applying {} pending reset marker(s)", pending.size());
 			for (const auto& handle : pending) {
-				auto actor = handle.get();
-				logger::info("Face-reset diagnostic: post-load marker actorHandle={:08X} actor={:08X} resolved={} faceData={}",
-					handle.hash(), actor ? actor->formID : 0, static_cast<bool>(actor),
-					actor && GameUtil::GetFaceAnimData(actor.get()) != nullptr);
 				ResetFaceExpression(handle, false);
 			}
 		}
@@ -529,12 +461,11 @@ namespace FaceAnimation
 		}
 
 		void Reset() {
-			std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock, resetStateLock, resetObservationsLock };
+			std::scoped_lock l{ loadingAnimsLock, stateLock, geoCacheLock, resetStateLock };
 			state = std::make_unique<PersistentState>();
 			resetState = std::make_unique<ResetPersistentState>();
 			loadingAnims.clear();
 			eyeGeoCache.clear();
-			resetObservations.clear();
 		}
 
 		void OnSet3D(RE::TESObjectREFR* a_ref)
@@ -547,8 +478,6 @@ namespace FaceAnimation
 			{
 				std::scoped_lock resetLock{ resetStateLock };
 				if (resetState->pendingResets.contains(handle)) {
-					logger::info("Face-reset diagnostic: Set3D observed pending marker actor={:08X} faceData={}",
-						actor->formID, GameUtil::GetFaceAnimData(actor) != nullptr);
 					F4SE::GetTaskInterface()->AddTask([handle]() { ResetFaceExpression(handle, false); });
 				}
 			}

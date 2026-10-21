@@ -164,14 +164,6 @@ namespace Serialization
 			};
 
 			Serialization::General::s_intfc = a_intfc;
-			logger::info("Face-reset diagnostic: save writing FRST with {} marker(s)",
-				FaceAnimation::FaceUpdateHook::resetState->pendingResets.size());
-			for (const auto& handle : FaceAnimation::FaceUpdateHook::resetState->pendingResets) {
-				auto actor = handle.get();
-				logger::info("Face-reset diagnostic: save marker actorHandle={:08X} actor={:08X} resolved={} managed={}",
-					handle.hash(), actor ? actor->formID : 0, static_cast<bool>(actor),
-					FaceAnimation::FaceUpdateHook::state->managedAnims.contains(handle));
-			}
 
 			SAVE_PERSISTENT_STATE('TASK', 5, "task", timer->state);
 			SAVE_PERSISTENT_STATE('SCNE', 5, "scene", Scene::SceneManager::state);
@@ -297,12 +289,6 @@ namespace Serialization
 						auto value = std::make_unique<FaceAnimation::FaceUpdateHook::ResetPersistentState>();
 						loaded = LoadPayload("face reset", payload, value);
 						if (loaded) {
-							logger::info("Face-reset diagnostic: loaded FRST with {} marker(s)", value->pendingResets.size());
-							for (const auto& handle : value->pendingResets) {
-								auto actor = handle.get();
-								logger::info("Face-reset diagnostic: loaded marker actorHandle={:08X} actor={:08X} resolved={}",
-									handle.hash(), actor ? actor->formID : 0, static_cast<bool>(actor));
-							}
 							FaceAnimation::FaceUpdateHook::resetState = std::move(value);
 						}
 						break;
