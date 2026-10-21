@@ -1,0 +1,10 @@
+{
+  "format": "NAFExtendedExpressionPreset",
+  "schemaVersion": 1,
+  "id": "dev.smile.named",
+  "displayName": "Development Smile (Named Channels)",
+  "channels": [
+    { "morph": "Left Smile", "value": 0.55 },
+    { "morph": "Right Smile", "value": 0.55 }
+  ]
+}
