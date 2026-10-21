@@ -22,8 +22,10 @@ both outside a scene and during JSON-only HKX playback. Full and 0.35 intensity
 requests queried `Active`, replacement requests were accepted, release queried
 `Completed`, and the body scene completed normally. The matching MFG appearance
 comes from both tools addressing Fallout 4's underlying FaceGen morph channel
-indices; NAF Face Creator has no source dependency on MFG. A full exit/reload
-with an active expression remains the outstanding transient-lifecycle check.
+indices; NAF Face Creator has no source dependency on MFG. A subsequent
+production test saved with an active expression, fully exited, relaunched, and
+loaded the save without resurrecting the expression. The transient expression
+lifecycle is therefore runtime-validated through save/load and process restart.
 
 ## Phase 3B: independent native managed-face service
 
