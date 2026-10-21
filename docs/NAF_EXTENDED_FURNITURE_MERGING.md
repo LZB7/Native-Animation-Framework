@@ -64,6 +64,24 @@ The bundled Phase 4 fixtures use `Phase4SharedFurniture` in three files. Their
 expected normalized result is four Fallout4.esm furniture forms and three
 keyword EditorIDs. They are development fixtures and are not release content.
 
+## Production runtime coverage
+
+The shared-group path is runtime-validated on Fallout 4 1.11.240. The production
+log recorded all three fixture contributors loading and one deterministic merge
+of `Phase4SharedFurniture` containing four form contributions and three keyword
+contributions. The resulting `Phase4 Furniture Merge Test` position was started
+and stopped successfully three times, including after a normal save reload, and
+the in-game furniture selector exposed every intended chair category.
+
+The explicit FormIDs in this development fixture did not resolve as
+`TESBoundObject` records in that test installation and were rejected by the
+existing link validation. The observed chair coverage therefore directly
+validates additive keyword contributions and safe handling of invalid form
+contributions. Runtime coverage of two distinct, valid explicit-form
+contributions and the dedicated configuration hot-reload command remains
+separate from this successful production test; neither gap changes the verified
+startup merge behavior.
+
 ## NAF Bridge comparison
 
 The NAF Bridge source is publicly available in the
