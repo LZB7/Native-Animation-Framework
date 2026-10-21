@@ -127,6 +127,7 @@ namespace
 {
 	const NAFExtAPIv1* api{};
 	const NAFExtFaceAPIv1* faceAPI{};
+	const NAFExtFaceAPIv2* faceAPIv2{};
 	NAFExtSubscription subscription{};
 	std::mutex stateLock;
 	std::mutex retainedLock;
@@ -136,6 +137,8 @@ namespace
 	std::atomic_bool controlsStop{};
 	std::string faceAnimationA;
 	std::string faceAnimationB;
+	std::string expressionPresetA{ "dev.smile" };
+	std::string expressionPresetB{ "dev.frown" };
 	constexpr std::uint32_t kPlayerFormID = 0x14;
 
 	std::string ToString(NAFExtStringView value)
@@ -175,6 +178,15 @@ namespace
 			candidate->service_version == NAFEXT_FACE_API_VERSION_1 && (candidate->capabilities & required) == required &&
 			candidate->play_face_animation && candidate->stop_face_animation && candidate->reset_face_expression &&
 			candidate->get_face_animation_state;
+	}
+
+	bool ValidateFaceV2(const NAFExtFaceAPIv2* candidate)
+	{
+		constexpr auto required = NAFEXT_CAP_EXPRESSION_PRESETS | NAFEXT_CAP_EXPRESSION_INTENSITY |
+			NAFEXT_CAP_EXPRESSION_RELEASE | NAFEXT_CAP_EXPRESSION_QUERY;
+		return candidate && candidate->struct_size >= sizeof(NAFExtFaceAPIv2) &&
+			candidate->service_version == NAFEXT_FACE_API_VERSION_2 && (candidate->capabilities & required) == required &&
+			candidate->request_expression && candidate->release_expression && candidate->get_expression_state;
 	}
 
 	const char* FaceStatusName(std::uint32_t status)
@@ -219,6 +231,30 @@ namespace
 			static_cast<unsigned>(faceAPI->play_face_animation(kPlayerFormID, view, 1, 0)));
 	}
 
+	void RequestExpression(const std::string& id, float intensity)
+	{
+		if (!faceAPIv2 || id.empty()) return;
+		const NAFExtStringView view{ id.data(), static_cast<std::uint32_t>(id.size()) };
+		logger::info("Expression request '{}' intensity={:.2f} result={}", id, intensity,
+			static_cast<unsigned>(faceAPIv2->request_expression(kPlayerFormID, view, intensity, 0)));
+	}
+
+	void QueryExpression()
+	{
+		if (!faceAPIv2) return;
+		NAFExtExpressionState state{ sizeof(state) };
+		std::uint32_t required{};
+		auto result = faceAPIv2->get_expression_state(kPlayerFormID, &state, nullptr, 0, &required);
+		std::vector<char> preset(required);
+		if (result == NAFEXT_E_BUFFER_TOO_SMALL) {
+			state.struct_size = sizeof(state);
+			result = faceAPIv2->get_expression_state(kPlayerFormID, &state, preset.data(), required, &required);
+		}
+		logger::info("Expression query result={} status={} generation={} flags=0x{:X} intensity={:.2f} preset='{}'",
+			static_cast<unsigned>(result), FaceStatusName(state.status), state.request_generation, state.flags,
+			state.requested_intensity, std::string(preset.begin(), preset.end()));
+	}
+
 	void LoadFaceFixture()
 	{
 		std::ifstream input("Data/F4SE/Plugins/NAFExtAPITest.face.txt");
@@ -229,13 +265,20 @@ namespace
 		};
 		faceAnimationA = nextID();
 		faceAnimationB = nextID();
+		std::ifstream expressions("Data/F4SE/Plugins/NAFExtAPITest.expression.txt");
+		if (expressions) {
+			std::string value;
+			if (std::getline(expressions, value) && !value.empty()) expressionPresetA = value;
+			if (std::getline(expressions, value) && !value.empty()) expressionPresetB = value;
+		}
 		logger::info("Facial test fixture loaded: animationA='{}' animationB='{}'", faceAnimationA, faceAnimationB);
+		logger::info("Expression fixtures: presetA='{}' presetB='{}'", expressionPresetA, expressionPresetB);
 	}
 
 	void FacialControlLoop()
 	{
 		LoadFaceFixture();
-		logger::WriteRaw("INFO", "Facial controls ready: F6=play A, F7=play B, F8=query, F9=stop, F10=reset, F11=A then B, Insert=A then reset");
+		logger::WriteRaw("INFO", "Facial controls ready: F6=play A, F7=play B, F8=query, F9=stop, F10=reset, F11=A then B, Insert=A then reset; Numpad1=expression A, Numpad2=B, Numpad3=A at 0.35, Numpad4=query expression, Numpad5=release, Numpad6=A then reset, Numpad7=authored A then expression B");
 		while (!controlsStop.load(std::memory_order_acquire)) {
 			if (GetAsyncKeyState(VK_F6) & 1) PlayFace(faceAnimationA);
 			if (GetAsyncKeyState(VK_F7) & 1) PlayFace(faceAnimationB);
@@ -244,6 +287,13 @@ namespace
 			if (GetAsyncKeyState(VK_F10) & 1) logger::info("Face reset accepted result={}", static_cast<unsigned>(faceAPI->reset_face_expression(kPlayerFormID)));
 			if (GetAsyncKeyState(VK_F11) & 1) { PlayFace(faceAnimationA); PlayFace(faceAnimationB); }
 			if (GetAsyncKeyState(VK_INSERT) & 1) { PlayFace(faceAnimationA); faceAPI->reset_face_expression(kPlayerFormID); }
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD1) & 1)) RequestExpression(expressionPresetA, 1.0f);
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD2) & 1)) RequestExpression(expressionPresetB, 1.0f);
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD3) & 1)) RequestExpression(expressionPresetA, 0.35f);
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD4) & 1)) QueryExpression();
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD5) & 1)) logger::info("Expression release result={}", static_cast<unsigned>(faceAPIv2->release_expression(kPlayerFormID, 0)));
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD6) & 1)) { RequestExpression(expressionPresetA, 1.0f); faceAPIv2->reset_face_expression(kPlayerFormID); }
+			if (faceAPIv2 && (GetAsyncKeyState(VK_NUMPAD7) & 1)) { PlayFace(faceAnimationA); RequestExpression(expressionPresetB, 1.0f); }
 			Sleep(50);
 		}
 	}
@@ -420,6 +470,15 @@ namespace
 			!ValidateFace(nullptr), faceVersionRejected, faceSizeRejected, faceCapabilityRejected);
 		logger::info("Acquired facial service v{} tableSize={} capabilities=0x{:X}", faceAPI->service_version,
 			faceAPI->struct_size, faceAPI->capabilities);
+		const auto getFaceAPIv2 = reinterpret_cast<NAFExtGetFaceAPIv2Fn>(GetProcAddress(module, "NAFExt_GetFaceAPIv2"));
+		if (getFaceAPIv2) faceAPIv2 = getFaceAPIv2(NAFEXT_FACE_API_VERSION_2, sizeof(NAFExtFaceAPIv2));
+		if (ValidateFaceV2(faceAPIv2)) {
+			logger::info("Acquired dynamic-expression service v{} tableSize={} capabilities=0x{:X}", faceAPIv2->service_version,
+				faceAPIv2->struct_size, faceAPIv2->capabilities);
+		} else {
+			faceAPIv2 = nullptr;
+			logger::warn("Dynamic-expression service is unavailable or incompatible");
+		}
 		if (!controlsStarted.exchange(true)) std::thread(FacialControlLoop).detach();
 	}
 
