@@ -26,6 +26,28 @@ profile.
 13. Delete the cache and repeat the cold build.
 14. Repeat an unchanged load and compare ordered IDs and metadata byte-for-byte.
 
+## Schema-v2 pack regression
+
+Use `tests/fixtures/json-v2/multi-dance-pack.naf.json` with the referenced
+Dancecyclopedia HKX resources available. On a cold load require three animation
+definitions, five positions, one staged group, and one recursive tree. Exercise
+two direct positions and the staged position, then relaunch unchanged and
+require the same results from cache format 2. Metadata snapshots must change
+with the active stage animation while retaining pack, animation, position,
+group, stage, tree, and current-node extension scopes where applicable.
+
+For invalid-definition isolation, use
+`tests/fixtures/json-v2/error-isolation.naf.json` only in a disposable profile.
+Its valid animation and position must remain available while the missing-file,
+duplicate-ID, missing-reference group, and missing-reference position are
+reported and rejected independently.
+
+Cache mutation checks must alter the source pack rather than editing the binary
+cache: rename a display label, remove an animation together with every reference
+to it, and reverse source filename order for a deliberate collision. Each edit
+must invalidate the manifest and rebuild deterministically. A deleted definition
+must not survive a rebuild or reload.
+
 For actor metadata, install the two-slot Phase 2C fixture with valid HKX paths.
 The API harness must report `naf.extended.actor` keys associated with their slot:
 slot 0 `Masc`/`giver`/`true`; slot 1 `Femme`/`receiver` with no erection key.

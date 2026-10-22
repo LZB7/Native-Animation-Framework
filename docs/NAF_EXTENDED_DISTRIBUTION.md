@@ -33,6 +33,20 @@ assets. Do not duplicate those unchanged assets in an Extended DLL update.
 
 LooksMenu and MCM remain optional. OCBP is not required.
 
+## JSON animation packs
+
+NAF Extended supports both the original experimental one-animation schema v1
+and package schema v2. Schema v2 lets authors place multiple reusable
+animations and positions, staged groups, recursive position trees, shared
+defaults, and scoped extension metadata in one `.naf.json` source. It feeds the
+same runtime registries as XML and does not require generated XML. This is an
+authoring and interoperability feature; it does not itself implement any
+consumer's gameplay interpretation of extension metadata.
+
+Publish `docs/NAF_EXTENDED_JSON_SCHEMA_V2.md` with the source/developer
+documentation. Do not ship development fixtures or a generated
+`NAFPackCache.bin` in the ordinary end-user payload.
+
 ## Project provenance
 
 NAF Extended is a community-maintained continuation and expansion of the

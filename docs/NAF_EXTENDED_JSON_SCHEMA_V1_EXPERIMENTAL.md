@@ -100,7 +100,7 @@ does not introduce a second playback engine.
 
 ## Configuration cache interaction
 
-JSON uses the separate `Data/NAF/NAFPackCache.bin`. Cache version 1 contains
+JSON uses the separate `Data/NAF/NAFPackCache.bin`. Cache format version 2 contains
 validated normalized definitions in CBOR plus a deterministic manifest of
 relative path, byte size, modification time, and a 64-bit source fingerprint.
 The complete manifest must match, so additions, removals, same-size edits, and

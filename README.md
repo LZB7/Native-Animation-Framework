@@ -62,9 +62,12 @@ See [`docs/NAF_EXTENDED_NEXUS_API_GUIDE.md`](docs/NAF_EXTENDED_NEXUS_API_GUIDE.m
 for a short introduction and [`docs/NAF_EXTENDED_NATIVE_API_PROPOSAL.md`](docs/NAF_EXTENDED_NATIVE_API_PROPOSAL.md)
 for the detailed contract.
 
-Experimental `.naf.json` animation definitions coexist with XML and normalize
-into the same runtime animation/position registries. Their schema is documented
-in [`docs/NAF_EXTENDED_JSON_SCHEMA_V1_EXPERIMENTAL.md`](docs/NAF_EXTENDED_JSON_SCHEMA_V1_EXPERIMENTAL.md).
+`.naf.json` animation definitions coexist with XML and normalize into the same
+runtime registries. Package schema v2 supports multiple animations, positions,
+groups/stages, recursive position trees, shared defaults, and scoped extension
+metadata in one source file. Schema v1 remains compatible. See
+[`docs/NAF_EXTENDED_JSON_SCHEMA_V2.md`](docs/NAF_EXTENDED_JSON_SCHEMA_V2.md) and
+the [v1 compatibility guide](docs/NAF_EXTENDED_JSON_SCHEMA_V1_EXPERIMENTAL.md).
 
 ## Building from source
 

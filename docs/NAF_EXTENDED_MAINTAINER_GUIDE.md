@@ -62,26 +62,34 @@ new version or append-only negotiated structure—never by silently reordering v
 ## JSON animations and pack cache
 
 Implementation: `f4se-plugin/src/Data/JSONAnimation.h`  
-Schema: `docs/NAF_EXTENDED_JSON_SCHEMA_V1_EXPERIMENTAL.md`  
-Tests: `tools/audit_json_animation.py`, `tools/audit_phase2c.py`
+Schemas: `docs/NAF_EXTENDED_JSON_SCHEMA_V2.md` and
+`docs/NAF_EXTENDED_JSON_SCHEMA_V1_EXPERIMENTAL.md`
+Tests: `tools/audit_json_animation.py`, `tools/audit_json_schema_v2.py`, and
+`tools/audit_phase2c.py`
 
-Discovery finds `.naf.json` sources under NAF user data. Validation converts
-each document into a normalized, pointer-free representation, then registers an
-ordinary NAF `Animation` and `Position`. HKX file identity belongs to each actor
-slot; animation/position IDs are registry identities. Actor requirements and
-extension metadata are preserved for API snapshots. Existing XML remains on its
-original parser and shares the final registries.
+Discovery finds `.naf.json` sources under NAF user data. Explicit format/version
+dispatch preserves v1 and normalizes v2 package documents into pointer-free
+animation, position, group/stage, and recursive-tree collections. Registration
+is phased across all lexically ordered documents: animations, groups, trees,
+then positions. This permits forward references without making parser order a
+runtime property. XML registers first and wins; reservation sets preserve
+first-JSON-wins behavior across source and array order. V1 retains its atomic
+animation/position collision boundary, while v2 isolates invalid definitions
+and their dependents.
 
-JSON does not override a pre-existing animation or position ID: a conflict
-rejects the entire JSON pair. This prevents half-registration. It currently has
-no furniture definition object.
+Package defaults apply only to skeleton, legacy game sex, expected body type,
+and additive tags. Role and tri-state erection remain explicit per slot. IDs
+are global and never silently package-qualified. Scoped package, animation,
+slot, position, group, active-stage, tree, and active-node metadata is composed
+into the existing ABI-v1 snapshot metadata array; no public ABI changed.
 
-`NAFPackCache.bin` stores a versioned CBOR encoding of normalized definitions
-plus a source manifest (relative path, size, modification value, and content
-fingerprint). Header, version, bounds, checksum, manifest, or decode failure
-rejects the whole cache and rebuilds from source. Atomic replacement avoids
-publishing partial data. Cached objects must never contain engine pointers,
-handles, locks, or other process-local state.
+`NAFPackCache.bin` format version 2 stores a versioned CBOR encoding of
+normalized documents plus a source manifest (relative path, size, modification
+value, and content fingerprint). Header, version, bounds, checksum, manifest,
+or decode failure rejects the whole cache and rebuilds from source. Atomic
+replacement avoids publishing partial data. Cached objects never contain engine
+pointers, handles, locks, or other process-local state. V1 and v2 share the
+cache, and hot reload clears every scoped metadata map before reconstruction.
 
 ## Managed face and expressions
 

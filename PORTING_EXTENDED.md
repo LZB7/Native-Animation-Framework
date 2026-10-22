@@ -212,6 +212,38 @@ small-file opens and correctness-oriented full fingerprints dominate warm time;
 the cache removes JSON text parsing/normalization but not source enumeration,
 hashing, runtime registry insertion, engine linking, or HKX loading.
 
+## JSON animation-pack schema v2
+
+Schema v2 adds first-class multi-definition packs without changing schema v1,
+XML, the public native ABI, Papyrus, Runtime Database resolution, or historical
+serialization. A `NAFExtendedAnimationPack` document may contain package
+defaults, multiple animations and positions, sequential staged groups, recursive
+position trees, and namespaced extension metadata at pack, animation, position,
+group, stage, tree, tree-node, and actor-slot scopes.
+
+Loading is deterministic. Source files are ordered lexically; XML retains its
+historical precedence; JSON collisions use first-definition-wins. Registration
+is phased across all documents (animations, groups, trees, positions), allowing
+forward references without weakening exact reference validation. Invalid v2
+definitions are isolated and rejected while unrelated valid definitions in the
+same document remain eligible. Schema-v1 documents retain their atomic legacy
+animation/position behavior.
+
+The normalized, pointer-free source cache is format 2. Its full-source manifest,
+content fingerprint, atomic replacement, corrupt/version rejection, and hot
+reload behavior are unchanged. Reload clears the runtime registries and scoped
+metadata before deterministic re-registration; deleted definitions cannot
+survive through cache data. Metadata is composed for the currently resolved
+animation/stage/tree node when API snapshots are built, with the existing ABI-v1
+key/value representation unchanged.
+
+The executable implementation introduces no engine relocation or hook. Static
+coverage is provided by `tools/audit_json_schema_v2.py`; bounded host-side scale
+measurements are provided by `tools/benchmark_json_schema_v2.py`. Production
+playback, staged transitions, tree selection, warm-cache equivalence, and live
+API metadata remain runtime-test-required until the supplied development pack is
+exercised in game.
+
 ## Phase 2B: independent API harness, JSON requirements and cache correctness
 
 `tools/NAFExtAPITest` is a development-only F4SE consumer built as

@@ -128,16 +128,14 @@ was copied and NAF Extended has no NAF Bridge dependency.
 
 ## JSON format boundary
 
-The experimental `NAFExtendedAnimation` JSON schema currently defines one
-animation plus one position. Its loader registers only `Global::Animations` and
-`Global::Positions`; it has no furniture-data object and never writes to
+JSON schemas v1 and v2 contain no furniture-data object and never write to
 `Global::Furnitures`. Consequently, the XML duplicate-group failure mode cannot
-occur within the current JSON parser.
+occur within the JSON parser.
 
-A JSON animation/position may eventually refer to an XML-defined furniture group
-when that schema gains location constraints; runtime lookup must continue to use
-the same merged `Global::Furnitures` registry. If a future JSON schema directly
-defines furniture groups, those definitions must be routed through
+A JSON v2 position may refer to an XML-defined furniture group through its
+`locations` array; runtime lookup continues to use the same merged
+`Global::Furnitures` registry. If a future JSON schema directly defines
+furniture groups, those definitions must be routed through
 `FurnitureMap::merge_insert` and covered by the same deterministic merge/reload
 audits rather than generic ID collision handling.
 
