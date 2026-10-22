@@ -33,7 +33,7 @@ namespace Data
 		bool ParseFile(const std::filesystem::path&, bool);
 		void LoadFiles(const std::vector<std::filesystem::path>&, bool);
 		void Clear();
-		std::vector<MetadataRecord> GetMetadata(const std::string&);
+		std::vector<MetadataRecord> GetMetadata(const std::string&, const std::string& = {}, const std::string& = {}, std::uint32_t = 0, const std::string& = {}, const std::string& = {});
 	}
 
 	std::shared_ptr<const Animation> GetAnimation(const std::string&);

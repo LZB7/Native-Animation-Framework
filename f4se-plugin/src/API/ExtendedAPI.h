@@ -203,6 +203,8 @@ namespace NAFExtended::NativeAPI
 		result->epoch = registrationEpoch.load(std::memory_order_acquire);
 		result->phase = phase;
 		result->speed = scene->animMult;
+		std::string metadataTreeID;
+		std::string metadataTreeNodeID;
 		if (scene->controlSystem) {
 			result->positionID = scene->controlSystem->QSystemID();
 			const auto animationID = scene->controlSystem->QAnimationID();
@@ -216,6 +218,8 @@ namespace NAFExtended::NativeAPI
 			}
 			if (const auto* tree = dynamic_cast<Scene::PositionTreeControlSystem*>(scene->controlSystem.get())) {
 				result->treeID = tree->id;
+				if (tree->tree) metadataTreeID = tree->tree->id;
+				if (tree->currentNode) metadataTreeNodeID = tree->currentNode->id;
 			}
 			const auto orderedActors = Scene::GetActorsInOrder(scene->actors);
 			result->actors.reserve(orderedActors.size());
@@ -225,7 +229,7 @@ namespace NAFExtended::NativeAPI
 				result->actors.push_back({ index, actor->formID, actor->GetActorHandle().native_handle(), GameUtil::GetActorName(actor.get()), animationID, resolvedTags, {}, {} });
 			}
 		}
-		for (const auto& record : Data::JSONAnimation::GetMetadata(result->positionID)) {
+		for (const auto& record : Data::JSONAnimation::GetMetadata(result->positionID, scene->controlSystem ? scene->controlSystem->QAnimationID() : std::string{}, result->groupID, result->stageIndex, metadataTreeID, metadataTreeNodeID)) {
 			result->metadata.push_back({ record.nameSpace, record.key, record.jsonValue, {} });
 		}
 		return result;
