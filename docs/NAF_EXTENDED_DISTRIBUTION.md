@@ -43,6 +43,9 @@ same runtime registries as XML and does not require generated XML. This is an
 authoring and interoperability feature; it does not itself implement any
 consumer's gameplay interpretation of extension metadata.
 
+Actor-slot `role` metadata accepts `giver`, `receiver`, or `solo`; the field may
+also be omitted. Omission remains distinct from an explicit role.
+
 Publish `docs/NAF_EXTENDED_JSON_SCHEMA_V2.md` with the source/developer
 documentation. Do not ship development fixtures or a generated
 `NAFPackCache.bin` in the ordinary end-user payload.
