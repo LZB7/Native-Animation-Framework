@@ -39,7 +39,7 @@ def main() -> None:
     assert not validate_actor({"file": "x.hkx", "erection": 1})
 
     for token in (
-        "kCacheVersion = 1", "kSchemaVersion = 1", "kMaxCacheBytes", "kMaxDefinitions",
+        "kCacheVersion = 2", "kSchemaVersion = 1", "kPackSchemaVersion = 2", "kMaxCacheBytes", "kMaxDefinitions",
         "relative(path, USERDATA_DIR)", "file_size(path)", "last_write_time(path)", "HashFile(path)",
         "header.payloadSize", "header.checksum", "MoveFileExW", "MOVEFILE_REPLACE_EXISTING",
         'warm ? "NAFPackCache.bin" : "source files"', '"slot.{}."', '"naf.extended.actor"',

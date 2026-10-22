@@ -60,6 +60,7 @@ def main() -> None:
 		"audit_tes_data_handler.py",
 		"audit_extended_native_api.py",
 		"audit_json_animation.py",
+		"audit_json_schema_v2.py",
 		"audit_phase2b.py",
 		"audit_phase2c.py",
 		"audit_phase3a_face_reset.py",

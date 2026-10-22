@@ -1,0 +1,138 @@
+{
+  "format": "NAFExtendedAnimationPack",
+  "schemaVersion": 2,
+  "pack": {
+    "id": "nafext.test.dances",
+    "displayName": "NAF Extended JSON v2 Dance Tests",
+    "extensions": {
+      "org.nafext.test": {
+        "fixture": "multi-animation-and-stages"
+      }
+    }
+  },
+  "defaults": {
+    "requirements": {
+      "skeleton": "Human",
+      "legacyGameSex": "Any"
+    },
+    "expectedBodyType": "Any",
+    "tags": ["json-v2", "dance"]
+  },
+  "animations": [
+    {
+      "id": "jsonv2.belly",
+      "actors": [
+        {
+          "file": "radbeetle\\Dances\\loop\\Belly_Dancing_Variation_One.hkx",
+          "expectedBodyType": "Femme",
+          "role": "giver",
+          "erection": false
+        }
+      ],
+      "extensions": {
+        "org.nafext.test": { "variation": 1 }
+      }
+    },
+    {
+      "id": "jsonv2.charleston",
+      "actors": [
+        {
+          "file": "radbeetle\\Dances\\loop\\Dance_Swing_Charleston.hkx"
+        }
+      ],
+      "extensions": {
+        "org.nafext.test": { "variation": 2 }
+      }
+    },
+    {
+      "id": "jsonv2.macarena",
+      "actors": [
+        {
+          "file": "radbeetle\\Dances\\loop\\Dancing_The_Macarena.hkx",
+          "expectedBodyType": "Masc",
+          "role": "receiver"
+        }
+      ],
+      "extensions": {
+        "org.nafext.test": { "variation": 3 }
+      }
+    }
+  ],
+  "animationGroups": [
+    {
+      "id": "jsonv2.dance-sequence",
+      "sequential": true,
+      "stages": [
+        {
+          "animation": "jsonv2.belly",
+          "loops": 1,
+          "extensions": { "org.nafext.test.stage": { "name": "opening" } }
+        },
+        {
+          "animation": "jsonv2.charleston",
+          "loops": 1,
+          "extensions": { "org.nafext.test.stage": { "name": "middle" } }
+        },
+        {
+          "animation": "jsonv2.macarena",
+          "loops": 1,
+          "extensions": { "org.nafext.test.stage": { "name": "finish" } }
+        }
+      ],
+      "extensions": {
+        "org.nafext.test": { "sequence": true }
+      }
+    }
+  ],
+  "positionTrees": [
+    {
+      "id": "jsonv2.dance-tree",
+      "root": {
+        "id": "belly-node",
+        "position": "jsonv2.belly.position",
+        "duration": 5.0,
+        "children": [
+          {
+            "id": "charleston-node",
+            "position": "jsonv2.charleston.position",
+            "duration": 5.0,
+            "extensions": { "org.nafext.test.node": { "branch": 1 } }
+          }
+        ]
+      }
+    }
+  ],
+  "positions": [
+    {
+      "id": "jsonv2.belly.position",
+      "animation": "jsonv2.belly",
+      "displayName": "JSON v2 — Belly Dance",
+      "tags": ["solo"],
+      "extensions": { "org.nafext.test.position": { "selection": "belly" } }
+    },
+    {
+      "id": "jsonv2.charleston.position",
+      "animation": "jsonv2.charleston",
+      "displayName": "JSON v2 — Charleston",
+      "tags": ["solo"]
+    },
+    {
+      "id": "jsonv2.macarena.position",
+      "animation": "jsonv2.macarena",
+      "displayName": "JSON v2 — Macarena",
+      "tags": ["solo"]
+    },
+    {
+      "id": "jsonv2.staged.position",
+      "animationGroup": "jsonv2.dance-sequence",
+      "displayName": "JSON v2 — Three-Stage Dance",
+      "tags": ["staged"]
+    },
+    {
+      "id": "jsonv2.tree.position",
+      "positionTree": "jsonv2.dance-tree",
+      "displayName": "JSON v2 — Dance Tree",
+      "tags": ["tree"]
+    }
+  ]
+}

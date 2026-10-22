@@ -1,0 +1,42 @@
+{
+  "format": "NAFExtendedAnimationPack",
+  "schemaVersion": 2,
+  "pack": { "id": "nafext.test.error-isolation" },
+  "defaults": { "requirements": { "skeleton": "Human" } },
+  "animations": [
+    {
+      "id": "jsonv2.valid-among-errors",
+      "actors": [
+        { "file": "radbeetle\\Dances\\loop\\Boogaloo.hkx" }
+      ]
+    },
+    {
+      "id": "jsonv2.missing-file",
+      "actors": [ { "expectedBodyType": "Any" } ]
+    },
+    {
+      "id": "jsonv2.valid-among-errors",
+      "actors": [
+        { "file": "radbeetle\\Dances\\loop\\Dancing_The_Twerk.hkx" }
+      ]
+    }
+  ],
+  "animationGroups": [
+    {
+      "id": "jsonv2.invalid-group",
+      "sequential": true,
+      "stages": [ { "animation": "jsonv2.does-not-exist" } ]
+    }
+  ],
+  "positions": [
+    {
+      "id": "jsonv2.valid-among-errors.position",
+      "animation": "jsonv2.valid-among-errors",
+      "displayName": "JSON v2 — Valid Among Errors"
+    },
+    {
+      "id": "jsonv2.invalid-position",
+      "animation": "jsonv2.does-not-exist"
+    }
+  ]
+}
