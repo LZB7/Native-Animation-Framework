@@ -29,8 +29,7 @@ playback engine.
         {
           "file": "author\\Dances\\belly.hkx",
           "expectedBodyType": "Femme",
-          "role": "giver",
-          "erection": false,
+          "role": "solo",
           "extensions": { "author.actor": { "energy": 0.4 } }
         }
       ],
@@ -134,13 +133,33 @@ Actor fields:
 - `requirements.legacyGameSex`: `Any`, `Male`, or `Female`; this is the only
   hard game-record sex restriction.
 - `expectedBodyType`: `Any`, `Masc`, or `Femme`; descriptive metadata only.
-- `role`: optional `giver` or `receiver` metadata.
+- `role`: optional `giver`, `receiver`, or `solo` metadata. `giver` and
+  `receiver` describe applicable participant functions; `solo` describes a
+  participant for whom that distinction is not meaningful, such as an
+  individual dancer or poser. Omission means that no role was authored.
 - `erection`: optional Boolean instruction metadata. `false` is distinct from
   omission; NAF does not itself apply erection state.
 - `extensions`: opaque namespaced metadata attached to that slot.
 
 Top-level actor `skeleton` and deprecated `gender` remain accepted for v1
 compatibility.
+
+Role is descriptive metadata only. It does not determine game-record sex,
+expected anatomy or body type, erection state, actor eligibility, actor count,
+or animation assignment. Single-actor animations do not require a role. A
+minimal explicit solo slot is therefore valid:
+
+```json
+{
+  "id": "author.dances.solo",
+  "actors": [
+    {
+      "file": "author\\Dances\\solo.hkx",
+      "role": "solo"
+    }
+  ]
+}
+```
 
 ## Defaults and overrides
 

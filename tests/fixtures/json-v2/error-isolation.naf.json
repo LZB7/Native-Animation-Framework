@@ -19,6 +19,15 @@
       "actors": [
         { "file": "radbeetle\\Dances\\loop\\Dancing_The_Twerk.hkx" }
       ]
+    },
+    {
+      "id": "jsonv2.invalid-role",
+      "actors": [
+        {
+          "file": "radbeetle\\Dances\\loop\\Boogaloo.hkx",
+          "role": "performer"
+        }
+      ]
     }
   ],
   "animationGroups": [

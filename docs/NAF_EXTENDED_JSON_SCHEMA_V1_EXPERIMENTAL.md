@@ -52,8 +52,8 @@ does not constrain Fallout's Male/Female game-record sex. The deprecated JSON
 are present they remain independent: `gender` controls legacy eligibility and
 `expectedBodyType` remains descriptive metadata.
 
-`role` is optional and accepts `giver` or `receiver`. It describes the authored
-action, not sex, identity, anatomy, or eligibility. `erection` is an optional
+`role` is optional and accepts `giver`, `receiver`, or `solo`. It describes the
+authored action, not sex, identity, anatomy, or eligibility. `erection` is an optional
 Boolean instruction. Its three states are significant: `true` is an explicit
 erect request, `false` is an explicit non-erect request, and omission supplies
 no instruction. NAF publishes these values but does not apply morphs, equip

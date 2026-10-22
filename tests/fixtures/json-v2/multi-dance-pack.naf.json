@@ -25,8 +25,7 @@
         {
           "file": "radbeetle\\Dances\\loop\\Belly_Dancing_Variation_One.hkx",
           "expectedBodyType": "Femme",
-          "role": "giver",
-          "erection": false
+          "role": "solo"
         }
       ],
       "extensions": {
@@ -50,7 +49,7 @@
         {
           "file": "radbeetle\\Dances\\loop\\Dancing_The_Macarena.hkx",
           "expectedBodyType": "Masc",
-          "role": "receiver"
+          "role": "solo"
         }
       ],
       "extensions": {

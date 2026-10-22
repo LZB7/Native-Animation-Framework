@@ -83,6 +83,11 @@ are global and never silently package-qualified. Scoped package, animation,
 slot, position, group, active-stage, tree, and active-node metadata is composed
 into the existing ABI-v1 snapshot metadata array; no public ABI changed.
 
+Actor-slot role normalization is case-insensitive and accepts only `giver`,
+`receiver`, and `solo`. The field remains optional and is copied as scoped
+metadata; it is not consulted by eligibility, assignment, grouping, trees, or
+playback. Adding a role spelling therefore does not alter cache or API layouts.
+
 `NAFPackCache.bin` format version 2 stores a versioned CBOR encoding of
 normalized documents plus a source manifest (relative path, size, modification
 value, and content fingerprint). Header, version, bounds, checksum, manifest,

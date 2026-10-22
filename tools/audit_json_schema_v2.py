@@ -30,11 +30,18 @@ def main() -> None:
     assert positions["jsonv2.staged.position"]["animationGroup"] in groups
     assert positions["jsonv2.tree.position"]["positionTree"] in trees
     assert V2["defaults"]["requirements"]["skeleton"] == "Human"
-    assert V2["animations"][0]["actors"][0]["erection"] is False
+    assert V2["animations"][0]["actors"][0]["role"] == "solo"
+    assert V2["animations"][2]["actors"][0]["role"] == "solo"
+    assert "role" not in V2["animations"][1]["actors"][0]
+    assert "erection" not in V2["animations"][0]["actors"][0]
     assert "erection" not in V2["animations"][1]["actors"][0]
+    assert groups["jsonv2.dance-sequence"]["stages"][0]["animation"] == "jsonv2.belly"
+    assert groups["jsonv2.dance-sequence"]["stages"][2]["animation"] == "jsonv2.macarena"
+    assert trees["jsonv2.dance-tree"]["root"]["position"] == "jsonv2.belly.position"
     assert all(item["actors"][0]["file"].lower().endswith(".hkx") for item in V2["animations"])
 
-    valid_error_animations = [a for a in ERRORS["animations"] if a.get("id") and a.get("actors") and all(slot.get("file") for slot in a["actors"])]
+    valid_roles = {"giver", "receiver", "solo"}
+    valid_error_animations = [a for a in ERRORS["animations"] if a.get("id") and a.get("actors") and all(slot.get("file") and ("role" not in slot or slot["role"].lower() in valid_roles) for slot in a["actors"])]
     first_ids = []
     for animation in valid_error_animations:
         if animation["id"].lower() not in {value.lower() for value in first_ids}:
@@ -49,6 +56,7 @@ def main() -> None:
         'RegisterGroupDefinition', 'RegisterTreeDefinition', 'RegisterPositionDefinition',
         'PackageRecords', 'AnimationRecords', 'stageMetadata', 'treeNodeMetadata',
         'candidatePositions', 'first loaded definition', 'normalizedKind',
+        'return "solo"',
         'MoveFileExW', 'nlohmann::json::to_cbor', 'nlohmann::json::from_cbor',
     ):
         require(LOADER, token, "schema-v2 loader/cache")

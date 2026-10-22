@@ -240,9 +240,17 @@ key/value representation unchanged.
 The executable implementation introduces no engine relocation or hook. Static
 coverage is provided by `tools/audit_json_schema_v2.py`; bounded host-side scale
 measurements are provided by `tools/benchmark_json_schema_v2.py`. Production
-playback, staged transitions, tree selection, warm-cache equivalence, and live
-API metadata remain runtime-test-required until the supplied development pack is
-exercised in game.
+testing validated multiple direct animations from one document, staged
+transitions, recursive-tree selection, cold/warm cache equivalence, stale
+definition removal, definition-level error isolation, v1/XML regression, and
+live scoped API metadata. A subsequent single-animation v2 package also played,
+updated, exposed metadata, and stopped cleanly.
+
+Actor-slot role remains optional descriptive metadata. Its case-insensitive
+accepted values are `giver`, `receiver`, and `solo`; omission remains distinct.
+`solo` was added without changing cache format or native ABI because normalized
+role values were already ordinary scoped strings. No role value affects actor
+eligibility, participant count, animation assignment, or playback.
 
 ## Phase 2B: independent API harness, JSON requirements and cache correctness
 

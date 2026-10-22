@@ -19,7 +19,7 @@ def validate_actor(actor: dict) -> bool:
     body = actor.get("expectedBodyType", "Any")
     if not isinstance(body, str) or body.lower() not in {"masc", "femme", "any"}:
         return False
-    if "role" in actor and (not isinstance(actor["role"], str) or actor["role"].lower() not in {"giver", "receiver"}):
+    if "role" in actor and (not isinstance(actor["role"], str) or actor["role"].lower() not in {"giver", "receiver", "solo"}):
         return False
     if "erection" in actor and not isinstance(actor["erection"], bool):
         return False
@@ -34,6 +34,10 @@ def main() -> None:
     assert validate_actor({"file": "x.hkx"})
     assert validate_actor({"file": "x.hkx", "expectedBodyType": "Any", "erection": False})
     assert validate_actor({"file": "x.hkx", "gender": "Male", "expectedBodyType": "Femme"})
+    assert validate_actor({"file": "x.hkx", "role": "giver"})
+    assert validate_actor({"file": "x.hkx", "role": "receiver"})
+    assert validate_actor({"file": "x.hkx", "role": "solo"})
+    assert validate_actor({"file": "x.hkx", "role": "SoLo"})
     assert not validate_actor({"file": "x.hkx", "expectedBodyType": "unknown"})
     assert not validate_actor({"file": "x.hkx", "role": "performer"})
     assert not validate_actor({"file": "x.hkx", "erection": 1})

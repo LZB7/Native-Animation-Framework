@@ -53,6 +53,7 @@ namespace JSONAnimation
 	inline std::optional<std::string> ParseRole(const std::string& a_value) {
 		if (_stricmp(a_value.c_str(), "giver") == 0) return "giver";
 		if (_stricmp(a_value.c_str(), "receiver") == 0) return "receiver";
+		if (_stricmp(a_value.c_str(), "solo") == 0) return "solo";
 		return std::nullopt;
 	}
 
@@ -109,7 +110,7 @@ namespace JSONAnimation
 		if (file.empty() || skeleton.empty() || !ParseGender(genderText)) { a_error = "contains an invalid actor file, skeleton, or legacy game-sex constraint"; return false; }
 		if (!expected) { a_error = "contains an invalid expectedBodyType (expected Masc, Femme, or Any)"; return false; }
 		a_actor = { { "file", file }, { "skeleton", skeleton }, { "legacyGameSex", genderText }, { "expectedBodyType", *expected }, { "extensions", ExtensionObject(a_actorNode) } };
-		if (a_actorNode.contains("role")) { if (!a_actorNode["role"].is_string()) { a_error = "contains a non-string role"; return false; } const auto role = ParseRole(a_actorNode["role"].get<std::string>()); if (!role) { a_error = "contains an invalid role"; return false; } a_actor["role"] = *role; }
+		if (a_actorNode.contains("role")) { if (!a_actorNode["role"].is_string()) { a_error = "contains a non-string role"; return false; } const auto role = ParseRole(a_actorNode["role"].get<std::string>()); if (!role) { a_error = "contains an invalid role (expected giver, receiver, or solo)"; return false; } a_actor["role"] = *role; }
 		if (a_actorNode.contains("erection")) { if (!a_actorNode["erection"].is_boolean()) { a_error = "contains a non-boolean erection instruction"; return false; } a_actor["erection"] = a_actorNode["erection"]; }
 		return true;
 	}
