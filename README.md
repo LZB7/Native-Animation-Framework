@@ -22,9 +22,9 @@ NAF Extended is an update layered over the original NAF 1.0.14 installation.
 4. Install the Extended `NAF.dll` and `NAF.pex` at their normal Data paths.
 
 Runtime Database is mandatory. Extended deliberately disables Address Library
-fallback so a missing or wrong database fails closed rather than resolving a
-different runtime's address. Runtime Database remains a separate dependency and
-is not redistributed here.
+fallback so a missing or wrong database fails rather than resolving a different
+runtime's address. Runtime Database remains a separate dependency and is not
+redistributed here.
 
 The original menu SWFs, ESP, MCM configuration, XML/default data, and other
 unchanged framework assets remain supplied by the original NAF installation.
@@ -38,8 +38,7 @@ unchanged framework assets remain supplied by the original NAF installation.
 
 Optional integrations:
 
-- LooksMenu 1.7.0.4, or the previously validated 1.7.0.3 binary, enables body
-  morph support. Exact module/hash/ABI validation remains fail closed.
+- LooksMenu 1.7.0.4 enables body morph support.
 - MCM provides convenient hotkey configuration; the NAF menu remains callable
   without it through `cgf "NAF.ToggleMenu"` or Papyrus.
 - OCBP is optional and its absence does not disable Body Creator or Studio.
